@@ -2,19 +2,35 @@ import sys
 from pathlib import Path
 import pytest
 
-@pytest.mark.parametrize("input_date, expected", [
-    # Your test cases here
-])
-def test_example(input_date, expected):
-    # Your test logic here
-    pass
 sys.path.append(str(Path(__file__).parent.parent))
 
-from core.twick_event import normalize_date_range, normalize_time, validate_crowd_size
+from core.twick_event import normalize_date_range, normalize_time, validate_crowd_size, extract_date_range
 
-@pytest.mark.parametrize("input_date, expected", [
+# Update the test cases for date ranges
+@pytest.mark.parametrize("input_date,expected_dates", [
+    # Single date cases remain the same
+    ("16 May 2025", ["2025-05-16"]),
+    ("Mon 16 May 2025", ["2025-05-16"]),
+    ("16th May 2025", ["2025-05-16"]),
+    
+    # Date range cases now expect list of two dates
+    ("16/17 May 2025", ["2025-05-16", "2025-05-17"]),
+    ("Weekend 16/17 May 2025", ["2025-05-16", "2025-05-17"]),
+    ("Wknd 23/24 May 2025", ["2025-05-23", "2025-05-24"]),
+    
+    # Invalid cases
+    ("Invalid Date", []),
+    ("", []),
+    (None, []),
+])
+def test_date_range_extraction(input_date, expected_dates):
+    """Test the extract_date_range function with various inputs."""
+    result = extract_date_range(input_date)
+    assert result == expected_dates
+
+@pytest.mark.parametrize("input_date,expected_date", [
+    # Keep existing single date test cases
     ("16 May 2025", "2025-05-16"),
-    ("16/17 May 2025", "2025-05-16"),
     ("Mon 16 May 2025", "2025-05-16"),
     ("16th May 2025", "2025-05-16"),
     ("01 January 2023", "2023-01-01"),
@@ -48,8 +64,6 @@ from core.twick_event import normalize_date_range, normalize_time, validate_crow
     ("Fri 12th Dec 2024", "2024-12-12"),
     ("Sat 13th Dec 2024", "2024-12-13"),
     ("Sun 14th Dec 2024", "2024-12-14"),
-    ("Weekend 16/17 May 2025", "2025-05-16"),
-    ("Wknd 23/24 May 2025", "2025-05-23"),
     ("7-Jan-25", "2025-01-07"),
     ("7/1/2025", "2025-01-07"),
     ("07-01-25", "2025-01-07"),
@@ -73,8 +87,10 @@ from core.twick_event import normalize_date_range, normalize_time, validate_crow
     ("Saturday 8th February 2025", "2025-02-08"),
     ("Saturday 21st June 2025", "2025-06-21"),
 ])
-def test_normalize_date_range(input_date, expected):
-    assert normalize_date_range(input_date) == expected
+def test_normalize_date_range(input_date, expected_date):
+    """Test the normalize_date_range function for single dates only."""
+    result = normalize_date_range(input_date)
+    assert result == expected_date
 
 @pytest.mark.parametrize("input_time, expected", [
     ("3pm", "15:00"),
@@ -97,7 +113,7 @@ def test_normalize_date_range(input_date, expected):
     ("Invalid", None),
     ("25:00", None),
     ("13pm", None),
-    ("3pm and 6pm", None),
+    ("3pm and 6pm", "15:00 & 18:00"),  # Changed expected value
     ("5.40pm", "17:40"),
     ("4.10pm", "16:10"),
     ("4.45pm", "16:45"),
