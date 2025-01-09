@@ -1,4 +1,16 @@
+# Default event duration
+event_duration: 4
 # Default duration of events after start time in hours (e.g., 0.5, 2.75, 4)
 # If another event is due to start after the current event within the dafult
 # duration, the current event will be shortened to make room for the next event.
-event_duration: 4  # Duration in hours
+
+# MQTT Configuration
+mqtt:
+  broker_url: 10.10.10.21
+  broker_port: 8883
+  client_id: server
+  username: 136worple
+  password: 011020MQTT
+  topics:
+    next: twick_events/next
+    all_upcoming: twick_events/all_upcoming
