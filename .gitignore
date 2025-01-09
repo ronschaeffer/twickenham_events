@@ -123,3 +123,9 @@ poetry.lock
 __pypackages__/
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+error_log.txt
+parse_error_log.txt
+upcoming_events.json
+*.ics
+output/
