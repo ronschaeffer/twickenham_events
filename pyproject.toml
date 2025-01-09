@@ -1,22 +1,26 @@
 [tool.poetry]
 name = "twickenham-events"
 version = "0.1.0"
-package-mode = false
-description = "A scraper for Twickenham Events"
-authors = ["Ron Schaeffer"]
+description = "Fetch and process Twickenham Stadium events"
+authors = ["Your Name <your.email@example.com>"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "core" },
+    { include = "tests", format = "sdist" }
+]
+package-mode = true
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-requests = "^2.25.1" 
-beautifulsoup4 = "^4.9.3"
-poetry = "^2.0.0"
-pyyaml = "^6.0.2"
+python = "^3.11"
+requests = "^2.31.0"
+beautifulsoup4 = "^4.12.0"
+paho-mqtt = "^1.6.1"
+pyyaml = "^6.0.1"
 
-[poetry.group.dev.dependencies]
-pytest = "^7.0"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

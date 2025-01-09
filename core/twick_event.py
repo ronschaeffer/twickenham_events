@@ -10,7 +10,8 @@ from datetime import datetime, timedelta
 import re
 import json
 from typing import Optional
-from core.config import Config  # Changed from 'config' to 'core.config'
+from core.config import Config
+from core.mqtt_publisher import MQTTPublisher  # Add this import
 
 # Step 1: Fetch the webpage
 url = 'https://www.richmond.gov.uk/services/parking/cpz/twickenham_events'
@@ -112,7 +113,7 @@ def normalize_date_range(date_str: str) -> Optional[str]:
         try:
             date_obj = datetime.strptime(cleaned, fmt)
             if '%y' in fmt and date_obj.year < 2000:
-                date_obj = date_obj.replace(year=date_obj.year + 100)  # Fixed missing parenthesis
+                date_obj = date_obj.replace(year=(date_obj.year + 100))  # Fixed parentheses
             return date_obj.strftime('%Y-%m-%d')
         except ValueError:
             continue
@@ -329,24 +330,55 @@ output_path = os.path.join(output_dir, 'upcoming_events.json')
 with open(output_path, 'w') as f:
     json.dump(upcoming_events, f, indent=4)
 
-# Display next event
+def process_and_publish_events(events: list, config: Config) -> None:
+    """Process events and publish them via MQTT."""
+    mqtt_settings = {
+        'broker_url': config.config['mqtt']['broker_url'],
+        'broker_port': config.config['mqtt']['broker_port'],
+        'client_id': config.config['mqtt']['client_id'],
+        'security': config.config['mqtt']['security'],  # Changed from connection_type to security
+        'auth': config.config['mqtt'].get('auth'),
+        'tls': config.config['mqtt'].get('tls')  # Changed from ssl_config to tls
+    }
+
+    with MQTTPublisher(**mqtt_settings) as publisher:
+        if events:
+            publisher.publish(config.config['mqtt']['topics']['next'], events[0], retain=True)
+        publisher.publish(config.config['mqtt']['topics']['all_upcoming'], events, retain=True)
+
+# Publish events via MQTT using the new function
+process_and_publish_events(upcoming_events, config)
+
+# Display output
+print("\n=== Twickenham Stadium Events ===")
+
+# Show MQTT connection info
+print("\nMQTT Configuration:")
+print(f"Broker: {config.config['mqtt']['broker_url']}:{config.config['mqtt']['broker_port']}")
+print(f"Security: {config.config['mqtt']['security']}")
+
+# Display next event with better formatting
 if upcoming_events:
     next_event = upcoming_events[0]
-    print("Next Event:")
-    print(f"Date: {next_event['date']}")
-    print(f"Fixture: {next_event['fixture']}")
-    print(f"Start Time: {next_event['start_time']}")
-    print(f"End Time: {next_event['end_time']}")
-    print(f"Crowd: {next_event['crowd']}")
+    print("\n=== Next Event ===")
+    print(f"{'Date:':<12} {next_event['date']}")
+    print(f"{'Fixture:':<12} {next_event['fixture']}")
+    print(f"{'Start Time:':<12} {next_event['start_time'] or 'TBC'}")
+    print(f"{'End Time:':<12} {next_event['end_time'] or 'TBC'}")
+    print(f"{'Crowd:':<12} {next_event['crowd'] or 'TBC'}")
 
-    # Display upcoming events in JSON format
-    print("\nAll Upcoming Events:")
-    print(json.dumps(upcoming_events, indent=4))
+    # Display summary of all events
+    print(f"\n=== All Upcoming Events ({len(upcoming_events)} total) ===")
+    for event in upcoming_events:
+        time_info = f"{event['start_time'] or 'TBC'} - {event['end_time'] or 'TBC'}"
+        print(f"{event['date']} | {time_info:<15} | {event['fixture']:<40} | {event['crowd'] or 'TBC'}")
+
 else:
-    print("No upcoming events.")
+    print("\nNo upcoming events found.")
 
-# Log errors
+# Log errors if any
 if error_log:
-    with open(os.path.join(output_dir, 'parsing_errors.txt'), 'w') as log_file:  # Changed from error_log.txt
-        log_file.write('\n'.join(error_log))
-    print(f"\nErrors encountered during processing. See '{output_dir}/parsing_errors.txt' for details.")  # Updated message
+    print(f"\n=== Errors ({len(error_log)}) ===")
+    print(f"Details written to: {output_dir}/parsing_errors.txt")
+
+print("\n=== Processing Complete ===")
