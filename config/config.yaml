@@ -1,5 +1,6 @@
-# Default event duration
-event_duration: 4
+# Event settings
+default_duration: 6  # Duration in hours
+
 # Default duration of events after start time in hours (e.g., 0.5, 2.75, 4)
 # If another event is due to start after the current event within the dafult
 # duration, the current event will be shortened to make room for the next event.

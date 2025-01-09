@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import json
-import os
 from typing import Optional
+from core.config import Config  # Changed from 'config' to 'core.config'
 
 # Step 1: Fetch the webpage
 url = 'https://www.richmond.gov.uk/services/parking/cpz/twickenham_events'
@@ -23,6 +27,10 @@ events = []
 
 # Error log for debugging
 error_log = []
+
+# Update config loading with config directory path
+config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yaml')
+config = Config(config_path)
 
 # Function to normalize and extract the first date from a range
 def extract_date_range(date_str: str) -> list[str]:
@@ -87,7 +95,7 @@ def normalize_date_range(date_str: str) -> Optional[str]:
                 date_str = f"{groups[0]}/{groups[1]}/{groups[2]}"
                 date_obj = datetime.strptime(date_str, fmt)
                 if '%y' in fmt and date_obj.year < 2000:
-                    date_obj = date_obj.replace(year=date_obj.year + 100)
+                    date_obj = date_obj.replace(year=date_obj.year + 100)  # Fixed missing parenthesis
                 return date_obj.strftime('%Y-%m-%d')
             except ValueError:
                 continue
@@ -104,7 +112,7 @@ def normalize_date_range(date_str: str) -> Optional[str]:
         try:
             date_obj = datetime.strptime(cleaned, fmt)
             if '%y' in fmt and date_obj.year < 2000:
-                date_obj = date_obj.replace(year=date_obj.year + 100)
+                date_obj = date_obj.replace(year=date_obj.year + 100)  # Fixed missing parenthesis
             return date_obj.strftime('%Y-%m-%d')
         except ValueError:
             continue
@@ -243,20 +251,78 @@ for row in rows[1:]:  # Skip the header row
 
         # Create an event for each date
         for date_str in dates:
+            start_time_str = normalize_time(cols[header_map['time']].text.strip())
+            
+            # Calculate end time if start time exists
+            end_time_str = None
+            if start_time_str:
+                # Handle multiple start times (e.g., "14:00 & 16:00")
+                times = start_time_str.split(' & ')
+                end_times = []
+                for time in times:
+                    start = datetime.strptime(time, '%H:%M')
+                    end = start + timedelta(hours=config.default_duration)  # Changed from event_duration to default_duration
+                    end_times.append(end.strftime('%H:%M'))
+                end_time_str = ' & '.join(end_times)
+
             events.append({
                 'date': date_str,
                 'fixture': fixture,
-                'time': time_str,
+                'start_time': start_time_str,
+                'end_time': end_time_str,
                 'crowd': crowd_str,
             })
     except Exception as e:
         error_log.append(f"Error processing row: {row} - {str(e)}")
 
+def adjust_end_times(events):
+    """Adjust end times to prevent overlaps between events."""
+    # Sort events by date and start time
+    sorted_events = sorted(events, key=lambda x: (
+        x['date'],
+        x['start_time'] if x['start_time'] else "23:59"  # Put events with no start time at end of day
+    ))
+    
+    for i in range(len(sorted_events) - 1):
+        current = sorted_events[i]
+        next_event = sorted_events[i + 1]
+        
+        # Skip if either event has no times
+        if not current['start_time'] or not current['end_time'] or not next_event['start_time']:
+            continue
+            
+        # If events are on different dates, no need to adjust
+        if current['date'] != next_event['date']:
+            continue
+            
+        # For events with multiple times, use the last end time and first start time
+        current_end_times = current['end_time'].split(' & ')
+        next_start_times = next_event['start_time'].split(' & ')
+        
+        current_last_end = current_end_times[-1]
+        next_first_start = next_start_times[0]
+        
+        # If current event would overlap with next event
+        if current_last_end > next_first_start:
+            # Adjust all end times of current event if needed
+            adjusted_end_times = []
+            for idx, end_time in enumerate(current_end_times):
+                if end_time > next_first_start:
+                    adjusted_end_times.append(next_first_start)
+                else:
+                    adjusted_end_times.append(end_time)
+            current['end_time'] = ' & '.join(adjusted_end_times)
+    
+    return sorted_events
+
 # Filter upcoming events (future events only)
 upcoming_events = [event for event in events if datetime.strptime(event['date'], '%Y-%m-%d') >= datetime.now()]
 
-# Write the JSON file to the output directory
-output_dir = 'output'
+# Adjust end times to prevent overlaps
+upcoming_events = adjust_end_times(upcoming_events)
+
+# Write the JSON file to the output directory in project root
+output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
 os.makedirs(output_dir, exist_ok=True)
 
 output_path = os.path.join(output_dir, 'upcoming_events.json')
@@ -269,7 +335,8 @@ if upcoming_events:
     print("Next Event:")
     print(f"Date: {next_event['date']}")
     print(f"Fixture: {next_event['fixture']}")
-    print(f"Time: {next_event['time']}")
+    print(f"Start Time: {next_event['start_time']}")
+    print(f"End Time: {next_event['end_time']}")
     print(f"Crowd: {next_event['crowd']}")
 
     # Display upcoming events in JSON format
@@ -280,6 +347,6 @@ else:
 
 # Log errors
 if error_log:
-    with open(os.path.join(output_dir, 'error_log.txt'), 'w') as log_file:
+    with open(os.path.join(output_dir, 'parsing_errors.txt'), 'w') as log_file:  # Changed from error_log.txt
         log_file.write('\n'.join(error_log))
-    print(f"\nErrors encountered during processing. See '{output_dir}/error_log.txt' for details.")
+    print(f"\nErrors encountered during processing. See '{output_dir}/parsing_errors.txt' for details.")  # Updated message

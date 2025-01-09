@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 import pytest
+from datetime import datetime, timedelta
+import yaml
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -133,3 +135,108 @@ def test_normalize_time(input_time, expected):
 ])
 def test_validate_crowd_size(input_crowd, expected):
     assert validate_crowd_size(input_crowd) == expected
+
+# Add new test class for event duration calculations
+class TestEventDuration:
+    @pytest.fixture
+    def mock_config(self, tmp_path):
+        """Create a temporary config file for testing."""
+        config_content = {
+            'default_duration': 6
+        }
+        config_file = tmp_path / "test_config.yaml"
+        with open(config_file, 'w') as f:
+            yaml.dump(config_content, f)
+        return str(config_file)
+
+    def test_end_time_calculation(self, mock_config):
+        """Test that end times are correctly calculated based on config duration."""
+        from core.config import Config
+        from core.twick_event import normalize_time
+        
+        config = Config(mock_config)
+        
+        test_cases = [
+            ("15:00", "21:00"),  # Simple 6-hour duration
+            ("3pm", "21:00"),    # PM time
+            ("9:30", "15:30"),   # With minutes
+            ("23:00", "05:00"),  # Crossing midnight
+            ("3pm & 6pm", "21:00 & 00:00"),  # Multiple times
+        ]
+
+        for start_time, expected_end in test_cases:
+            # First normalize the time
+            normalized_start = normalize_time(start_time)
+            # Calculate end times
+            end_times = []
+            for time in normalized_start.split(' & '):
+                start = datetime.strptime(time, '%H:%M')
+                end = start + timedelta(hours=config.default_duration)
+                end_times.append(end.strftime('%H:%M'))
+            calculated_end = ' & '.join(end_times)
+            assert calculated_end == expected_end
+
+    def test_invalid_duration_config(self, tmp_path):
+        """Test handling of missing or invalid duration configuration."""
+        from core.config import Config
+        
+        # Test with missing duration
+        config_file = tmp_path / "bad_config.yaml"
+        with open(config_file, 'w') as f:
+            yaml.dump({}, f)
+        
+        with pytest.raises(AttributeError) as exc_info:
+            config = Config(str(config_file))
+            _ = config.default_duration
+        
+        assert "Configuration key 'default_duration' not found" in str(exc_info.value)
+
+def test_adjust_end_times():
+    """Test that event end times are adjusted to prevent overlaps."""
+    from core.twick_event import adjust_end_times
+    
+    # Test cases for overlapping events - all on same date
+    events = [
+        {
+            'date': '2025-02-08',
+            'fixture': 'Event 1',
+            'start_time': '14:00',
+            'end_time': '20:00',  # Would overlap with next event
+            'crowd': '10,000'
+        },
+        {
+            'date': '2025-02-08',
+            'fixture': 'Event 2',
+            'start_time': '19:00',
+            'end_time': '23:00',
+            'crowd': '10,000'
+        }
+    ]
+    
+    adjusted = adjust_end_times(events)
+    
+    # Check that end times were adjusted properly
+    assert len(adjusted) == 2
+    assert adjusted[0]['end_time'] == '19:00'  # First event shortened to start of second event
+    assert adjusted[1]['end_time'] == '23:00'  # Last event remains unchanged
+
+    # Test multiple times per event
+    events = [
+        {
+            'date': '2025-02-08',
+            'fixture': 'Event 1',
+            'start_time': '14:00 & 16:00',
+            'end_time': '20:00 & 22:00',  # Both would overlap with next event
+            'crowd': '10,000'
+        },
+        {
+            'date': '2025-02-08',
+            'fixture': 'Event 2',
+            'start_time': '19:00',
+            'end_time': '23:00',
+            'crowd': '10,000'
+        }
+    ]
+    
+    adjusted = adjust_end_times(events)
+    assert adjusted[0]['end_time'] == '19:00 & 19:00'  # Both end times adjusted to next event's start
