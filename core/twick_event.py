@@ -25,6 +25,36 @@ events = []
 error_log = []
 
 # Function to normalize and extract the first date from a range
+def extract_date_range(date_str: str) -> list[str]:
+    """Extract multiple dates from a range string like '16/17 May 2025' or single date."""
+    if not isinstance(date_str, str) or not date_str.strip():
+        return []
+
+    cleaned = date_str.strip()
+    
+    # Remove 'Weekend' or 'Wknd'
+    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned, flags=re.IGNORECASE).strip()
+
+    # First try to parse as a range
+    range_match = re.match(r'(\d{1,2})/(\d{1,2})\s+(\w+)\s+(\d{4})', cleaned)
+    if range_match:
+        day1, day2, month, year = range_match.groups()
+        try:
+            date1 = datetime.strptime(f"{day1} {month} {year}", '%d %B %Y')
+            date2 = datetime.strptime(f"{day2} {month} {year}", '%d %B %Y')
+            return [date1.strftime('%Y-%m-%d'), date2.strftime('%Y-%m-%d')]
+        except ValueError:
+            try:
+                date1 = datetime.strptime(f"{day1} {month} {year}", '%d %b %Y')
+                date2 = datetime.strptime(f"{day2} {month} {year}", '%d %b %Y')
+                return [date1.strftime('%Y-%m-%d'), date2.strftime('%Y-%m-%d')]
+            except ValueError:
+                return []
+
+    # If not a range, try to parse as single date
+    result = normalize_date_range(date_str)
+    return [result] if result else []
+
 def normalize_date_range(date_str: str) -> Optional[str]:
     """Normalize date strings to YYYY-MM-DD."""
     if not isinstance(date_str, str) or not date_str.strip():
@@ -42,41 +72,25 @@ def normalize_date_range(date_str: str) -> Optional[str]:
     
     # Remove any ordinal suffixes (st, nd, rd, th)
     cleaned = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', cleaned, flags=re.IGNORECASE)
-    
+
     # Try to match numeric date formats first
     numeric_patterns = [
         (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{4})', '%d/%m/%Y'),  # 15/08/2023
         (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2})', '%d/%m/%y'),  # 15/08/23
-        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s+(\w+)\s+(\d{4})', None),  # 16/17 May 2025
     ]
 
     for pattern, fmt in numeric_patterns:
         match = re.match(pattern, cleaned)
-        if match:
-            if fmt:
-                try:
-                    groups = match.groups()
-                    date_str = f"{groups[0]}/{groups[1]}/{groups[2]}"
-                    date_obj = datetime.strptime(date_str, fmt)
-                    if '%y' in fmt and date_obj.year < 2000:
-                        date_obj = date_obj.replace(year=date_obj.year + 100)
-                    return date_obj.strftime('%Y-%m-%d')
-                except ValueError:
-                    continue
-            else:
-                # Handle range dates like "16/17 May 2025"
-                month = match.group(3)
-                year = match.group(4)
-                day = match.group(1)
-                try:
-                    date_obj = datetime.strptime(f"{day} {month} {year}", '%d %B %Y')
-                    return date_obj.strftime('%Y-%m-%d')
-                except ValueError:
-                    try:
-                        date_obj = datetime.strptime(f"{day} {month} {year}", '%d %b %Y')
-                        return date_obj.strftime('%Y-%m-%d')
-                    except ValueError:
-                        continue
+        if match and fmt:
+            try:
+                groups = match.groups()
+                date_str = f"{groups[0]}/{groups[1]}/{groups[2]}"
+                date_obj = datetime.strptime(date_str, fmt)
+                if '%y' in fmt and date_obj.year < 2000:
+                    date_obj = date_obj.replace(year=date_obj.year + 100)
+                return date_obj.strftime('%Y-%m-%d')
+            except ValueError:
+                continue
 
     # Try other date formats
     formats = [
@@ -103,8 +117,8 @@ def normalize_time(time_str):
     if not time_str or time_str.lower() == 'tbc':
         return None
 
-    # Replace "and" with "&" for consistent processing
-    time_str = time_str.replace(' and ', ' & ')
+    # Replace all variants of "and" with "&" for consistent processing
+    time_str = re.sub(r'\s+(and|&)\s+', ' & ', time_str)
 
     def is_valid_time(hour, minute):
         return 0 <= hour <= 23 and 0 <= minute <= 59
@@ -212,12 +226,23 @@ for row in rows[1:]:  # Skip the header row
         continue
 
     try:
-        date_str = normalize_date_range(cols[header_map['date']].text)
+        date_text = cols[header_map['date']].text
         fixture = cols[header_map['fixture']].text.strip()
         time_str = normalize_time(cols[header_map['time']].text.strip())
         crowd_str = validate_crowd_size(cols[header_map['crowd']].text.strip())
 
-        if date_str:
+        # Check for date range first
+        dates = extract_date_range(date_text)
+        if not dates:
+            # If not a range, use the normal date parser
+            single_date = normalize_date_range(date_text)
+            if single_date:
+                dates = [single_date]
+            else:
+                continue
+
+        # Create an event for each date
+        for date_str in dates:
             events.append({
                 'date': date_str,
                 'fixture': fixture,
