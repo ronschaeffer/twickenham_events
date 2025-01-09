@@ -117,4 +117,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Poetry
+poetry.lock
+.pdm.toml
+__pypackages__/
+
 # End of https://www.toptal.com/developers/gitignore/api/python

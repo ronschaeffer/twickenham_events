@@ -1,0 +1,56 @@
+[
+    {
+        "date": "2025-02-08",
+        "fixture": "England v France",
+        "time": "16:45",
+        "crowd": "82,000"
+    },
+    {
+        "date": "2025-02-22",
+        "fixture": "England v Scotland",
+        "time": "16:45",
+        "crowd": "82,000"
+    },
+    {
+        "date": "2025-03-09",
+        "fixture": "England v Italy",
+        "time": "15:00",
+        "crowd": "82,000"
+    },
+    {
+        "date": "2025-04-26",
+        "fixture": "Women's Six Nations - England v France",
+        "time": null,
+        "crowd": "60,000"
+    },
+    {
+        "date": "2025-05-03",
+        "fixture": "Army Navy match - Men's and Women's",
+        "time": null,
+        "crowd": "82,000"
+    },
+    {
+        "date": "2025-05-10",
+        "fixture": "Harlequins Big Summer Kick Off",
+        "time": null,
+        "crowd": "60,000"
+    },
+    {
+        "date": "2025-05-16",
+        "fixture": "Community Rugby Finals",
+        "time": null,
+        "crowd": "4,000"
+    },
+    {
+        "date": "2025-06-14",
+        "fixture": "Gallagher Premiership Final",
+        "time": null,
+        "crowd": "82,000"
+    },
+    {
+        "date": "2025-06-21",
+        "fixture": "Barbarians",
+        "time": null,
+        "crowd": "50,000"
+    }
+]
