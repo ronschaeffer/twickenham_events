@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "twickenham_events"
+version = "0.1.0"
+description = "A project to fetch and normalize Twickenham event data."
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "core"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+requests = "^2.25.1"
+beautifulsoup4 = "^4.9.3"
+poetry = "^2.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^6.2.2"
+pytest-cov = "^6.0.0"
+pyyaml = "^6.0.2"
+beautifulsoup4 = "^4.12.3"
+
+[tool.poetry.scripts]
+twickenham-events = "twickenham_events.__main__:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
