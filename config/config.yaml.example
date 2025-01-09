@@ -1,0 +1,14 @@
+
+# MQTT Configuration
+mqtt:
+  broker_url: tcp://broker.hivemq.com
+  broker_port: 1883
+  client_id: my_mqtt_client
+  username: my_username
+  password: my_password
+  topic: my/topic
+
+# Default duration of events after start time in hours (e.g., 0.5, 2.75, 4).
+# If another event is due to start after the current event within the default
+# duration, the current event will be shortened to make room for the next event.
+event_duration: 1
