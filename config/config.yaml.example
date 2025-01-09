@@ -1,3 +1,8 @@
+# Default event duration
+event_duration: 1
+# Default duration of events after start time in hours (e.g., 0.5, 2.75, 4)
+# If another event is due to start after the current event within the dafult
+# duration, the current event will be shortened to make room for the next event.
 
 # MQTT Configuration
 mqtt:
@@ -6,9 +11,6 @@ mqtt:
   client_id: my_mqtt_client
   username: my_username
   password: my_password
-  topic: my/topic
-
-# Default duration of events after start time in hours (e.g., 0.5, 2.75, 4).
-# If another event is due to start after the current event within the default
-# duration, the current event will be shortened to make room for the next event.
-event_duration: 1
+  topics:
+    next_event: twick_events/next
+    all_upcoming_events: twick_events/all_upcoming
