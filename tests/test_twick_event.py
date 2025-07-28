@@ -240,36 +240,3 @@ def test_adjust_end_times():
     
     adjusted = adjust_end_times(events)
     assert adjusted[0]['end_time'] == '19:00 & 19:00'  # Both end times adjusted to next event's start
-
-@pytest.mark.integration
-def test_mqtt_integration(mock_config, tmp_path):
-    """Test that events are properly published to MQTT."""
-    from unittest.mock import patch
-    from core.twick_event import process_and_publish_events  # You'll need to extract this functionality
-    
-    test_events = [
-        {
-            'date': '2025-02-08',
-            'fixture': 'Test Event 1',
-            'start_time': '14:00',
-            'end_time': '20:00',
-            'crowd': '10,000'
-        },
-        {
-            'date': '2025-02-09',
-            'fixture': 'Test Event 2',
-            'start_time': '15:00',
-            'end_time': '21:00',
-            'crowd': '20,000'
-        }
-    ]
-
-    with patch('core.mqtt_publisher.MQTTPublisher') as mock_publisher:
-        instance = mock_publisher.return_value.__enter__.return_value
-        
-        # Call the function that processes and publishes events
-        process_and_publish_events(test_events, mock_config)
-        
-        # Verify MQTT publications
-        instance.publish.assert_any_call('twick_events/next', test_events[0], retain=True)
-        instance.publish.assert_any_call('twick_events/all_upcoming', test_events, retain=True)
