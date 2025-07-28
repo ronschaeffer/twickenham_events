@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
+from core.mqtt_publisher import MQTTPublisher  # Add this import
+from core.config import Config
+from typing import Optional, Tuple
+import json
+import re
+from datetime import datetime, timedelta
+from bs4 import BeautifulSoup
+import requests
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import requests
-from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-import re
-import json
-from typing import Optional
-from core.config import Config
-from core.mqtt_publisher import MQTTPublisher  # Add this import
 
 # Step 1: Fetch the webpage
 url = 'https://www.richmond.gov.uk/services/parking/cpz/twickenham_events'
@@ -30,19 +30,23 @@ events = []
 error_log = []
 
 # Update config loading with config directory path
-config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'config.yaml')
+config_path = os.path.join(os.path.dirname(
+    os.path.dirname(__file__)), 'config', 'config.yaml')
 config = Config(config_path)
 
 # Function to normalize and extract the first date from a range
+
+
 def extract_date_range(date_str: str) -> list[str]:
     """Extract multiple dates from a range string like '16/17 May 2025' or single date."""
     if not isinstance(date_str, str) or not date_str.strip():
         return []
 
     cleaned = date_str.strip()
-    
+
     # Remove 'Weekend' or 'Wknd'
-    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned,
+                     flags=re.IGNORECASE).strip()
 
     # First try to parse as a range
     range_match = re.match(r'(\d{1,2})/(\d{1,2})\s+(\w+)\s+(\d{4})', cleaned)
@@ -64,28 +68,33 @@ def extract_date_range(date_str: str) -> list[str]:
     result = normalize_date_range(date_str)
     return [result] if result else []
 
+
 def normalize_date_range(date_str: str) -> Optional[str]:
     """Normalize date strings to YYYY-MM-DD."""
     if not isinstance(date_str, str) or not date_str.strip():
         return None
 
     cleaned = date_str.strip()
-    
+
     # Remove 'Weekend' or 'Wknd'
-    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned, flags=re.IGNORECASE).strip()
-    
+    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned,
+                     flags=re.IGNORECASE).strip()
+
     # Remove weekday names
     weekday_pattern = (r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|'
                        r'Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+')
     cleaned = re.sub(weekday_pattern, '', cleaned, flags=re.IGNORECASE).strip()
-    
+
     # Remove any ordinal suffixes (st, nd, rd, th)
-    cleaned = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'(\d+)(st|nd|rd|th)', r'\1',
+                     cleaned, flags=re.IGNORECASE)
 
     # Try to match numeric date formats first
     numeric_patterns = [
-        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{4})', '%d/%m/%Y'),  # 15/08/2023
-        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2})', '%d/%m/%y'),  # 15/08/23
+        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{4})',
+         '%d/%m/%Y'),  # 15/08/2023
+        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2})',
+         '%d/%m/%y'),  # 15/08/23
     ]
 
     for pattern, fmt in numeric_patterns:
@@ -96,7 +105,8 @@ def normalize_date_range(date_str: str) -> Optional[str]:
                 date_str = f"{groups[0]}/{groups[1]}/{groups[2]}"
                 date_obj = datetime.strptime(date_str, fmt)
                 if '%y' in fmt and date_obj.year < 2000:
-                    date_obj = date_obj.replace(year=date_obj.year + 100)  # Fixed missing parenthesis
+                    # Fixed missing parenthesis
+                    date_obj = date_obj.replace(year=date_obj.year + 100)
                 return date_obj.strftime('%Y-%m-%d')
             except ValueError:
                 continue
@@ -113,7 +123,8 @@ def normalize_date_range(date_str: str) -> Optional[str]:
         try:
             date_obj = datetime.strptime(cleaned, fmt)
             if '%y' in fmt and date_obj.year < 2000:
-                date_obj = date_obj.replace(year=(date_obj.year + 100))  # Fixed parentheses
+                date_obj = date_obj.replace(
+                    year=(date_obj.year + 100))  # Fixed parentheses
             return date_obj.strftime('%Y-%m-%d')
         except ValueError:
             continue
@@ -122,12 +133,25 @@ def normalize_date_range(date_str: str) -> Optional[str]:
     return None
 
 # Function to normalize time format with multiple times using '&'
+
+
+# Function to normalize time format with multiple times using '&'
 def normalize_time(time_str):
     if not time_str or time_str.lower() == 'tbc':
         return None
 
-    # Replace all variants of "and" with "&" for consistent processing
-    time_str = re.sub(r'\s+(and|&)\s+', ' & ', time_str)
+    # Handle 'noon' and remove (tbc) and other text noise
+    time_str = time_str.lower().replace('noon', '12:00pm')
+    time_str = re.sub(r'\s*\(tbc\)', '', time_str, flags=re.IGNORECASE)
+    time_str = time_str.replace('.', ':')
+
+    # Regex to find all time-like patterns (e.g., "3:15pm", "10am", "12:00pm")
+    time_patterns = re.findall(
+        r'\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b', time_str, re.IGNORECASE)
+
+    if not time_patterns:
+        error_log.append(f"No valid time patterns found in: '{time_str}'")
+        return None
 
     def is_valid_time(hour, minute):
         return 0 <= hour <= 23 and 0 <= minute <= 59
@@ -136,15 +160,14 @@ def normalize_time(time_str):
         """Parse a single time component with optional shared AM/PM"""
         time = time.strip().lower()
         original_time = time
-        
-        # Handle explicit AM/PM
+
         meridian = shared_meridian
-        if time.endswith('pm'):
+        if 'pm' in time:
             meridian = 'pm'
-            time = time[:-2]
-        elif time.endswith('am'):
+            time = time.replace('pm', '').strip()
+        elif 'am' in time:
             meridian = 'am'
-            time = time[:-2]
+            time = time.replace('am', '').strip()
 
         try:
             if ':' in time:
@@ -153,59 +176,85 @@ def normalize_time(time_str):
                 hour = int(time)
                 minute = 0
 
-            # Early validation
             if hour > 12 and (meridian or shared_meridian):
-                return None
+                return None, None
             if hour > 23:
-                return None
-            
-            # Apply meridian adjustments
+                return None, None
+
             if meridian == 'pm' and hour < 12:
                 hour += 12
             elif meridian == 'am' and hour == 12:
                 hour = 0
 
             if not is_valid_time(hour, minute):
-                return None
+                return None, None
 
             return f"{hour:02d}:{minute:02d}", meridian
         except (ValueError, AttributeError):
-            error_log.append(f"Failed to parse time: '{original_time}'")
-            return None
+            error_log.append(
+                f"Failed to parse time component: '{original_time}'")
+            return None, None
 
-    time_str = time_str.replace('.', ':').lower()
-    parts = re.split(r'\s*&\s*', time_str)
-    
-    # Find the last meridian in the string to handle shared AM/PM
+    # Find the last meridian to handle shared AM/PM cases like "10 & 11am"
     last_meridian = None
-    for part in reversed(parts):
-        if part.endswith('am') or part.endswith('pm'):
-            last_meridian = part[-2:]
-            break
+    if any('am' in t or 'pm' in t for t in time_patterns):
+        for t in reversed(time_patterns):
+            if 'am' in t.lower():
+                last_meridian = 'am'
+                break
+            if 'pm' in t.lower():
+                last_meridian = 'pm'
+                break
 
     converted_times = []
-    for time in parts:
-        result = parse_single_time(time, last_meridian)
-        if result:
-            time_str, _ = result
-            converted_times.append(time_str)
+    for time in time_patterns:
+        parsed_time, _ = parse_single_time(time, last_meridian)
+        if parsed_time:
+            converted_times.append(parsed_time)
 
-    return ' & '.join(converted_times) if converted_times else None
+    return ' & '.join(sorted(converted_times)) if converted_times else None
 
-# Function to validate and format crowd size
+
 def validate_crowd_size(crowd_str):
     if not crowd_str or not isinstance(crowd_str, str):
         return None
 
     # Remove text like "TBC", "Estimate", "Est", etc.
-    cleaned_crowd = re.sub(r'(TBC|Estimate|Est|Approx|~)', '', crowd_str, flags=re.IGNORECASE).strip()
+    cleaned_crowd = re.sub(r'(TBC|Estimate|Est|Approx|~)',
+                           '', crowd_str, flags=re.IGNORECASE).strip()
+
+    # Handle ranges like "50-60,000" by taking the upper value.
+    range_match = re.search(r'(\d+)\s*-\s*(\d+,\d+)', cleaned_crowd)
+    if range_match:
+        # Take the second part of the range, e.g., '60,000'
+        cleaned_crowd = range_match.group(2)
+
+    # Remove commas before finding numbers
+    crowd_no_commas = cleaned_crowd.replace(',', '')
+    numbers = re.findall(r'\d+', crowd_no_commas)
+
+    if not numbers:
+        return None
 
     try:
-        crowd = int(re.sub(r'[^\d]', '', cleaned_crowd))
-        return f"{crowd:,}"  # Format with commas
-    except ValueError:
+        int_numbers = [int(n) for n in numbers]
+        crowd = max(int_numbers)
+
+        # Sanity check for capacity
+        if crowd > 100000:
+            potential_crowds = [n for n in int_numbers if n <= 100000]
+            if potential_crowds:
+                crowd = max(potential_crowds)
+            else:
+                error_log.append(
+                    f"Implausible crowd size detected: '{crowd_str}'")
+                return None
+
+        return f"{crowd:,}"
+    except (ValueError, IndexError):
         error_log.append(f"Invalid crowd size: '{crowd_str}'")
         return None
+
 
 # Future-proofing: Match columns by header names
 headers = [th.text.strip().lower() for th in rows[0].find_all('th')]
@@ -225,7 +274,8 @@ for key, aliases in header_aliases.items():
 
 missing_columns = [col for col in header_aliases if col not in header_map]
 if missing_columns:
-    raise ValueError(f"Missing required columns in table headers: {missing_columns}")
+    raise ValueError(
+        f"Missing required columns in table headers: {missing_columns}")
 
 # Loop through rows and process data
 for row in rows[1:]:  # Skip the header row
@@ -250,59 +300,68 @@ for row in rows[1:]:  # Skip the header row
             else:
                 continue
 
-        # Create an event for each date
+        # Create an event for each date found
         for date_str in dates:
-            start_time_str = normalize_time(cols[header_map['time']].text.strip())
-            
-            # Calculate end time if start time exists
-            end_time_str = None
-            if start_time_str:
-                # Handle multiple start times (e.g., "14:00 & 16:00")
-                times = start_time_str.split(' & ')
-                end_times = []
+            # Get all start times for the current row
+            start_times_str = normalize_time(
+                cols[header_map['time']].text.strip())
+
+            if start_times_str:
+                # If there are multiple times, create a separate event for each
+                times = start_times_str.split(' & ')
                 for time in times:
                     start = datetime.strptime(time, '%H:%M')
-                    end = start + timedelta(hours=config.default_duration)  # Changed from event_duration to default_duration
-                    end_times.append(end.strftime('%H:%M'))
-                end_time_str = ' & '.join(end_times)
+                    end = start + timedelta(hours=config.default_duration)
+                    end_time_str = end.strftime('%H:%M')
 
-            events.append({
-                'date': date_str,
-                'fixture': fixture,
-                'start_time': start_time_str,
-                'end_time': end_time_str,
-                'crowd': crowd_str,
-            })
+                    events.append({
+                        'date': date_str,
+                        'fixture': fixture,
+                        'start_time': time,
+                        'end_time': end_time_str,
+                        'crowd': crowd_str,
+                    })
+            else:
+                # If no time is specified (TBC), create a single event
+                events.append({
+                    'date': date_str,
+                    'fixture': fixture,
+                    'start_time': None,
+                    'end_time': None,
+                    'crowd': crowd_str,
+                })
     except Exception as e:
         error_log.append(f"Error processing row: {row} - {str(e)}")
+
 
 def adjust_end_times(events):
     """Adjust end times to prevent overlaps between events."""
     # Sort events by date and start time
     sorted_events = sorted(events, key=lambda x: (
         x['date'],
-        x['start_time'] if x['start_time'] else "23:59"  # Put events with no start time at end of day
+        # Put events with no start time at end of day
+        x['start_time'] if x['start_time'] else "23:59"
     ))
-    
+
     for i in range(len(sorted_events) - 1):
         current = sorted_events[i]
         next_event = sorted_events[i + 1]
-        
+
         # Skip if either event has no times
         if not current['start_time'] or not current['end_time'] or not next_event['start_time']:
             continue
-            
+
         # If events are on different dates, no need to adjust
         if current['date'] != next_event['date']:
             continue
-            
+
         # For events with multiple times, use the last end time and first start time
         current_end_times = current['end_time'].split(' & ')
         next_start_times = next_event['start_time'].split(' & ')
-        
+
         current_last_end = current_end_times[-1]
         next_first_start = next_start_times[0]
-        
+
         # If current event would overlap with next event
         if current_last_end > next_first_start:
             # Adjust all end times of current event if needed
@@ -313,14 +372,55 @@ def adjust_end_times(events):
                 else:
                     adjusted_end_times.append(end_time)
             current['end_time'] = ' & '.join(adjusted_end_times)
-    
+
     return sorted_events
 
+
+def group_events_by_date(events: list) -> list:
+    """Group events by date and create a daily summary."""
+    grouped = {}
+    for event in events:
+        date = event['date']
+        if date not in grouped:
+            grouped[date] = []
+        # Remove redundant date from individual event object
+        del event['date']
+        grouped[date].append(event)
+
+    daily_summaries = []
+    for date, daily_events in grouped.items():
+        # Sort events by start time for the day
+        sorted_daily_events = sorted(
+            daily_events,
+            key=lambda x: x['start_time'] or "23:59"
+        )
+
+        start_times = [e['start_time']
+                       for e in sorted_daily_events if e['start_time']]
+        end_times = [e['end_time']
+                     for e in sorted_daily_events if e['end_time']]
+
+        daily_summaries.append({
+            'date': date,
+            'event_count': len(sorted_daily_events),
+            'earliest_start': min(start_times) if start_times else None,
+            'latest_end': max(end_times) if end_times else None,
+            'events': sorted_daily_events
+        })
+
+    # Sort the final list of summaries by date
+    return sorted(daily_summaries, key=lambda x: x['date'])
+
+
 # Filter upcoming events (future events only)
-upcoming_events = [event for event in events if datetime.strptime(event['date'], '%Y-%m-%d') >= datetime.now()]
+upcoming_events = [event for event in events if datetime.strptime(
+    event['date'], '%Y-%m-%d') >= datetime.now()]
 
 # Adjust end times to prevent overlaps
 upcoming_events = adjust_end_times(upcoming_events)
+
+# Group events by date for the final output
+summarized_events = group_events_by_date(upcoming_events)
 
 # Write the JSON file to the output directory in project root
 output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
@@ -328,7 +428,34 @@ os.makedirs(output_dir, exist_ok=True)
 
 output_path = os.path.join(output_dir, 'upcoming_events.json')
 with open(output_path, 'w') as f:
-    json.dump(upcoming_events, f, indent=4)
+    json.dump(summarized_events, f, indent=4)
+
+
+def find_next_event_and_summary(summarized_events: list) -> Tuple[Optional[dict], Optional[dict]]:
+    """
+    Finds the very next individual event and its corresponding day summary.
+    Compares event times against the current time to find the first future event.
+    """
+    now = datetime.now()
+    for day_summary in summarized_events:
+        # Create a copy of the events list to avoid modifying it while iterating
+        for event in list(day_summary['events']):
+            if event.get('start_time'):
+                # Combine date and time to create a full datetime object for comparison
+                event_datetime_str = f"{day_summary['date']} {event['start_time']}"
+                event_datetime = datetime.strptime(
+                    event_datetime_str, '%Y-%m-%d %H:%M')
+
+                if event_datetime > now:
+                    # This is the first event in the future.
+                    # Create a copy and add the date for the 'next' payload.
+                    next_event_payload = event.copy()
+                    next_event_payload['date'] = day_summary['date']
+                    return next_event_payload, day_summary
+
+    # If no future events are found
+    return None, None
+
 
 def process_and_publish_events(events: list, config: Config) -> None:
     """Process events and publish them via MQTT."""
@@ -336,49 +463,106 @@ def process_and_publish_events(events: list, config: Config) -> None:
         'broker_url': config.config['mqtt']['broker_url'],
         'broker_port': config.config['mqtt']['broker_port'],
         'client_id': config.config['mqtt']['client_id'],
-        'security': config.config['mqtt']['security'],  # Changed from connection_type to security
+        'security': config.config['mqtt']['security'],
         'auth': config.config['mqtt'].get('auth'),
-        'tls': config.config['mqtt'].get('tls')  # Changed from ssl_config to tls
+        'tls': config.config['mqtt'].get('tls')
     }
 
+    # Find the true next event and its corresponding day summary
+    next_individual_event, next_day_summary = find_next_event_and_summary(
+        events)
+
     with MQTTPublisher(**mqtt_settings) as publisher:
-        if events:
-            publisher.publish(config.config['mqtt']['topics']['next'], events[0], retain=True)
-        publisher.publish(config.config['mqtt']['topics']['all_upcoming'], events, retain=True)
+        # Always publish the full list of all upcoming days
+        publisher.publish(
+            config.config['mqtt']['topics']['all_upcoming'], events, retain=True)
+
+        if next_day_summary:
+            # Publish the summary for the day of the next event
+            publisher.publish(
+                config.config['mqtt']['topics']['next_day_summary'], next_day_summary, retain=True)
+        else:
+            # If no upcoming events, clear the summary topic
+            publisher.publish(
+                config.config['mqtt']['topics']['next_day_summary'], "", retain=True)
+
+        if next_individual_event:
+            # Publish the very next individual event
+            publisher.publish(
+                config.config['mqtt']['topics']['next'], next_individual_event, retain=True)
+        else:
+            # If no specific next event, clear the topic
+            publisher.publish(
+                config.config['mqtt']['topics']['next'], "", retain=True)
+
 
 # Publish events via MQTT using the new function
-process_and_publish_events(upcoming_events, config)
+process_and_publish_events(summarized_events, config)
 
 # Display output
 print("\n=== Twickenham Stadium Events ===")
 
 # Show MQTT connection info
 print("\nMQTT Configuration:")
-print(f"Broker: {config.config['mqtt']['broker_url']}:{config.config['mqtt']['broker_port']}")
+print(
+    f"Broker: {config.config['mqtt']['broker_url']}:{config.config['mqtt']['broker_port']}")
 print(f"Security: {config.config['mqtt']['security']}")
 
+# Find the true next event again for display purposes
+next_event, _ = find_next_event_and_summary(
+    summarized_events)
+
 # Display next event with better formatting
-if upcoming_events:
-    next_event = upcoming_events[0]
+if next_event:
     print("\n=== Next Event ===")
     print(f"{'Date:':<12} {next_event['date']}")
     print(f"{'Fixture:':<12} {next_event['fixture']}")
     print(f"{'Start Time:':<12} {next_event['start_time'] or 'TBC'}")
     print(f"{'End Time:':<12} {next_event['end_time'] or 'TBC'}")
     print(f"{'Crowd:':<12} {next_event['crowd'] or 'TBC'}")
-
-    # Display summary of all events
-    print(f"\n=== All Upcoming Events ({len(upcoming_events)} total) ===")
-    for event in upcoming_events:
-        time_info = f"{event['start_time'] or 'TBC'} - {event['end_time'] or 'TBC'}"
-        print(f"{event['date']} | {time_info:<15} | {event['fixture']:<40} | {event['crowd'] or 'TBC'}")
-
 else:
+    # This branch will be taken if all events are in the past
+    if summarized_events:
+        print("\nAll scheduled events for the upcoming days have passed.")
+    else:
+        print("\nNo upcoming events found.")
+
+# Display summary of all events
+if summarized_events:
+    total_events = sum(day['event_count'] for day in summarized_events)
+    print(f"\n=== All Upcoming Events ({total_events} total) ===")
+    for day_summary in summarized_events:
+        day_info = f"Date: {day_summary['date']} ({day_summary['event_count']} event(s))"
+
+        if day_summary['event_count'] > 1:
+            time_window = f"{day_summary['earliest_start'] or 'TBC'} - {day_summary['latest_end'] or 'TBC'}"
+            print(f"\n{day_info} | {time_window}")
+            for event in day_summary['events']:
+                time_info = f"{event['start_time'] or 'TBC'} - {event['end_time'] or 'TBC'}"
+                print(
+                    f"  - {time_info:<15} | {event['fixture']:<40} | {event['crowd'] or 'TBC'}")
+        else:
+            event = day_summary['events'][0]
+            time_info = f"{event['start_time'] or 'TBC'} - {event['end_time'] or 'TBC'}"
+            print(
+                f"{day_info} | {time_info:<15} | {event['fixture']:<40} | {event['crowd'] or 'TBC'}")
+
+if not summarized_events:
     print("\nNo upcoming events found.")
 
 # Log errors if any
-if error_log:
-    print(f"\n=== Errors ({len(error_log)}) ===")
-    print(f"Details written to: {output_dir}/parsing_errors.txt")
+error_file_path = os.path.join(output_dir, 'parsing_errors.txt')
+with open(error_file_path, 'w') as f:
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    f.write(f"Run at: {timestamp}\n\n")
+    if error_log:
+        print(f"\n=== Errors ({len(error_log)}) ===")
+        f.write(f"Found {len(error_log)} parsing errors:\n")
+        for error in error_log:
+            f.write(f"- {error}\n")
+        print(f"Details written to: {error_file_path}")
+    else:
+        print("\nNo parsing errors found.")
+        f.write("No parsing errors found during this run.\n")
 
 print("\n=== Processing Complete ===")
