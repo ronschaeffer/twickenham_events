@@ -55,3 +55,16 @@ mqtt:
     all_upcoming: "twickenham_events/events/all_upcoming"
     # Topic for publishing any parsing or operational errors.
     errors: "twickenham_events/events/errors"
+
+# ------------------------------------------------------------------------------
+# Home Assistant Integration
+# ------------------------------------------------------------------------------
+home_assistant:
+  # Set to true to enable Home Assistant MQTT discovery.
+  # This will automatically create sensor entities in Home Assistant.
+  enabled: true
+
+  # The prefix for the discovery topic.
+  # "homeassistant" is the default and should not be changed unless you have
+  # a custom configuration in Home Assistant.
+  discovery_prefix: "homeassistant"
