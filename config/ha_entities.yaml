@@ -1,0 +1,41 @@
+# config/ha_entities.yaml
+
+# This file defines the sensors that will be created in Home Assistant via MQTT discovery.
+# Each sensor corresponds to an MQTT topic published by the twickenham_events script.
+
+# Sensor for the very next upcoming event
+- name: "Next Twickenham Event"
+  unique_id: "twick_next_event"
+  state_topic: "twickenham_events/events/next"
+  value_template: "{{ value_json.event.fixture }}"
+  json_attributes_topic: "twickenham_events/events/next"
+  json_attributes_template: "{{ value_json.event | tojson }}"
+  icon: "mdi:calendar-clock"
+
+# Sensor for the summary of events on the next event day
+- name: "Next Twickenham Event Day Summary"
+  unique_id: "twick_next_day_summary"
+  state_topic: "twickenham_events/events/next_day_summary"
+  value_template: >
+    {{ value_json.summary.event_count }} event(s) on {{ value_json.summary.date }}
+  json_attributes_topic: "twickenham_events/events/next_day_summary"
+  json_attributes_template: "{{ value_json.summary | tojson }}"
+  icon: "mdi:calendar-text"
+
+# Sensor for all upcoming events
+- name: "All Upcoming Twickenham Events"
+  unique_id: "twick_all_upcoming_events"
+  state_topic: "twickenham_events/events/all_upcoming"
+  value_template: "{{ value_json.events | count }} upcoming events"
+  json_attributes_topic: "twickenham_events/events/all_upcoming"
+  json_attributes_template: "{{ value_json.events | tojson }}"
+  icon: "mdi:calendar-multiple"
+
+# Sensor for application errors
+- name: "Twickenham Events Errors"
+  unique_id: "twick_events_errors"
+  state_topic: "twickenham_events/events/errors"
+  value_template: "{{ value_json.error_count }} errors"
+  json_attributes_topic: "twickenham_events/events/errors"
+  json_attributes_template: "{{ value_json.errors | tojson }}"
+  icon: "mdi:alert-circle-outline"
