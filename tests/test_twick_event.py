@@ -1,4 +1,7 @@
+from core.config import Config
 from core.twick_event import (
+    save_events_to_json,
+    process_and_publish_events,
     normalize_date_range,
     normalize_time,
     extract_date_range,
@@ -11,6 +14,7 @@ from unittest.mock import patch
 from datetime import datetime, timedelta
 import pytest
 import sys
+import json
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -394,3 +398,130 @@ class TestFindNextEvent:
         next_event, next_summary = find_next_event_and_summary([])
         assert next_event is None
         assert next_summary is None
+
+
+class TestMQTTPayloads:
+    """Tests for the structure of MQTT payloads."""
+
+    @pytest.fixture
+    def mock_config(self, tmp_path):
+        """Create a mock config for MQTT tests."""
+        config_content = {
+            'mqtt': {
+                'broker_url': 'localhost',
+                'broker_port': 1883,
+                'client_id': 'test_client',
+                'security': 'none',
+                'topics': {
+                    'all_upcoming': 'test/all',
+                    'next_day_summary': 'test/summary',
+                    'next': 'test/next'
+                }
+            }
+        }
+        config_file = tmp_path / "mqtt_config.yaml"
+        with open(config_file, 'w') as f:
+            yaml.dump(config_content, f)
+        return Config(str(config_file))
+
+    @patch('core.twick_event.MQTTPublisher')
+    @patch('core.twick_event.find_next_event_and_summary')
+    def test_payload_structure_with_events(self, mock_find_next, mock_publisher, mock_config):
+        """Test that MQTT payloads have the correct structure when events are found."""
+        # Mock data
+        timestamp = {'iso': '2025-07-29T12:00:00',
+                     'human': 'Tuesday, 29 July 2025 at 12:00'}
+        summarized_events = [{'date': '2025-08-01', 'event_count': 1}]
+        next_event = {'fixture': 'Test Event', 'date': '2025-08-01'}
+        next_summary = {'date': '2025-08-01', 'event_count': 1}
+
+        mock_find_next.return_value = (next_event, next_summary)
+
+        # Call the function
+        process_and_publish_events(
+            summarized_events, mock_config, timestamp)
+
+        # Get the mock publisher instance
+        publisher_instance = mock_publisher.return_value.__enter__.return_value
+
+        # Check the calls to publish
+        calls = publisher_instance.publish.call_args_list
+        assert len(calls) == 3
+
+        # Extract payloads
+        all_payload = calls[0][0][1]
+        summary_payload = calls[1][0][1]
+        next_payload = calls[2][0][1]
+
+        # Assert timestamp and data keys are present
+        assert 'last_updated' in all_payload
+        assert 'events' in all_payload
+        assert all_payload['last_updated'] == timestamp
+
+        assert 'last_updated' in summary_payload
+        assert 'summary' in summary_payload
+        assert summary_payload['last_updated'] == timestamp
+        assert summary_payload['summary'] == next_summary
+
+        assert 'last_updated' in next_payload
+        assert 'event' in next_payload
+        assert next_payload['last_updated'] == timestamp
+        assert next_payload['event'] == next_event
+
+    @patch('core.twick_event.MQTTPublisher')
+    @patch('core.twick_event.find_next_event_and_summary')
+    def test_payload_structure_no_events(self, mock_find_next, mock_publisher, mock_config):
+        """Test that MQTT payloads have the correct structure when no events are found."""
+        timestamp = {'iso': '2025-07-29T12:00:00',
+                     'human': 'Tuesday, 29 July 2025 at 12:00'}
+        mock_find_next.return_value = (None, None)
+
+        process_and_publish_events([], mock_config, timestamp)
+
+        publisher_instance = mock_publisher.return_value.__enter__.return_value
+        calls = publisher_instance.publish.call_args_list
+        assert len(calls) == 3
+
+        # Extract payloads
+        all_payload = calls[0][0][1]
+        summary_payload = calls[1][0][1]
+        next_payload = calls[2][0][1]
+
+        # Assert structure for "all" topic (still has timestamp)
+        assert 'last_updated' in all_payload
+        assert 'events' in all_payload
+        assert all_payload['events'] == []
+
+        # Assert structure for empty summary and next event
+        assert 'last_updated' in summary_payload
+        assert 'summary' in summary_payload
+        assert summary_payload['summary'] == {}
+
+        assert 'last_updated' in next_payload
+        assert 'event' in next_payload
+        assert next_payload['event'] == {}
+
+
+def test_save_events_to_json(tmp_path):
+    """Test that the JSON file is created with the correct structure."""
+    # Prepare mock data
+    timestamp = {'iso': '2025-07-29T10:30:00',
+                 'human': 'Tuesday, 29 July 2025 at 10:30'}
+    events_data = [{'date': '2025-08-01', 'event_count': 1}]
+    output_dir = tmp_path / "output"
+
+    # Call the function
+    save_events_to_json(events_data, timestamp, str(output_dir))
+
+    # Check that the file was created
+    output_file = output_dir / "upcoming_events.json"
+    assert output_file.exists()
+
+    # Check the content of the file
+    with open(output_file, 'r') as f:
+        data = json.load(f)
+
+    assert 'last_updated' in data
+    assert 'events' in data
+    assert data['last_updated'] == timestamp
+    assert data['events'] == events_data
