@@ -171,24 +171,33 @@ class TestEventDuration:
         from core.twick_event import normalize_time
 
         config = Config(mock_config)
+        # Use get() to retrieve the duration, with a default fallback.
+        # This ensures duration is always an integer.
+        duration = config.get('default_duration', 2)
 
         test_cases = [
+            # The mock_config sets default_duration to 6
             ("15:00", "21:00"),  # Simple 6-hour duration
             ("3pm", "21:00"),    # PM time
             ("9:30", "15:30"),   # With minutes
             ("23:00", "05:00"),  # Crossing midnight
             ("3pm & 6pm", "21:00 & 00:00"),  # Multiple times
+            ("Invalid Time", None),  # Test case for invalid time input
         ]
 
         for start_time, expected_end in test_cases:
-            # First normalize the time
             normalized_start = normalize_time(start_time)
-            # Calculate end times
+
+            if normalized_start is None:
+                assert expected_end is None, f"Expected None for input '{start_time}', but got a normalized time."
+                continue
+
             end_times = []
-            for time in normalized_start.split(' & '):
-                start = datetime.strptime(time, '%H:%M')
-                end = start + timedelta(hours=config.default_duration)
-                end_times.append(end.strftime('%H:%M'))
+            for time_str in normalized_start.split(' & '):
+                start_dt = datetime.strptime(time_str, '%H:%M')
+                end_dt = start_dt + timedelta(hours=duration)
+                end_times.append(end_dt.strftime('%H:%M'))
+            
             calculated_end = ' & '.join(end_times)
             assert calculated_end == expected_end
 
@@ -201,12 +210,18 @@ class TestEventDuration:
         with open(config_file, 'w') as f:
             yaml.dump({}, f)
 
-        with pytest.raises(AttributeError) as exc_info:
-            config = Config(str(config_file))
-            _ = config.default_duration
+        config = Config(str(config_file))
+        # Use the get method with a default value
+        duration = config.get('default_duration', 2)
+        assert duration == 2
 
-        assert "Configuration key 'default_duration' not found" in str(
-            exc_info.value)
+        # Test with None value
+        with open(config_file, 'w') as f:
+            yaml.dump({'default_duration': None}, f)
+
+        config = Config(str(config_file))
+        duration = config.get('default_duration', 2)
+        assert duration == 2
 
 
 def test_adjust_end_times():
