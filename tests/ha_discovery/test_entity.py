@@ -35,15 +35,29 @@ def test_get_config_topic(sample_sensor_config):
     assert sensor.get_config_topic(discovery_prefix) == expected_topic
 
 
-def test_get_config_payload(sample_sensor_config):
-    """Test the generation of the JSON configuration payload."""
+@pytest.fixture
+def sample_device_info():
+    """Provides a sample device information dictionary."""
+    return {
+        "identifiers": ["test_device_01"],
+        "name": "Test Device",
+        "manufacturer": "Test Corp"
+    }
+
+
+def test_get_config_payload(sample_sensor_config, sample_device_info):
+    """Test the generation of the JSON configuration payload with device info."""
     sensor = Sensor(**sample_sensor_config)
-    payload_str = sensor.get_config_payload()
+    payload_str = sensor.get_config_payload(sample_device_info)
     payload_dict = json.loads(payload_str)
 
-    # Check that all keys from the config are in the payload
+    # Check that all keys from the sensor config are in the payload
     for key, value in sample_sensor_config.items():
         assert payload_dict[key] == value
 
-    # Ensure no extra keys were added
-    assert len(payload_dict) == len(sample_sensor_config)
+    # Check that the device info is correctly included
+    assert "device" in payload_dict
+    assert payload_dict["device"] == sample_device_info
+
+    # Ensure no extra top-level keys were added
+    assert len(payload_dict) == len(sample_sensor_config) + 1

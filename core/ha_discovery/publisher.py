@@ -14,12 +14,14 @@ class HADiscoveryPublisher:
         self.entities = self._load_entities()
 
     def _load_entities(self):
-        """Loads entity configurations from the YAML file."""
+        """Loads device and entity configurations from the YAML file."""
         try:
             with open(self.entities_config_path, 'r') as f:
                 entities_config = yaml.safe_load(f)
-                return [Sensor(**e) for e in entities_config]
+                self.device_info = entities_config.get('device', {})
+                return [Sensor(**e) for e in entities_config.get('sensors', [])]
         except FileNotFoundError:
+            self.device_info = {}
             return []
 
     def publish_discovery_topics(self):
@@ -40,6 +42,6 @@ class HADiscoveryPublisher:
         with MQTTPublisher(broker_url, broker_port, client_id, security, auth, tls) as publisher:
             for entity in self.entities:
                 config_topic = entity.get_config_topic(discovery_prefix)
-                config_payload = entity.get_config_payload()
+                config_payload = entity.get_config_payload(self.device_info)
                 publisher.publish(config_topic, config_payload, retain=True)
                 print(f"Published discovery topic for {entity.name}")
