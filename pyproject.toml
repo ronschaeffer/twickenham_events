@@ -1,10 +1,14 @@
-[tool.poetry]
+[project]
 name = "twickenham-events"
 version = "0.1.0"
 description = "Fetch and process Twickenham Stadium events"
-authors = ["Your Name <your.email@example.com>"]
-license = "MIT"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+license = { text = "MIT" }
 readme = "README.md"
+
+[tool.poetry]
 packages = [
     { include = "core" },
     { include = "tests", format = "sdist" }
