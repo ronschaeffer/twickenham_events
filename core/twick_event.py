@@ -26,6 +26,12 @@ rows = soup.select("table.table tr")  # Select all table rows
 # Step 4: Initialize a list to store all events
 events = []
 
+# Generate a timestamp for this run
+update_timestamp = {
+    'iso': datetime.now().isoformat(),
+    'human': datetime.now().strftime('%A, %d %B %Y at %H:%M')
+}
+
 # Error log for debugging
 error_log = []
 
@@ -406,6 +412,18 @@ def group_events_by_date(events: list) -> list:
     return sorted(daily_summaries, key=lambda x: x['date'])
 
 
+def save_events_to_json(events_data: list, timestamp: dict, directory: str) -> None:
+    """Saves the processed events to a JSON file with a timestamp."""
+    os.makedirs(directory, exist_ok=True)
+    output_path = os.path.join(directory, 'upcoming_events.json')
+    output_data = {
+        'last_updated': timestamp,
+        'events': events_data
+    }
+    with open(output_path, 'w') as f:
+        json.dump(output_data, f, indent=4)
+
+
 # Filter upcoming events (future events only)
 upcoming_events = [event for event in events if datetime.strptime(
     event['date'], '%Y-%m-%d') >= datetime.now()]
@@ -418,11 +436,7 @@ summarized_events = group_events_by_date(upcoming_events)
 
 # Write the JSON file to the output directory in project root
 output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'output')
-os.makedirs(output_dir, exist_ok=True)
-
-output_path = os.path.join(output_dir, 'upcoming_events.json')
-with open(output_path, 'w') as f:
-    json.dump(summarized_events, f, indent=4)
+save_events_to_json(summarized_events, update_timestamp, output_dir)
 
 
 def find_next_event_and_summary(summarized_events: list) -> Tuple[Optional[dict], Optional[dict]]:
@@ -451,7 +465,7 @@ def find_next_event_and_summary(summarized_events: list) -> Tuple[Optional[dict]
     return None, None
 
 
-def process_and_publish_events(events: list, config: Config) -> None:
+def process_and_publish_events(events: list, config: Config, timestamp: dict) -> None:
     """Process events and publish them via MQTT."""
     mqtt_settings = {
         'broker_url': config.config['mqtt']['broker_url'],
@@ -466,35 +480,43 @@ def process_and_publish_events(events: list, config: Config) -> None:
     next_individual_event, next_day_summary = find_next_event_and_summary(
         events)
 
+    # Prepare payloads with timestamp
+    all_upcoming_payload = {'last_updated': timestamp, 'events': events}
+    next_day_summary_payload = {'last_updated': timestamp,
+                                'summary': next_day_summary} if next_day_summary else {'last_updated': timestamp, 'summary': {}}
+    next_individual_event_payload = {
+        'last_updated': timestamp, 'event': next_individual_event} if next_individual_event else {'last_updated': timestamp, 'event': {}}
+
     with MQTTPublisher(**mqtt_settings) as publisher:
         # Always publish the full list of all upcoming days
         publisher.publish(
-            config.config['mqtt']['topics']['all_upcoming'], events, retain=True)
+            config.config['mqtt']['topics']['all_upcoming'], all_upcoming_payload, retain=True)
 
         if next_day_summary:
             # Publish the summary for the day of the next event
             publisher.publish(
-                config.config['mqtt']['topics']['next_day_summary'], next_day_summary, retain=True)
+                config.config['mqtt']['topics']['next_day_summary'], next_day_summary_payload, retain=True)
         else:
             # If no upcoming events, clear the summary topic
             publisher.publish(
-                config.config['mqtt']['topics']['next_day_summary'], "", retain=True)
+                config.config['mqtt']['topics']['next_day_summary'], next_day_summary_payload, retain=True)
 
         if next_individual_event:
             # Publish the very next individual event
             publisher.publish(
-                config.config['mqtt']['topics']['next'], next_individual_event, retain=True)
+                config.config['mqtt']['topics']['next'], next_individual_event_payload, retain=True)
         else:
             # If no specific next event, clear the topic
             publisher.publish(
-                config.config['mqtt']['topics']['next'], "", retain=True)
+                config.config['mqtt']['topics']['next'], next_individual_event_payload, retain=True)
 
 
 # Publish events via MQTT using the new function
-process_and_publish_events(summarized_events, config)
+process_and_publish_events(summarized_events, config, update_timestamp)
 
 # Display output
 print("\n=== Twickenham Stadium Events ===")
+print(f"Last updated: {update_timestamp['human']}")
 
 # Show MQTT connection info
 print("\nMQTT Configuration:")
