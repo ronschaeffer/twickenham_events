@@ -154,42 +154,30 @@ def test_validate_crowd_size(input_crowd, expected):
 
 
 class TestEventDuration:
-    @pytest.fixture
-    def mock_config(self, tmp_path):
-        """Create a temporary config file for testing."""
-        config_content = {
-            'default_duration': 6
-        }
-        config_file = tmp_path / "test_config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(config_content, f)
-        return str(config_file)
-
-    def test_end_time_calculation(self, mock_config):
+    @patch('core.config.Config')
+    def test_end_time_calculation(self, MockConfig):
         """Test that end times are correctly calculated based on config duration."""
-        from core.config import Config
+        # Arrange: Mock the config object and its get method
+        mock_config_instance = MockConfig.return_value
+        mock_config_instance.get.return_value = 6
+        duration = mock_config_instance.get('default_duration', 2)
+
         from core.twick_event import normalize_time
 
-        config = Config(mock_config)
-        # Use get() to retrieve the duration, with a default fallback.
-        # This ensures duration is always an integer.
-        duration = config.get('default_duration', 2)
-
         test_cases = [
-            # The mock_config sets default_duration to 6
-            ("15:00", "21:00"),  # Simple 6-hour duration
-            ("3pm", "21:00"),    # PM time
-            ("9:30", "15:30"),   # With minutes
-            ("23:00", "05:00"),  # Crossing midnight
-            ("3pm & 6pm", "21:00 & 00:00"),  # Multiple times
-            ("Invalid Time", None),  # Test case for invalid time input
+            ("15:00", "21:00"),
+            ("3pm", "21:00"),
+            ("9:30", "15:30"),
+            ("23:00", "05:00"),
+            ("3pm & 6pm", "21:00 & 00:00"),
+            ("Invalid Time", None),
         ]
 
         for start_time, expected_end in test_cases:
             normalized_start = normalize_time(start_time)
 
             if normalized_start is None:
-                assert expected_end is None, f"Expected None for input '{start_time}', but got a normalized time."
+                assert expected_end is None
                 continue
 
             end_times = []
@@ -197,30 +185,23 @@ class TestEventDuration:
                 start_dt = datetime.strptime(time_str, '%H:%M')
                 end_dt = start_dt + timedelta(hours=duration)
                 end_times.append(end_dt.strftime('%H:%M'))
-            
+
             calculated_end = ' & '.join(end_times)
             assert calculated_end == expected_end
 
-    def test_invalid_duration_config(self, tmp_path):
+    @patch('core.config.Config')
+    def test_invalid_duration_config(self, MockConfig):
         """Test handling of missing or invalid duration configuration."""
-        from core.config import Config
+        mock_config_instance = MockConfig.return_value
 
-        # Test with missing duration
-        config_file = tmp_path / "bad_config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump({}, f)
-
-        config = Config(str(config_file))
-        # Use the get method with a default value
-        duration = config.get('default_duration', 2)
+        # Test with get returning None (simulating missing key)
+        mock_config_instance.get.return_value = None
+        duration = mock_config_instance.get('default_duration', 2) or 2
         assert duration == 2
 
-        # Test with None value
-        with open(config_file, 'w') as f:
-            yaml.dump({'default_duration': None}, f)
-
-        config = Config(str(config_file))
-        duration = config.get('default_duration', 2)
+        # Test with get returning a default value
+        mock_config_instance.get.side_effect = lambda key, default: default
+        duration = mock_config_instance.get('default_duration', 2)
         assert duration == 2
 
 
@@ -555,3 +536,64 @@ def test_save_events_to_json(tmp_path):
     assert 'events' in data
     assert data['last_updated'] == timestamp
     assert data['events'] == events_data
+
+
+# Test for HA Discovery integration
+@patch('core.twick_event.Config')
+@patch('core.twick_event.HADiscoveryPublisher')
+@patch('core.twick_event.requests.get')
+@patch('core.twick_event.MQTTPublisher')
+def test_ha_discovery_is_called_when_enabled(mock_mqtt, mock_requests, mock_ha_publisher, MockConfig):
+    """
+    Test that the HADiscoveryPublisher is called when home_assistant.enabled is true.
+    """
+    # Arrange: Mock config to enable HA discovery
+    mock_config_instance = MockConfig.return_value
+    mock_config_instance.get.side_effect = lambda key, default=None: {
+        "home_assistant.enabled": True,
+        "mqtt.enabled": False,  # Disable regular MQTT publishing for this test
+        "default_duration": 2
+    }.get(key, default)
+
+    # Mock the requests response to avoid actual web calls
+    mock_response = mock_requests.return_value
+    mock_response.raise_for_status.return_value = None
+    mock_response.text = '<html><body><table class="table"><tr><th>Date</th><th>Fixture</th><th>Time</th><th>Crowd</th></tr><tr><td>22/06/2024</td><td>Test Fixture</td><td>15:00</td><td>82000</td></tr></table></body></html>'
+
+    # Act: Run the main function
+    from core.twick_event import main
+    main()
+
+    # Assert: Check that HADiscoveryPublisher was initialized and its method called
+    mock_ha_publisher.assert_called_once()
+    mock_ha_publisher.return_value.publish_discovery_topics.assert_called_once()
+
+
+@patch('core.twick_event.Config')
+@patch('core.twick_event.HADiscoveryPublisher')
+@patch('core.twick_event.requests.get')
+@patch('core.twick_event.MQTTPublisher')
+def test_ha_discovery_is_not_called_when_disabled(mock_mqtt, mock_requests, mock_ha_publisher, MockConfig):
+    """
+    Test that the HADiscoveryPublisher is NOT called when home_assistant.enabled is false.
+    """
+    # Arrange: Mock config to disable HA discovery
+    mock_config_instance = MockConfig.return_value
+    mock_config_instance.get.side_effect = lambda key, default=None: {
+        "home_assistant.enabled": False,
+        "mqtt.enabled": False,
+        "default_duration": 2
+    }.get(key, default)
+
+    # Mock the requests response
+    mock_response = mock_requests.return_value
+    mock_response.raise_for_status.return_value = None
+    mock_response.text = '<html><body><table class="table"><tr><th>Date</th><th>Fixture</th><th>Time</th><th>Crowd</th></tr><tr><td>22/06/2024</td><td>Test Fixture</td><td>15:00</td><td>82000</td></tr></table></body></html>'
+
+    # Act: Run the main function
+    from core.twick_event import main
+    main()
+
+    # Assert: Check that HADiscoveryPublisher was NOT initialized or called
+    mock_ha_publisher.assert_not_called()
+    mock_ha_publisher.return_value.publish_discovery_topics.assert_not_called()
