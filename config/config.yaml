@@ -1,24 +1,11 @@
 # Event settings
 default_duration: 6 # Duration in hours
-# Default duration of events after start time in hours (e.g., 0.5, 2.75, 4)
-# If another event is due to start after the current event within the dafult
-# duration, the current event will be shortened to make room for the next event.
 
 # MQTT Configuration
 mqtt:
   broker_url: 10.10.10.21
-  broker_port:
-    8883 # Standard MQTT ports:
-    # 1883 : MQTT (unencrypted)
-    # 8883 : MQTT over TLS/SSL
-    # 8884 : MQTT over TLS/SSL (client certificate)
+  broker_port: 8883
   client_id: server
-
-  # Connection security: choose one of:
-  # - 'none': No security (typically port 1883)
-  # - 'username': Username/password only (typically port 1883)
-  # - 'tls': TLS without client authentication (typically port 8883)
-  # - 'tls_with_client_cert': TLS with client certificate (typically port 8884)
   security: "username"
 
   # Authentication settings
@@ -28,10 +15,10 @@ mqtt:
 
   # TLS settings
   tls:
-    ca_cert: null # Path to CA certificate
-    client_cert: null # Path to client certificate (if needed)
-    client_key: null # Path to client key (if needed)
-    verify: false # Verify broker's certificate
+    ca_cert: null
+    client_cert: null
+    client_key: null
+    verify: false
 
   topics:
     next: "twickenham_events/events/next"

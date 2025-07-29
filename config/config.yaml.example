@@ -1,17 +1,57 @@
-# Default event duration
-event_duration: 1
-# Default duration of events after start time in hours (e.g., 0.5, 2.75, 4)
-# If another event is due to start after the current event within the dafult
-# duration, the current event will be shortened to make room for the next event.
+# ==============================================================================
+# Twickenham Events Configuration
+# ==============================================================================
 
+# ------------------------------------------------------------------------------
+# Event Settings
+# ------------------------------------------------------------------------------
+
+# Default duration of events in hours (e.g., 6, 2.5, 0.75).
+# This is used to calculate an event's end time if it's not specified.
+# Note: If another event starts within this duration, the end time will be
+# automatically adjusted to prevent overlaps.
+default_duration: 6
+
+# ------------------------------------------------------------------------------
 # MQTT Configuration
+# ------------------------------------------------------------------------------
 mqtt:
-  broker_url: tcp://broker.hivemq.com
-  broker_port: 1883
-  client_id: my_mqtt_client
-  username: my_username
-  password: my_password
+  # MQTT Broker Connection Details
+  broker_url: "broker.hivemq.com" # Use "mqtt://" or "mqtts://" for TLS
+  broker_port: 1883 # Standard ports: 1883 for unencrypted, 8883 for TLS
+
+  # A unique ID for this client. Some brokers require this to be unique.
+  client_id: "twickenham_events_monitor"
+
+  # Connection security: choose one of:
+  # - 'none': No security (typically port 1883)
+  # - 'username': Username/password only (typically port 1883 or 8883)
+  # - 'tls': TLS without client authentication (typically port 8883)
+  security: "none"
+
+  # --- Authentication Settings ---
+  # Required if security is set to 'username'.
+  auth:
+    username: "my_username"
+    password: "my_password"
+
+  # --- TLS Settings ---
+  # Required for 'tls' security.
+  tls:
+    # Path to the Certificate Authority (CA) certificate file.
+    # If your broker uses a well-known CA, this might not be needed.
+    ca_cert: null # e.g., /path/to/ca.crt
+    # Set to true to verify the broker's server certificate against the CA.
+    verify: true
+
+  # --- MQTT Topics ---
+  # Define the topics where event information will be published.
   topics:
-    next_event: twick_events/next
-    all_upcoming_events: twick_events/all_upcoming
-    errors: twick_events/errors
+    # Topic for the very next upcoming event.
+    next: "twickenham_events/events/next"
+    # Topic for a summary of all events happening on the next event day.
+    next_day_summary: "twickenham_events/events/next_day_summary"
+    # Topic for a JSON object containing all upcoming events.
+    all_upcoming: "twickenham_events/events/all_upcoming"
+    # Topic for publishing any parsing or operational errors.
+    errors: "twickenham_events/events/errors"
