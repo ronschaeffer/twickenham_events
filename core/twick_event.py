@@ -317,7 +317,8 @@ for row in rows[1:]:  # Skip the header row
                 times = start_times_str.split(' & ')
                 for time in times:
                     start = datetime.strptime(time, '%H:%M')
-                    end = start + timedelta(hours=config.default_duration)
+                    duration = config.get('default_duration') or 2
+                    end = start + timedelta(hours=duration)
                     end_time_str = end.strftime('%H:%M')
 
                     events.append({
@@ -467,13 +468,14 @@ def find_next_event_and_summary(summarized_events: list) -> Tuple[Optional[dict]
 
 def process_and_publish_events(events: list, config: Config, timestamp: dict, errors: list) -> None:
     """Process events and publish them via MQTT."""
+    # Provide default values and ensure correct types to prevent errors
     mqtt_settings = {
-        'broker_url': config.config['mqtt']['broker_url'],
-        'broker_port': config.config['mqtt']['broker_port'],
-        'client_id': config.config['mqtt']['client_id'],
-        'security': config.config['mqtt']['security'],
-        'auth': config.config['mqtt'].get('auth'),
-        'tls': config.config['mqtt'].get('tls')
+        'broker_url': str(config.get('mqtt.broker_url', 'localhost')),
+        'broker_port': int(config.get('mqtt.broker_port', 1883)),
+        'client_id': str(config.get('mqtt.client_id', 'twickenham_events_publisher')),
+        'security': str(config.get('mqtt.security', 'none')),
+        'auth': config.get('mqtt.auth'),  # Can be None
+        'tls': config.get('mqtt.tls')      # Can be None
     }
 
     # Find the true next event and its corresponding day summary
@@ -492,34 +494,34 @@ def process_and_publish_events(events: list, config: Config, timestamp: dict, er
     with MQTTPublisher(**mqtt_settings) as publisher:
         # Always publish the full list of all upcoming days
         publisher.publish(
-            config.config['mqtt']['topics']['all_upcoming'], all_upcoming_payload, retain=True)
+            config.get('mqtt.topics.all_upcoming', 'twickenham_events/all_upcoming'), all_upcoming_payload, retain=True)
 
         if next_day_summary:
             # Publish the summary for the day of the next event
             publisher.publish(
-                config.config['mqtt']['topics']['next_day_summary'], next_day_summary_payload, retain=True)
+                config.get('mqtt.topics.next_day_summary', 'twickenham_events/next_day_summary'), next_day_summary_payload, retain=True)
         else:
             # If no upcoming events, clear the summary topic
             publisher.publish(
-                config.config['mqtt']['topics']['next_day_summary'], next_day_summary_payload, retain=True)
+                config.get('mqtt.topics.next_day_summary', 'twickenham_events/next_day_summary'), next_day_summary_payload, retain=True)
 
         if next_individual_event:
             # Publish the very next individual event
             publisher.publish(
-                config.config['mqtt']['topics']['next'], next_individual_event_payload, retain=True)
+                config.get('mqtt.topics.next', 'twickenham_events/next'), next_individual_event_payload, retain=True)
         else:
             # If no specific next event, clear the topic
             publisher.publish(
-                config.config['mqtt']['topics']['next'], next_individual_event_payload, retain=True)
+                config.get('mqtt.topics.next', 'twickenham_events/next'), next_individual_event_payload, retain=True)
 
         # Publish errors if any exist
         if errors:
             publisher.publish(
-                config.config['mqtt']['topics']['errors'], error_payload, retain=True)
+                config.get('mqtt.topics.errors', 'twickenham_events/errors'), error_payload, retain=True)
         else:
             # Optionally, publish an empty message to clear the error topic
             publisher.publish(
-                config.config['mqtt']['topics']['errors'], {'last_updated': timestamp, 'error_count': 0, 'errors': []}, retain=True)
+                config.get('mqtt.topics.errors', 'twickenham_events/errors'), {'last_updated': timestamp, 'error_count': 0, 'errors': []}, retain=True)
 
 
 # Publish events via MQTT using the new function
@@ -533,8 +535,8 @@ print(f"Last updated: {update_timestamp['human']}")
 # Show MQTT connection info
 print("\nMQTT Configuration:")
 print(
-    f"Broker: {config.config['mqtt']['broker_url']}:{config.config['mqtt']['broker_port']}")
-print(f"Security: {config.config['mqtt']['security']}")
+    f"Broker: {config.get('mqtt.broker_url', 'localhost')}:{config.get('mqtt.broker_port', 1883)}")
+print(f"Security: {config.get('mqtt.security', 'none')}")
 
 # Find the true next event again for display purposes
 next_event, _ = find_next_event_and_summary(
