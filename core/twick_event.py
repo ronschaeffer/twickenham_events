@@ -334,46 +334,40 @@ for row in rows[1:]:  # Skip the header row
         error_log.append(f"Error processing row: {row} - {str(e)}")
 
 
-def adjust_end_times(events):
-    """Adjust end times to prevent overlaps between events."""
-    # Sort events by date and start time
+def adjust_end_times(events: list) -> list:
+    """Adjust end times to prevent overlaps between different events on the same day."""
+    if not events:
+        return []
+
+    # Sort events by date and start time to process them chronologically
     sorted_events = sorted(events, key=lambda x: (
         x['date'],
-        # Put events with no start time at end of day
-        x['start_time'] if x['start_time'] else "23:59"
+        x.get('start_time') or "23:59"  # Handle events with no start time
     ))
 
-    for i in range(len(sorted_events) - 1):
-        current = sorted_events[i]
-        next_event = sorted_events[i + 1]
+    # Create a new list to store the adjusted events
+    adjusted_events = [event.copy() for event in sorted_events]
 
-        # Skip if either event has no times
-        if not current['start_time'] or not current['end_time'] or not next_event['start_time']:
+    for i in range(len(adjusted_events) - 1):
+        current_event = adjusted_events[i]
+        next_event = adjusted_events[i + 1]
+
+        # Conditions for skipping adjustment:
+        # 1. Events are not on the same day.
+        # 2. Either event is missing time information.
+        # 3. Both events are for the same fixture (e.g., multiple kick-offs for one match).
+        if (current_event['date'] != next_event['date'] or
+            not current_event.get('start_time') or not current_event.get('end_time') or
+            not next_event.get('start_time') or
+                current_event['fixture'] == next_event['fixture']):
             continue
 
-        # If events are on different dates, no need to adjust
-        if current['date'] != next_event['date']:
-            continue
+        # If the current event's end time overlaps with the next event's start time
+        if current_event['end_time'] > next_event['start_time']:
+            # Adjust the end time of the current event to the start of the next
+            current_event['end_time'] = next_event['start_time']
 
-        # For events with multiple times, use the last end time and first start time
-        current_end_times = current['end_time'].split(' & ')
-        next_start_times = next_event['start_time'].split(' & ')
-
-        current_last_end = current_end_times[-1]
-        next_first_start = next_start_times[0]
-
-        # If current event would overlap with next event
-        if current_last_end > next_first_start:
-            # Adjust all end times of current event if needed
-            adjusted_end_times = []
-            for idx, end_time in enumerate(current_end_times):
-                if end_time > next_first_start:
-                    adjusted_end_times.append(next_first_start)
-                else:
-                    adjusted_end_times.append(end_time)
-            current['end_time'] = ' & '.join(adjusted_end_times)
-
-    return sorted_events
+    return adjusted_events
 
 
 def group_events_by_date(events: list) -> list:

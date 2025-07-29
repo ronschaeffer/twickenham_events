@@ -1,12 +1,19 @@
+from core.twick_event import (
+    normalize_date_range,
+    normalize_time,
+    extract_date_range,
+    validate_crowd_size,
+    group_events_by_date,
+    find_next_event_and_summary,
+)
+import yaml
+from unittest.mock import patch
+from datetime import datetime, timedelta
+import pytest
 import sys
 from pathlib import Path
-import pytest
-from datetime import datetime, timedelta
-import yaml
-
 sys.path.append(str(Path(__file__).parent.parent))
 
-from core.twick_event import normalize_date_range, normalize_time, validate_crowd_size, extract_date_range
 
 # Update the test cases for date ranges
 @pytest.mark.parametrize("input_date,expected_dates", [
@@ -14,12 +21,12 @@ from core.twick_event import normalize_date_range, normalize_time, validate_crow
     ("16 May 2025", ["2025-05-16"]),
     ("Mon 16 May 2025", ["2025-05-16"]),
     ("16th May 2025", ["2025-05-16"]),
-    
+
     # Date range cases now expect list of two dates
     ("16/17 May 2025", ["2025-05-16", "2025-05-17"]),
     ("Weekend 16/17 May 2025", ["2025-05-16", "2025-05-17"]),
     ("Wknd 23/24 May 2025", ["2025-05-23", "2025-05-24"]),
-    
+
     # Invalid cases
     ("Invalid Date", []),
     ("", []),
@@ -29,6 +36,7 @@ def test_date_range_extraction(input_date, expected_dates):
     """Test the extract_date_range function with various inputs."""
     result = extract_date_range(input_date)
     assert result == expected_dates
+
 
 @pytest.mark.parametrize("input_date,expected_date", [
     # Keep existing single date test cases
@@ -94,6 +102,7 @@ def test_normalize_date_range(input_date, expected_date):
     result = normalize_date_range(input_date)
     assert result == expected_date
 
+
 @pytest.mark.parametrize("input_time, expected", [
     ("3pm", "15:00"),
     ("3:30pm", "15:30"),
@@ -123,6 +132,7 @@ def test_normalize_date_range(input_date, expected_date):
 def test_normalize_time(input_time, expected):
     assert normalize_time(input_time) == expected
 
+
 @pytest.mark.parametrize("input_crowd, expected", [
     ("10,000", "10,000"),
     ("10000", "10,000"),
@@ -137,6 +147,8 @@ def test_validate_crowd_size(input_crowd, expected):
     assert validate_crowd_size(input_crowd) == expected
 
 # Add new test class for event duration calculations
+
+
 class TestEventDuration:
     @pytest.fixture
     def mock_config(self, tmp_path):
@@ -153,9 +165,9 @@ class TestEventDuration:
         """Test that end times are correctly calculated based on config duration."""
         from core.config import Config
         from core.twick_event import normalize_time
-        
+
         config = Config(mock_config)
-        
+
         test_cases = [
             ("15:00", "21:00"),  # Simple 6-hour duration
             ("3pm", "21:00"),    # PM time
@@ -179,22 +191,24 @@ class TestEventDuration:
     def test_invalid_duration_config(self, tmp_path):
         """Test handling of missing or invalid duration configuration."""
         from core.config import Config
-        
+
         # Test with missing duration
         config_file = tmp_path / "bad_config.yaml"
         with open(config_file, 'w') as f:
             yaml.dump({}, f)
-        
+
         with pytest.raises(AttributeError) as exc_info:
             config = Config(str(config_file))
             _ = config.default_duration
-        
-        assert "Configuration key 'default_duration' not found" in str(exc_info.value)
+
+        assert "Configuration key 'default_duration' not found" in str(
+            exc_info.value)
+
 
 def test_adjust_end_times():
     """Test that event end times are adjusted to prevent overlaps."""
     from core.twick_event import adjust_end_times
-    
+
     # Test cases for overlapping events - all on same date
     events = [
         {
@@ -212,31 +226,171 @@ def test_adjust_end_times():
             'crowd': '10,000'
         }
     ]
-    
+
     adjusted = adjust_end_times(events)
-    
+
     # Check that end times were adjusted properly
     assert len(adjusted) == 2
-    assert adjusted[0]['end_time'] == '19:00'  # First event shortened to start of second event
+    # First event shortened to start of second event
+    assert adjusted[0]['end_time'] == '19:00'
     assert adjusted[1]['end_time'] == '23:00'  # Last event remains unchanged
 
-    # Test multiple times per event
-    events = [
+    # Test multiple times per event - this logic has been simplified in the main script
+    # The adjust_end_times function now only handles single start/end times per event object.
+    # The main script creates separate event objects for each time.
+    events_multi_time_objects = [
         {
             'date': '2025-02-08',
-            'fixture': 'Event 1',
-            'start_time': '14:00 & 16:00',
-            'end_time': '20:00 & 22:00',  # Both would overlap with next event
+            'fixture': 'Event A',
+            'start_time': '14:00',
+            'end_time': '20:00',
             'crowd': '10,000'
         },
         {
             'date': '2025-02-08',
-            'fixture': 'Event 2',
-            'start_time': '19:00',
+            'fixture': 'Event A',
+            'start_time': '16:00',
+            'end_time': '22:00',  # Overlaps with next
+            'crowd': '10,000'
+        },
+        {
+            'date': '2025-02-08',
+            'fixture': 'Event B',
+            'start_time': '21:00',
             'end_time': '23:00',
             'crowd': '10,000'
         }
     ]
-    
-    adjusted = adjust_end_times(events)
-    assert adjusted[0]['end_time'] == '19:00 & 19:00'  # Both end times adjusted to next event's start
+
+    adjusted = adjust_end_times(events_multi_time_objects)
+    assert len(adjusted) == 3
+    # Does not overlap with its direct successor
+    assert adjusted[0]['end_time'] == '20:00'
+    assert adjusted[1]['end_time'] == '21:00'  # This one is adjusted
+    assert adjusted[2]['end_time'] == '23:00'  # Last one is not adjusted
+
+
+def test_group_events_by_date():
+    """Test that events are correctly grouped into daily summaries."""
+    events = [
+        {'date': '2025-09-27', 'fixture': 'Event 1',
+            'start_time': '12:30', 'end_time': '16:00', 'crowd': '82,000'},
+        {'date': '2025-09-27', 'fixture': 'Event 2',
+            'start_time': '19:00', 'end_time': '22:00', 'crowd': '82,000'},
+        {'date': '2025-10-01', 'fixture': 'Event 3',
+            'start_time': '15:00', 'end_time': '18:00', 'crowd': '50,000'},
+    ]
+
+    grouped = group_events_by_date(events)
+
+    assert len(grouped) == 2
+
+    # Check first day summary
+    day1 = grouped[0]
+    assert day1['date'] == '2025-09-27'
+    assert day1['event_count'] == 2
+    assert day1['earliest_start'] == '12:30'
+    assert day1['latest_end'] == '22:00'
+    assert len(day1['events']) == 2
+    assert day1['events'][0]['fixture'] == 'Event 1'
+    # Date should be removed from individual events
+    assert 'date' not in day1['events'][0]
+
+    # Check second day summary
+    day2 = grouped[1]
+    assert day2['date'] == '2025-10-01'
+    assert day2['event_count'] == 1
+    assert day2['earliest_start'] == '15:00'
+    assert day2['latest_end'] == '18:00'
+    assert len(day2['events']) == 1
+    assert day2['events'][0]['fixture'] == 'Event 3'
+
+
+class TestFindNextEvent:
+    """Tests for the find_next_event_and_summary function."""
+
+    # Some sample summarized data to use in tests
+    sample_summarized_events = [
+        {
+            'date': '2025-07-29',
+            'event_count': 2,
+            'earliest_start': '14:00',
+            'latest_end': '22:00',
+            'events': [
+                {'fixture': 'Past Event 1', 'start_time': '14:00',
+                    'end_time': '16:00', 'crowd': '10,000'},
+                {'fixture': 'Future Event 1', 'start_time': '20:00',
+                    'end_time': '22:00', 'crowd': '10,000'}
+            ]
+        },
+        {
+            'date': '2025-07-30',
+            'event_count': 1,
+            'earliest_start': '18:00',
+            'latest_end': '21:00',
+            'events': [
+                {'fixture': 'Future Event 2', 'start_time': '18:00',
+                    'end_time': '21:00', 'crowd': '20,000'}
+            ]
+        }
+    ]
+
+    @patch('core.twick_event.datetime', wraps=datetime)
+    def test_finds_correct_next_event_same_day(self, mock_dt):
+        """Test it finds the next event when it's later on the same day."""
+        # Mock current time to be 16:00 on 2025-07-29
+        mock_dt.now.return_value = datetime(2025, 7, 29, 16, 0)
+
+        next_event, next_summary = find_next_event_and_summary(
+            self.sample_summarized_events)
+
+        assert next_event is not None
+        assert next_summary is not None
+
+        # Check the individual event payload
+        assert next_event['fixture'] == 'Future Event 1'
+        assert next_event['start_time'] == '20:00'
+        assert next_event['date'] == '2025-07-29'  # Date should be added
+
+        # Check the summary payload
+        assert next_summary['date'] == '2025-07-29'
+        assert next_summary['event_count'] == 2
+
+    @patch('core.twick_event.datetime', wraps=datetime)
+    def test_finds_correct_next_event_next_day(self, mock_dt):
+        """Test it finds the next event when it's on the following day."""
+        # Mock current time to be 23:00 on 2025-07-29 (after all of today's events)
+        mock_dt.now.return_value = datetime(2025, 7, 29, 23, 0)
+
+        next_event, next_summary = find_next_event_and_summary(
+            self.sample_summarized_events)
+
+        assert next_event is not None
+        assert next_summary is not None
+
+        # Check the individual event payload
+        assert next_event['fixture'] == 'Future Event 2'
+        assert next_event['start_time'] == '18:00'
+        assert next_event['date'] == '2025-07-30'
+
+        # Check the summary payload
+        assert next_summary['date'] == '2025-07-30'
+        assert next_summary['event_count'] == 1
+
+    @patch('core.twick_event.datetime', wraps=datetime)
+    def test_returns_none_if_all_events_passed(self, mock_dt):
+        """Test it returns None for both payloads if all events are in the past."""
+        # Mock current time to be 23:00 on 2025-07-30 (after all events)
+        mock_dt.now.return_value = datetime(2025, 7, 30, 23, 0)
+
+        next_event, next_summary = find_next_event_and_summary(
+            self.sample_summarized_events)
+
+        assert next_event is None
+        assert next_summary is None
+
+    def test_handles_no_events(self):
+        """Test it handles an empty list of events gracefully."""
+        next_event, next_summary = find_next_event_and_summary([])
+        assert next_event is None
+        assert next_summary is None
