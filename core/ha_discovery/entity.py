@@ -20,7 +20,7 @@ class Sensor:
         """Returns the discovery topic for this sensor."""
         return f"{discovery_prefix}/{self.component}/{self.unique_id}/config"
 
-    def get_config_payload(self):
+    def get_config_payload(self, device_info):
         """Returns the configuration payload for this sensor as a JSON string."""
         payload = {
             "name": self.name,
@@ -30,5 +30,6 @@ class Sensor:
             "json_attributes_topic": self.json_attributes_topic,
             "json_attributes_template": self.json_attributes_template,
             "icon": self.icon,
+            "device": device_info  # Add the device block
         }
         return json.dumps(payload)

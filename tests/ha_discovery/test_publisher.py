@@ -30,17 +30,24 @@ def mock_config(tmp_path):
 @pytest.fixture
 def mock_entities_file(tmp_path):
     """Creates a mock entities YAML file for testing."""
-    entities_content = [
-        {
-            "name": "Test Sensor 1",
-            "unique_id": "test_sensor_01",
-            "state_topic": "test/sensor1/state",
-            "value_template": "{{ value_json.val1 }}",
-            "json_attributes_topic": "test/sensor1/attr",
-            "json_attributes_template": "{{ value_json | tojson }}",
-            "icon": "mdi:test-tube"
-        }
-    ]
+    entities_content = {
+        "device": {
+            "identifiers": ["test_device_01"],
+            "name": "Test Device",
+            "manufacturer": "Test Corp"
+        },
+        "sensors": [
+            {
+                "name": "Test Sensor 1",
+                "unique_id": "test_sensor_01",
+                "state_topic": "test/sensor1/state",
+                "value_template": "{{ value_json.val1 }}",
+                "json_attributes_topic": "test/sensor1/attr",
+                "json_attributes_template": "{{ value_json | tojson }}",
+                "icon": "mdi:test-tube"
+            }
+        ]
+    }
     entities_file = tmp_path / "test_entities.yaml"
     with open(entities_file, 'w') as f:
         yaml.dump(entities_content, f)
