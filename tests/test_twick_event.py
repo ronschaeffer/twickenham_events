@@ -415,7 +415,8 @@ class TestMQTTPayloads:
                 'topics': {
                     'all_upcoming': 'test/all',
                     'next_day_summary': 'test/summary',
-                    'next': 'test/next'
+                    'next': 'test/next',
+                    'errors': 'test/errors'
                 }
             }
         }
@@ -439,19 +440,20 @@ class TestMQTTPayloads:
 
         # Call the function
         process_and_publish_events(
-            summarized_events, mock_config, timestamp)
+            summarized_events, mock_config, timestamp, [])
 
         # Get the mock publisher instance
         publisher_instance = mock_publisher.return_value.__enter__.return_value
 
         # Check the calls to publish
         calls = publisher_instance.publish.call_args_list
-        assert len(calls) == 3
+        assert len(calls) == 4
 
         # Extract payloads
         all_payload = calls[0][0][1]
         summary_payload = calls[1][0][1]
         next_payload = calls[2][0][1]
+        error_payload = calls[3][0][1]
 
         # Assert timestamp and data keys are present
         assert 'last_updated' in all_payload
@@ -468,6 +470,11 @@ class TestMQTTPayloads:
         assert next_payload['last_updated'] == timestamp
         assert next_payload['event'] == next_event
 
+        # Assert that the error payload is empty
+        assert 'last_updated' in error_payload
+        assert error_payload['error_count'] == 0
+        assert error_payload['errors'] == []
+
     @patch('core.twick_event.MQTTPublisher')
     @patch('core.twick_event.find_next_event_and_summary')
     def test_payload_structure_no_events(self, mock_find_next, mock_publisher, mock_config):
@@ -476,16 +483,17 @@ class TestMQTTPayloads:
                      'human': 'Tuesday, 29 July 2025 at 12:00'}
         mock_find_next.return_value = (None, None)
 
-        process_and_publish_events([], mock_config, timestamp)
+        process_and_publish_events([], mock_config, timestamp, [])
 
         publisher_instance = mock_publisher.return_value.__enter__.return_value
         calls = publisher_instance.publish.call_args_list
-        assert len(calls) == 3
+        assert len(calls) == 4
 
         # Extract payloads
         all_payload = calls[0][0][1]
         summary_payload = calls[1][0][1]
         next_payload = calls[2][0][1]
+        error_payload = calls[3][0][1]
 
         # Assert structure for "all" topic (still has timestamp)
         assert 'last_updated' in all_payload
@@ -500,6 +508,13 @@ class TestMQTTPayloads:
         assert 'last_updated' in next_payload
         assert 'event' in next_payload
         assert next_payload['event'] == {}
+
+        # Assert structure for cleared errors
+        assert 'last_updated' in error_payload
+        assert 'error_count' in error_payload
+        assert 'errors' in error_payload
+        assert error_payload['error_count'] == 0
+        assert error_payload['errors'] == []
 
 
 def test_save_events_to_json(tmp_path):

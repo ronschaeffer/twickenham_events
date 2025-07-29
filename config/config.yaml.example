@@ -14,3 +14,4 @@ mqtt:
   topics:
     next_event: twick_events/next
     all_upcoming_events: twick_events/all_upcoming
+    errors: twick_events/errors

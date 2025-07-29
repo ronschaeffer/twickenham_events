@@ -465,7 +465,7 @@ def find_next_event_and_summary(summarized_events: list) -> Tuple[Optional[dict]
     return None, None
 
 
-def process_and_publish_events(events: list, config: Config, timestamp: dict) -> None:
+def process_and_publish_events(events: list, config: Config, timestamp: dict, errors: list) -> None:
     """Process events and publish them via MQTT."""
     mqtt_settings = {
         'broker_url': config.config['mqtt']['broker_url'],
@@ -486,6 +486,8 @@ def process_and_publish_events(events: list, config: Config, timestamp: dict) ->
                                 'summary': next_day_summary} if next_day_summary else {'last_updated': timestamp, 'summary': {}}
     next_individual_event_payload = {
         'last_updated': timestamp, 'event': next_individual_event} if next_individual_event else {'last_updated': timestamp, 'event': {}}
+    error_payload = {'last_updated': timestamp,
+                     'error_count': len(errors), 'errors': errors}
 
     with MQTTPublisher(**mqtt_settings) as publisher:
         # Always publish the full list of all upcoming days
@@ -510,9 +512,19 @@ def process_and_publish_events(events: list, config: Config, timestamp: dict) ->
             publisher.publish(
                 config.config['mqtt']['topics']['next'], next_individual_event_payload, retain=True)
 
+        # Publish errors if any exist
+        if errors:
+            publisher.publish(
+                config.config['mqtt']['topics']['errors'], error_payload, retain=True)
+        else:
+            # Optionally, publish an empty message to clear the error topic
+            publisher.publish(
+                config.config['mqtt']['topics']['errors'], {'last_updated': timestamp, 'error_count': 0, 'errors': []}, retain=True)
+
 
 # Publish events via MQTT using the new function
-process_and_publish_events(summarized_events, config, update_timestamp)
+process_and_publish_events(
+    summarized_events, config, update_timestamp, error_log)
 
 # Display output
 print("\n=== Twickenham Stadium Events ===")
