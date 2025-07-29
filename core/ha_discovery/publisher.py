@@ -24,7 +24,7 @@ class HADiscoveryPublisher:
 
     def publish_discovery_topics(self):
         """Publishes the discovery topics for all configured entities."""
-        if not self.config.get('home_assistant.enabled', False):
+        if not self.config.get('home_assistant.enabled', False) or not self.entities:
             return
 
         discovery_prefix = self.config.get(
