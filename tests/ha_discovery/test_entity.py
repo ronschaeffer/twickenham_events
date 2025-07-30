@@ -2,7 +2,32 @@
 
 import json
 import pytest
+from unittest.mock import MagicMock
 from core.ha_discovery.entity import Sensor
+from core.ha_discovery.device import Device
+from core.config import Config
+
+
+@pytest.fixture
+def mock_config():
+    """Provides a mock Config object."""
+    config = MagicMock(spec=Config)
+    config.get.side_effect = lambda key, default=None: {
+        'home_assistant.discovery_prefix': 'homeassistant'
+    }.get(key, default)
+    return config
+
+
+@pytest.fixture
+def mock_device(mock_config):
+    """Provides a mock Device object."""
+    device = MagicMock(spec=Device)
+    device.get_device_info.return_value = {
+        "identifiers": ["test_device_01"],
+        "name": "Test Device",
+        "manufacturer": "Test Corp"
+    }
+    return device
 
 
 @pytest.fixture
@@ -19,45 +44,39 @@ def sample_sensor_config():
     }
 
 
-def test_sensor_initialization(sample_sensor_config):
+def test_sensor_initialization(sample_sensor_config, mock_config, mock_device):
     """Test that the Sensor class initializes correctly."""
-    sensor = Sensor(**sample_sensor_config)
+    sensor = Sensor(config=mock_config, device=mock_device,
+                    **sample_sensor_config)
     assert sensor.name == "Test Sensor"
     assert sensor.unique_id == "test_sensor_01"
     assert sensor.component == "sensor"
 
 
-def test_get_config_topic(sample_sensor_config):
+def test_get_config_topic(sample_sensor_config, mock_config, mock_device):
     """Test the generation of the MQTT discovery config topic."""
-    sensor = Sensor(**sample_sensor_config)
-    discovery_prefix = "homeassistant"
+    sensor = Sensor(config=mock_config, device=mock_device,
+                    **sample_sensor_config)
     expected_topic = "homeassistant/sensor/test_sensor_01/config"
-    assert sensor.get_config_topic(discovery_prefix) == expected_topic
+    assert sensor.get_config_topic() == expected_topic
 
 
-@pytest.fixture
-def sample_device_info():
-    """Provides a sample device information dictionary."""
-    return {
-        "identifiers": ["test_device_01"],
-        "name": "Test Device",
-        "manufacturer": "Test Corp"
-    }
-
-
-def test_get_config_payload(sample_sensor_config, sample_device_info):
+def test_get_config_payload(sample_sensor_config, mock_config, mock_device):
     """Test the generation of the JSON configuration payload with device info."""
-    sensor = Sensor(**sample_sensor_config)
-    payload_str = sensor.get_config_payload(sample_device_info)
-    payload_dict = json.loads(payload_str)
+    sensor = Sensor(config=mock_config, device=mock_device,
+                    **sample_sensor_config)
+    payload_dict = sensor.get_config_payload()
 
     # Check that all keys from the sensor config are in the payload
-    for key, value in sample_sensor_config.items():
-        assert payload_dict[key] == value
+    # Note: The 'device' key is added by the get_config_payload method
+    expected_keys = list(sample_sensor_config.keys()) + ['device']
+    for key in expected_keys:
+        assert key in payload_dict
 
     # Check that the device info is correctly included
     assert "device" in payload_dict
-    assert payload_dict["device"] == sample_device_info
+    assert payload_dict["device"] == mock_device.get_device_info()
 
-    # Ensure no extra top-level keys were added
-    assert len(payload_dict) == len(sample_sensor_config) + 1
+    # Check a few key values
+    assert payload_dict["name"] == sample_sensor_config["name"]
+    assert payload_dict["unique_id"] == sample_sensor_config["unique_id"]

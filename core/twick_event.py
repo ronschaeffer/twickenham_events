@@ -7,7 +7,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Optional, Tuple
 
 import requests
@@ -23,83 +23,7 @@ error_log = []
 
 # --- Data Parsing and Normalization Functions ---
 
-def extract_date_range(date_str: str) -> list[str]:
-    """Extract multiple dates from a range string like '16/17 May 2025' or single date."""
-    if not isinstance(date_str, str) or not date_str.strip():
-        return []
-
-    cleaned = date_str.strip()
-    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned,
-                     flags=re.IGNORECASE).strip()
-
-    range_match = re.match(r'(\d{1,2})/(\d{1,2})\s+(\w+)\s+(\d{4})', cleaned)
-    if range_match:
-        day1, day2, month, year = range_match.groups()
-        try:
-            date1 = datetime.strptime(f"{day1} {month} {year}", '%d %B %Y')
-            date2 = datetime.strptime(f"{day2} {month} {year}", '%d %B %Y')
-            return [date1.strftime('%Y-%m-%d'), date2.strftime('%Y-%m-%d')]
-        except ValueError:
-            try:
-                date1 = datetime.strptime(f"{day1} {month} {year}", '%d %b %Y')
-                date2 = datetime.strptime(f"{day2} {month} {year}", '%d %b %Y')
-                return [date1.strftime('%Y-%m-%d'), date2.strftime('%Y-%m-%d')]
-            except ValueError:
-                return []
-
-    result = normalize_date_range(date_str)
-    return [result] if result else []
-
-
-def normalize_date_range(date_str: str) -> Optional[str]:
-    """Normalize date strings to YYYY-MM-DD."""
-    if not isinstance(date_str, str) or not date_str.strip():
-        return None
-
-    cleaned = date_str.strip()
-    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned,
-                     flags=re.IGNORECASE).strip()
-    weekday_pattern = r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+'
-    cleaned = re.sub(weekday_pattern, '', cleaned, flags=re.IGNORECASE).strip()
-    cleaned = re.sub(r'(\d+)(st|nd|rd|th)', r'\1',
-                     cleaned, flags=re.IGNORECASE)
-
-    numeric_patterns = [
-        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{4})', '%d/%m/%Y'),
-        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2})', '%d/%m/%y'),
-    ]
-    for pattern, fmt in numeric_patterns:
-        match = re.match(pattern, cleaned)
-        if match:
-            try:
-                groups = match.groups()
-                date_obj = datetime.strptime(
-                    f"{groups[0]}/{groups[1]}/{groups[2]}", fmt)
-                if '%y' in fmt and date_obj.year < 2000:
-                    date_obj = date_obj.replace(year=date_obj.year + 100)
-                return date_obj.strftime('%Y-%m-%d')
-            except ValueError:
-                continue
-
-    formats = [
-        '%d %B %Y', '%d %b %Y', '%e %B %Y', '%e %b %Y', '%d-%b-%Y', '%d-%b-%y',
-        '%d/%m/%Y', '%d/%m/%y', '%d-%m-%Y', '%d-%m-%y', '%d.%m.%Y', '%d.%m.%y',
-        '%d %b %y', '%d %B %y',
-    ]
-    for fmt in formats:
-        try:
-            date_obj = datetime.strptime(cleaned, fmt)
-            if '%y' in fmt and date_obj.year < 2000:
-                date_obj = date_obj.replace(year=date_obj.year + 100)
-            return date_obj.strftime('%Y-%m-%d')
-        except ValueError:
-            continue
-
-    error_log.append(f"Failed to parse date: '{date_str}'")
-    return None
-
-
-def normalize_time(time_str: str) -> Optional[str]:
+def normalize_time(time_str: Optional[str]) -> Optional[str]:
     """Normalize time format, handling multiple times separated by '&'."""
     if not time_str or time_str.lower() == 'tbc':
         return None
@@ -107,6 +31,7 @@ def normalize_time(time_str: str) -> Optional[str]:
     time_str = time_str.lower().replace('noon', '12:00pm')
     time_str = re.sub(r'\s*\(tbc\)', '', time_str, flags=re.IGNORECASE)
     time_str = time_str.replace('.', ':')
+    time_str = time_str.replace(' and ', ' & ')
 
     time_patterns = re.findall(
         r'\b\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b', time_str, re.IGNORECASE)
@@ -150,7 +75,51 @@ def normalize_time(time_str: str) -> Optional[str]:
     return ' & '.join(sorted(converted_times)) if converted_times else None
 
 
-def validate_crowd_size(crowd_str: str) -> Optional[str]:
+def fetch_events(url: Optional[str]) -> list[dict]:
+    """
+    Fetches events from the Twickenham Stadium website.
+
+    Args:
+        url (str): The URL to scrape for events.
+
+    Returns:
+        list[dict]: A list of raw event data dictionaries.
+    """
+    if not url:
+        error_log.append(
+            "Configuration error: 'scraping.url' is not set in the config file.")
+        return []
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        error_log.append(f"Failed to fetch URL {url}: {e}")
+        return []
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    # --- Richmond.gov.uk specific parsing ---
+    event_tables = soup.find_all('table', class_='table')
+    raw_events = []
+
+    for table in event_tables:
+        caption = table.find('caption')
+        if not caption or 'events at twickenham stadium' not in caption.text.lower():
+            continue
+
+        for row in table.find_all('tr')[1:]:  # Skip header row
+            cols = row.find_all('td')
+            if len(cols) >= 3:
+                raw_events.append({
+                    'date': cols[0].text.strip(),
+                    'title': cols[1].text.strip(),
+                    'time': cols[2].text.strip(),
+                    'crowd': cols[3].text.strip() if len(cols) > 3 else None
+                })
+    return raw_events
+
+
+def validate_crowd_size(crowd_str: Optional[str]) -> Optional[str]:
     """Validates and formats the crowd size string."""
     if not crowd_str or not isinstance(crowd_str, str):
         return None
@@ -182,300 +151,242 @@ def validate_crowd_size(crowd_str: str) -> Optional[str]:
         return None
 
 
-# --- Event Processing Functions ---
+def find_next_event_and_summary(summarized_events: list, today: Optional[date] = None) -> Tuple[Optional[dict], Optional[dict]]:
+    """
+    Finds the very next event and a summary of all events on that same day.
+    """
+    if today is None:
+        today = datetime.now().date()
 
-def adjust_end_times(events: list) -> list:
-    """Adjust end times to prevent overlaps between different events on the same day."""
-    if not events:
+    future_events = [
+        event for event in summarized_events
+        if datetime.strptime(event['date'], '%Y-%m-%d').date() >= today
+    ]
+
+    if not future_events:
+        return None, None
+
+    # Sort by date, then by start time (handling None)
+    future_events.sort(key=lambda x: (
+        x['date'], x.get('earliest_start') or '23:59'))
+
+    next_event_day = future_events[0]
+    next_event_date = next_event_day['date']
+
+    # Find the very next individual event item
+    next_individual_event = None
+    for event_item in sorted(next_event_day['events'], key=lambda x: x.get('start_time') or '23:59'):
+        # Check if the event's start time is in the future if it's today
+        if next_event_date == today.strftime('%Y-%m-%d'):
+            if event_item.get('start_time') and datetime.strptime(event_item['start_time'], '%H:%M').time() >= datetime.now().time():
+                next_individual_event = event_item
+                break
+        else:
+            next_individual_event = event_item
+            break
+
+    # If no specific event is found for today (e.g., all have passed), default to the first one
+    if not next_individual_event and next_event_day['events']:
+        next_individual_event = next_event_day['events'][0]
+
+    return next_individual_event, next_event_day
+
+
+def extract_date_range(date_str: str) -> list[str]:
+    """Extract multiple dates from a range string like '16/17 May 2025' or single date."""
+    if not isinstance(date_str, str) or not date_str.strip():
         return []
 
-    sorted_events = sorted(events, key=lambda x: (
-        x['date'], x.get('start_time') or "23:59"))
-    adjusted_events = [event.copy() for event in sorted_events]
+    cleaned = date_str.strip()
+    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned,
+                     flags=re.IGNORECASE).strip()
 
-    for i in range(len(adjusted_events) - 1):
-        current_event = adjusted_events[i]
-        next_event = adjusted_events[i + 1]
+    range_match = re.match(r'(\d{1,2})/(\d{1,2})\s+(\w+)\s+(\d{4})', cleaned)
+    if range_match:
+        day1, day2, month, year = range_match.groups()
+        try:
+            date1 = datetime.strptime(f"{day1} {month} {year}", '%d %B %Y')
+            date2 = datetime.strptime(f"{day2} {month} {year}", '%d %B %Y')
+            return [date1.strftime('%Y-%m-%d'), date2.strftime('%Y-%m-%d')]
+        except ValueError:
+            try:
+                date1 = datetime.strptime(f"{day1} {month} {year}", '%d %b %Y')
+                date2 = datetime.strptime(f"{day2} {month} {year}", '%d %b %Y')
+                return [date1.strftime('%Y-%m-%d'), date2.strftime('%Y-%m-%d')]
+            except ValueError:
+                return []
 
-        if (current_event['date'] != next_event['date'] or
-            not all(k in current_event and current_event[k] for k in ['start_time', 'end_time']) or
-            not next_event.get('start_time') or
-                current_event['fixture'] == next_event['fixture']):
+    result = normalize_date_range(date_str)
+    return [result] if result else []
+
+
+def normalize_date_range(date_str: str) -> Optional[str]:
+    """Normalize date strings to YYYY-MM-DD."""
+    if not isinstance(date_str, str) or not date_str.strip():
+        return None
+
+    cleaned = date_str.strip()
+    cleaned = re.sub(r'\b(Weekend|Wknd)\b', '', cleaned,
+                     flags=re.IGNORECASE).strip()
+
+    # Handle date ranges like '16/17 May 2025' by taking the first day.
+    range_match = re.match(r'(\d{1,2})/\d{1,2}\s+(.*)', cleaned)
+    if range_match:
+        cleaned = f"{range_match.group(1)} {range_match.group(2)}"
+
+    weekday_pattern = r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+'
+    cleaned = re.sub(weekday_pattern, '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'(\d+)(st|nd|rd|th)', r'\1',
+                     cleaned, flags=re.IGNORECASE)
+
+    # Replace dots with slashes for numeric patterns
+    cleaned = cleaned.replace('.', '/')
+
+    numeric_patterns = [
+        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{4})', '%d/%m/%Y'),
+        (r'(\d{1,2})\s*[-/]\s*(\d{1,2})\s*[-/]\s*(\d{2})', '%d/%m/%y'),
+    ]
+    for pattern, fmt in numeric_patterns:
+        match = re.match(pattern, cleaned)
+        if match:
+            try:
+                groups = match.groups()
+                date_obj = datetime.strptime(
+                    f"{groups[0]}/{groups[1]}/{groups[2]}", fmt)
+                if '%y' in fmt and date_obj.year < 2000:
+                    date_obj = date_obj.replace(year=date_obj.year + 100)
+                return date_obj.strftime('%Y-%m-%d')
+            except ValueError:
+                continue
+
+    formats = [
+        '%d %B %Y', '%d %b %Y', '%e %B %Y', '%e %b %Y', '%d-%b-%Y', '%d-%b-%y',
+        '%d/%m/%Y', '%d/%m/%y', '%d-%m-%Y', '%d-%m-%y',
+        '%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%Y/%m/%d', '%Y/%m/%d %H:%M:%S',
+        '%d %B, %Y', '%d %b, %Y', '%B %d, %Y', '%b %d, %Y',
+        '%d %B %Y %H:%M', '%d %b %Y %H:%M', '%Y-%m-%dT%H:%M:%S',
+        '%Y-%m-%d %H:%M', '%Y/%m/%d %H:%M',
+        '%d %b %y', '%d %B %y'
+    ]
+    for fmt in formats:
+        try:
+            date_obj = datetime.strptime(cleaned, fmt)
+            if '%y' in fmt and date_obj.year < 1900:  # Handle 2-digit years
+                date_obj = date_obj.replace(year=date_obj.year + 2000)
+            return date_obj.strftime('%Y-%m-%d')
+        except ValueError:
             continue
 
-        if current_event['end_time'] > next_event['start_time']:
-            current_event['end_time'] = next_event['start_time']
-
-    return adjusted_events
+    return None
 
 
-def group_events_by_date(events: list) -> list:
-    """Group events by date and create a daily summary."""
-    grouped = {}
-    for event in events:
-        date = event.pop('date')
-        if date not in grouped:
-            grouped[date] = []
-        grouped[date].append(event)
+# --- Event Processing and Publishing Functions ---
 
-    daily_summaries = []
-    for date, daily_events in grouped.items():
-        sorted_daily_events = sorted(
-            daily_events, key=lambda x: x.get('start_time') or "23:59")
-        start_times = [e['start_time']
-                       for e in sorted_daily_events if e.get('start_time')]
-        end_times = [e['end_time']
-                     for e in sorted_daily_events if e.get('end_time')]
-        daily_summaries.append({
-            'date': date,
-            'event_count': len(sorted_daily_events),
-            'earliest_start': min(start_times) if start_times else None,
-            'latest_end': max(end_times) if end_times else None,
-            'events': sorted_daily_events
-        })
-    return sorted(daily_summaries, key=lambda x: x['date'])
+def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher, config: Config):
+    """
+    Processes summarized event data and publishes it to relevant MQTT topics.
+    Also publishes status information.
+    """
+    today = datetime.now().date()
+    next_event, next_day_summary = find_next_event_and_summary(
+        summarized_events, today)
 
+    timestamp = {'iso': datetime.now().isoformat(
+    ), 'human': datetime.now().strftime('%A, %d %B %Y at %H:%M')}
 
-def find_next_event_and_summary(summarized_events: list) -> Tuple[Optional[dict], Optional[dict]]:
-    """Finds the very next individual event and its corresponding day summary."""
-    now = datetime.now()
-    for day_summary in summarized_events:
-        for event in day_summary['events']:
-            if event.get('start_time'):
-                event_datetime = datetime.strptime(
-                    f"{day_summary['date']} {event['start_time']}", '%Y-%m-%d %H:%M')
-                if event_datetime > now:
-                    next_event_payload = event.copy()
-                    next_event_payload['date'] = day_summary['date']
-                    return next_event_payload, day_summary
-    return None, None
-
-
-# --- I/O and Publishing Functions ---
-
-def save_events_to_json(events_data: list, timestamp: dict, directory: str) -> None:
-    """Saves the processed events to a JSON file with a timestamp."""
-    os.makedirs(directory, exist_ok=True)
-    output_path = os.path.join(directory, 'upcoming_events.json')
-    with open(output_path, 'w') as f:
-        json.dump({'last_updated': timestamp,
-                  'events': events_data}, f, indent=4)
-
-
-def process_and_publish_events(summarized_events: list, config: Config, timestamp: dict, errors: list, publisher: MQTTPublisher) -> None:
-    """Process events and publish them via MQTT."""
-    next_individual_event, next_day_summary = find_next_event_and_summary(
-        summarized_events)
-    all_upcoming_payload = {
-        'last_updated': timestamp, 'events': summarized_events}
-    next_day_summary_payload = {
-        'last_updated': timestamp, 'summary': next_day_summary or {}}
-    next_individual_event_payload = {
-        'last_updated': timestamp, 'event': next_individual_event or {}}
-
-    # --- Status Sensor Payload ---
-    status_topic = config.get('mqtt.topics.status')
-    if status_topic:
-        attributes_topic = f"{status_topic}/attributes"
-
-        has_errors = bool(errors)
-        status_payload = "ON" if has_errors else "OFF"
-
-        now_iso = timestamp['iso']
-
-        attributes_payload = {
-            "last_updated": now_iso,
-            "error_count": len(errors),
-            "errors": errors,
-            "events_found": bool(summarized_events),
-            "last_success": now_iso if not has_errors else None,
-            "last_error": now_iso if has_errors else None,
-        }
-
-        print("\nPublishing event and status topics to MQTT...")
-        # Publish status
-        publisher.publish(str(status_topic), status_payload, retain=True)
-        publisher.publish(attributes_topic, json.dumps(
-            attributes_payload), retain=True)
-    else:
-        print("\nPublishing event topics to MQTT...")
-
+    # Publish to event topics
     publisher.publish(
-        str(config.get('mqtt.topics.all_upcoming')), json.dumps(all_upcoming_payload), retain=True)
-    publisher.publish(str(config.get('mqtt.topics.next_day_summary')),
-                      json.dumps(next_day_summary_payload), retain=True)
-    publisher.publish(str(config.get('mqtt.topics.next')),
-                      json.dumps(next_individual_event_payload), retain=True)
+        config.get('mqtt.topics.all_upcoming'),
+        json.dumps({'last_updated': timestamp, 'events': summarized_events})
+    )
+    publisher.publish(
+        config.get('mqtt.topics.next_day_summary'),
+        json.dumps({'last_updated': timestamp, 'summary': next_day_summary})
+    )
+    publisher.publish(
+        config.get('mqtt.topics.next'),
+        json.dumps({'last_updated': timestamp, 'event': next_event})
+    )
 
-
-def display_summary(summarized_events: list, timestamp: dict, config: Config, errors: list) -> None:
-    """Displays the final summary to the console."""
-    print("\n=== Event Summary ===")
-    print(f"Last updated: {timestamp['human']}")
-
-    next_event, _ = find_next_event_and_summary(summarized_events)
-    if next_event:
-        print("\n=== Next Event ===")
-        print(f"{'Date:':<12} {next_event['date']}")
-        print(f"{'Fixture:':<12} {next_event['fixture']}")
-        print(f"{'Start Time:':<12} {next_event.get('start_time', 'TBC')}")
-        print(f"{'End Time:':<12} {next_event.get('end_time', 'TBC')}")
-        print(f"{'Crowd:':<12} {next_event.get('crowd', 'TBC')}")
-    else:
-        print("\nNo upcoming events found or all have passed.")
-
-    if summarized_events:
-        total_events = sum(day['event_count'] for day in summarized_events)
-        print(f"\n=== All Upcoming Events ({total_events} total) ===")
-        for day in summarized_events:
-            day_info = f"Date: {day['date']} ({day['event_count']} event(s))"
-            if day['event_count'] > 1:
-                time_window = f"{day.get('earliest_start', 'TBC')} - {day.get('latest_end', 'TBC')}"
-                print(f"\n{day_info} | {time_window}")
-                for event in day['events']:
-                    time_info = f"{event.get('start_time', 'TBC')} - {event.get('end_time', 'TBC')}"
-                    print(
-                        f"  - {time_info:<15} | {event['fixture']:<40} | {event.get('crowd', 'TBC')}")
-            else:
-                event = day['events'][0]
-                time_info = f"{event.get('start_time', 'TBC')} - {event.get('end_time', 'TBC')}"
-                print(
-                    f"{day_info} | {time_info:<15} | {event['fixture']:<40} | {event.get('crowd', 'TBC')}")
-
-    if errors:
-        print(f"\n=== Errors ({len(errors)}) ===")
-        for error in errors:
-            print(f"- {error}")
-    else:
-        print("\nNo parsing errors found.")
-
-    print("\n=== Processing Complete ===")
-
-
-# --- Main Execution ---
-
-def main():
-    """Main function to fetch, process, and publish Twickenham event data."""
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    config_path = os.path.join(base_dir, 'config', 'config.yaml')
-    config = Config(config_path=config_path)
-    http_error = None
-    events = []
-    summarized_events = []
-
-    # --- Web Scraping ---
-    url = 'https://www.richmond.gov.uk/services/parking/cpz/twickenham_events'
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        table_rows = soup.select("table.table tr")
-        if not table_rows:
-            error_log.append("No event table found on the webpage.")
-        else:
-            # --- Data Processing ---
-            headers = [th.text.strip().lower()
-                       for th in table_rows[0].find_all('th')]
-            header_aliases = {'date': ['date'], 'fixture': ['fixture'], 'time': [
-                'kick off', 'time'], 'crowd': ['crowd', 'attendance']}
-            header_map = {key: next((headers.index(alias) for alias in aliases if alias in headers), -1)
-                          for key, aliases in header_aliases.items()}
-
-            if any(idx == -1 for idx in header_map.values()):
-                missing = [key for key, idx in header_map.items() if idx == -1]
-                error_log.append(
-                    f"Missing required columns in table headers: {missing}")
-            else:
-                for row in table_rows[1:]:
-                    cols = row.find_all('td')
-                    if len(cols) < len(headers):
-                        error_log.append(
-                            f"Skipping row due to insufficient columns: {row}")
-                        continue
-
-                    try:
-                        date_text = cols[header_map['date']].text
-                        fixture = cols[header_map['fixture']].text.strip()
-                        time_str = cols[header_map['time']].text.strip()
-                        crowd_str = cols[header_map['crowd']].text.strip()
-
-                        dates = extract_date_range(date_text)
-                        if not dates:
-                            dates = [d for d in [
-                                normalize_date_range(date_text)] if d]
-
-                        for date in dates:
-                            start_times = normalize_time(time_str)
-                            if start_times:
-                                for time in start_times.split(' & '):
-                                    start = datetime.strptime(time, '%H:%M')
-                                    duration = int(str(config.get(
-                                        'default_duration', 2)))
-                                    end = start + timedelta(hours=duration)
-                                    events.append({
-                                        'date': date, 'fixture': fixture, 'start_time': time,
-                                        'end_time': end.strftime('%H:%M'), 'crowd': validate_crowd_size(crowd_str)
-                                    })
-                            else:
-                                events.append({
-                                    'date': date, 'fixture': fixture, 'start_time': None,
-                                    'end_time': None, 'crowd': validate_crowd_size(crowd_str)
-                                })
-                    except Exception as e:
-                        error_log.append(
-                            f"Error processing row: {row} - {str(e)}")
-    except requests.RequestException as e:
-        http_error = f"Error fetching webpage: {e}"
-        error_log.append(http_error)
-
-    update_timestamp = {
-        'iso': datetime.now().isoformat(),
-        'human': datetime.now().strftime('%A, %d %B %Y at %H:%M')
+    # Publish to status topic
+    errors = error_log
+    status_payload = {
+        'status': 'ok' if not errors else 'error',
+        'last_updated': timestamp['iso'],
+        'event_count': len(summarized_events),
+        'error_count': len(errors),
+        'errors': errors
     }
 
-    # --- Final Processing and Publishing ---
-    if events:
-        upcoming_events = [e for e in events if datetime.strptime(
-            e['date'], '%Y-%m-%d').date() >= datetime.now().date()]
-        adjusted_events = adjust_end_times(upcoming_events)
-        summarized_events = group_events_by_date(adjusted_events)
+    status_topic = config.get('mqtt.topics.status')
+    attributes_topic = f"{status_topic}/attributes"
 
-    output_dir = os.path.join(base_dir, 'output')
-    save_events_to_json(summarized_events, update_timestamp, output_dir)
-
-    # --- Home Assistant Discovery & MQTT Publishing ---
-    if config.get('mqtt.enabled', False):
-        mqtt_settings = {
-            'broker_url': str(config.get('mqtt.broker_url')),
-            'broker_port': int(str(config.get('mqtt.broker_port', 1883))),
-            'client_id': str(config.get('mqtt.client_id', 'twickenham_events_publisher')),
-            'security': str(config.get('mqtt.security', 'none')),
-            'auth': config.get('mqtt.auth'),
-            'tls': config.get('mqtt.tls')
-        }
-        with MQTTPublisher(**mqtt_settings) as publisher:
-            if config.get('home_assistant.enabled', False):
-                print(
-                    "Home Assistant integration enabled. Publishing discovery topics...")
-                publish_discovery_configs(config, publisher)
-                print("Discovery topics published.")
-
-            process_and_publish_events(
-                summarized_events, config, update_timestamp, error_log, publisher
-            )
-
-    display_summary(summarized_events, update_timestamp, config, error_log)
-
-    error_file_path = os.path.join(output_dir, 'parsing_errors.txt')
-    with open(error_file_path, 'w') as f:
-        f.write(f"Run at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        if error_log:
-            f.write(f"Found {len(error_log)} parsing errors:\n")
-            for error in error_log:
-                f.write(f"- {error}\n")
-        else:
-            f.write("No parsing errors found during this run.\n")
+    publisher.publish(status_topic, status_payload['status'])
+    publisher.publish(attributes_topic, json.dumps(status_payload))
 
 
-if __name__ == "__main__":
-    main()
+def summarise_events(raw_events: list[dict]) -> list[dict]:
+    """Summarises and groups raw event data by date, including only upcoming events."""
+    events_by_date = {}
+    today = datetime.now().date()
+
+    for event_data in raw_events:
+        # Using extract_date_range to handle single and multi-day events
+        dates = extract_date_range(event_data.get('date', ''))
+
+        for date_str in dates:
+            event_date_str = normalize_date_range(date_str)
+            if not event_date_str:
+                continue
+
+            try:
+                event_date = datetime.strptime(
+                    event_date_str, '%Y-%m-%d').date()
+                if event_date < today:
+                    continue  # Skip past events
+            except ValueError:
+                error_log.append(f"Could not parse date: {event_date_str}")
+                continue
+
+            event_details = {
+                'fixture': event_data.get('title', 'N/A'),
+                'start_time': normalize_time(event_data.get('time')),
+                'crowd': validate_crowd_size(event_data.get('crowd'))
+            }
+
+            if event_date_str not in events_by_date:
+                events_by_date[event_date_str] = {
+                    'date': event_date_str,
+                    'events': [],
+                    'total_crowd': 0,
+                    'earliest_start': None,
+                    'latest_end': None
+                }
+
+            events_by_date[event_date_str]['events'].append(event_details)
+
+    # Post-process to calculate summaries
+    for date, day_summary in events_by_date.items():
+        # Calculate total crowd
+        total_crowd = 0
+        for event in day_summary['events']:
+            if event['crowd']:
+                total_crowd += int(event['crowd'].replace(',', ''))
+        day_summary['total_crowd'] = f"{total_crowd:,}" if total_crowd > 0 else None
+
+        # Find earliest start and latest end times
+        start_times = [e['start_time']
+                       for e in day_summary['events'] if e.get('start_time')]
+        if start_times:
+            all_times = []
+            for st in start_times:
+                all_times.extend(st.split(' & '))
+
+            day_summary['earliest_start'] = min(all_times)
+            # Simple assumption for now: duration is 2 hours. This can be refined.
+            latest_time = max(all_times)
+            latest_dt = datetime.strptime(
+                latest_time, '%H:%M') + timedelta(hours=2)
+            day_summary['latest_end'] = latest_dt.strftime('%H:%M')
+
+    return sorted(events_by_date.values(), key=lambda x: x['date'])

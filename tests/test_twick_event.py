@@ -1,16 +1,9 @@
+from core.twick_event import normalize_date_range, normalize_time, validate_crowd_size
 import sys
 from pathlib import Path
 import pytest
-
-@pytest.mark.parametrize("input_date, expected", [
-    # Your test cases here
-])
-def test_example(input_date, expected):
-    # Your test logic here
-    pass
 sys.path.append(str(Path(__file__).parent.parent))
 
-from core.twick_event import normalize_date_range, normalize_time, validate_crowd_size
 
 @pytest.mark.parametrize("input_date, expected", [
     ("16 May 2025", "2025-05-16"),
@@ -76,6 +69,7 @@ from core.twick_event import normalize_date_range, normalize_time, validate_crow
 def test_normalize_date_range(input_date, expected):
     assert normalize_date_range(input_date) == expected
 
+
 @pytest.mark.parametrize("input_time, expected", [
     ("3pm", "15:00"),
     ("3:30pm", "15:30"),
@@ -97,13 +91,14 @@ def test_normalize_date_range(input_date, expected):
     ("Invalid", None),
     ("25:00", None),
     ("13pm", None),
-    ("3pm and 6pm", None),
+    ("3pm and 6pm", "15:00 & 18:00"),
     ("5.40pm", "17:40"),
     ("4.10pm", "16:10"),
     ("4.45pm", "16:45"),
 ])
 def test_normalize_time(input_time, expected):
     assert normalize_time(input_time) == expected
+
 
 @pytest.mark.parametrize("input_crowd, expected", [
     ("10,000", "10,000"),

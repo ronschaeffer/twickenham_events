@@ -1,6 +1,9 @@
 # Event settings
 default_duration: 6 # Duration in hours
 
+scraping:
+  url: "https://www.richmond.gov.uk/services/parking/cpz/twickenham_events"
+
 # MQTT Configuration
 mqtt:
   enabled: true
