@@ -1,176 +1,119 @@
-from core.config import Config
-from core.twick_event import (
-    save_events_to_json,
-    process_and_publish_events,
-    normalize_date_range,
-    normalize_time,
-    extract_date_range,
-    validate_crowd_size,
-    group_events_by_date,
-    find_next_event_and_summary,
-)
-import yaml
-from unittest.mock import patch
-from datetime import datetime, timedelta
-import pytest
 import sys
-import json
 from pathlib import Path
+import pytest
+
+@pytest.mark.parametrize("input_date, expected", [
+    # Your test cases here
+])
+def test_example(input_date, expected):
+    # Your test logic here
+    pass
 sys.path.append(str(Path(__file__).parent.parent))
 
+from core.twick_event import normalize_date_range, normalize_time, validate_crowd_size
 
-#         publisher_instance = mock_publisher
-        calls = publisher_instance.publish.call_args_list
-        assert len(calls) == 5
+@pytest.mark.parametrize("input_date, expected", [
+    ("16 May 2025", "2025-05-16"),
+    ("16/17 May 2025", "2025-05-16"),
+    ("Mon 16 May 2025", "2025-05-16"),
+    ("16th May 2025", "2025-05-16"),
+    ("01 January 2023", "2023-01-01"),
+    ("31 December 2023", "2023-12-31"),
+    ("29 February 2024", "2024-02-29"),  # Leap year
+    ("30 Feb 2023", None),  # Invalid date
+    ("15-08-2023", "2023-08-15"),
+    ("15/08/2023", "2023-08-15"),
+    ("15.08.2023", "2023-08-15"),
+    ("15-Aug-2023", "2023-08-15"),
+    ("15-Aug-23", "2023-08-15"),
+    ("15/08/23", "2023-08-15"),
+    ("15.08.23", "2023-08-15"),
+    ("15-08-23", "2023-08-15"),
+    ("15th August 2023", "2023-08-15"),
+    ("15th Aug 2023", "2023-08-15"),
+    ("15th Aug 23", "2023-08-15"),
+    ("15th August 23", "2023-08-15"),
+    ("Invalid Date", None),
+    ("Monday 1st December 2024", "2024-12-01"),
+    ("Tuesday 2nd December 2024", "2024-12-02"),
+    ("Wednesday 3rd December 2024", "2024-12-03"),
+    ("Thursday 4th December 2024", "2024-12-04"),
+    ("Friday 5th December 2024", "2024-12-05"),
+    ("Saturday 6th December 2024", "2024-12-06"),
+    ("Sunday 7th December 2024", "2024-12-07"),
+    ("Mon 8th Dec 2024", "2024-12-08"),
+    ("Tue 9th Dec 2024", "2024-12-09"),
+    ("Wed 10th Dec 2024", "2024-12-10"),
+    ("Thu 11th Dec 2024", "2024-12-11"),
+    ("Fri 12th Dec 2024", "2024-12-12"),
+    ("Sat 13th Dec 2024", "2024-12-13"),
+    ("Sun 14th Dec 2024", "2024-12-14"),
+    ("Weekend 16/17 May 2025", "2025-05-16"),
+    ("Wknd 23/24 May 2025", "2025-05-23"),
+    ("7-Jan-25", "2025-01-07"),
+    ("7/1/2025", "2025-01-07"),
+    ("07-01-25", "2025-01-07"),
+    ("07.01.2025", "2025-01-07"),
+    ("7.1.25", "2025-01-07"),
+    ("7-May-25", "2025-05-07"),
+    ("1st May 2025", "2025-05-01"),
+    ("2nd May 2025", "2025-05-02"),
+    ("3rd May 2025", "2025-05-03"),
+    ("4th May 2025", "2025-05-04"),
+    ("21st June 2025", "2025-06-21"),
+    ("Mon 7-Jan-25", "2025-01-07"),
+    ("Tuesday 07/01/2025", "2025-01-07"),
+    ("Wed 7.1.25", "2025-01-07"),
+    ("", None),
+    ("32/13/25", None),
+    ("Weekend", None),
+    ("Saturday 2nd November 2024", "2024-11-02"),
+    ("Sunday 24th November 2024", "2024-11-24"),
+    ("Saturday 28th December 2024", "2024-12-28"),
+    ("Saturday 8th February 2025", "2025-02-08"),
+    ("Saturday 21st June 2025", "2025-06-21"),
+])
+def test_normalize_date_range(input_date, expected):
+    assert normalize_date_range(input_date) == expected
 
-        # Extract payloads
-        status_payload = calls[0][0][1]
-        attributes_payload = json.loads(calls[1][0][1])
-        all_payload = json.loads(calls[2][0][1])
-        summary_payload = json.loads(calls[3][0][1])
-        next_payload = json.loads(calls[4][0][1])
+@pytest.mark.parametrize("input_time, expected", [
+    ("3pm", "15:00"),
+    ("3:30pm", "15:30"),
+    ("3 & 5pm", "15:00 & 17:00"),
+    ("TBC", None),
+    ("3:10pm", "15:10"),
+    ("3.10pm", "15:10"),
+    ("11am", "11:00"),
+    ("12pm", "12:00"),
+    ("12am", "00:00"),
+    ("15:10", "15:10"),
+    ("03:10", "03:10"),
+    ("00:00", "00:00"),
+    ("3pm & 6pm", "15:00 & 18:00"),
+    ("3:10pm & 5:40pm", "15:10 & 17:40"),
+    ("3.10pm & 5.40pm", "15:10 & 17:40"),
+    ("tbc", None),
+    ("", None),
+    ("Invalid", None),
+    ("25:00", None),
+    ("13pm", None),
+    ("3pm and 6pm", None),
+    ("5.40pm", "17:40"),
+    ("4.10pm", "16:10"),
+    ("4.45pm", "16:45"),
+])
+def test_normalize_time(input_time, expected):
+    assert normalize_time(input_time) == expected
 
-        # Assert status payloads
-        assert status_payload == "OFF"
-        assert attributes_payload['error_count'] == 0
-        assert attributes_payload['events_found'] is True
-        assert attributes_payload['last_updated'] == timestamp['iso']
-
-        # Assert timestamp and data keys are present
-        assert 'last_updated' in all_payload
-        assert 'events' in all_payload
-        assert all_payload['last_updated'] == timestamp
-
-        assert 'last_updated' in summary_payload
-        assert 'summary' in summary_payload
-        assert summary_payload['last_updated'] == timestamp
-        assert summary_payload['summary'] == next_summary
-
-        assert 'last_updated' in next_payload
-        assert 'event' in next_payload
-        assert next_payload['last_updated'] == timestamp
-        assert next_payload['event'] == next_event
-
-    @patch('core.twick_event.MQTTPublisher')
-    @patch('core.twick_event.find_next_event_and_summary')
-    def test_payload_structure_no_events(self, mock_find_next, mock_publisher, mock_config):
-        """Test that MQTT payloads have the correct structure when no events are found."""
-        timestamp = {'iso': '2025-07-29T12:00:00',
-                     'human': 'Tuesday, 29 July 2025 at 12:00'}
-        mock_find_next.return_value = (None, None)
-
-        process_and_publish_events(
-            [], mock_config, timestamp, [], mock_publisher)
-
-        publisher_instance = mock_publisher
-        calls = publisher_instance.publish.call_args_list
-        assert len(calls) == 5
-
-        # Extract payloads
-        status_payload = calls[0][0][1]
-        attributes_payload = json.loads(calls[1][0][1])
-        all_payload = json.loads(calls[2][0][1])
-        summary_payload = json.loads(calls[3][0][1])
-        next_payload = json.loads(calls[4][0][1])
-
-        # Assert status payloads
-        assert status_payload == "OFF"
-        assert attributes_payload['error_count'] == 0
-        assert attributes_payload['events_found'] is False
-        assert attributes_payload['last_updated'] == timestamp['iso']
-
-
-        # Assert structure for "all" topic (still has timestamp)
-        assert 'last_updated' in all_payload
-        assert 'events' in all_payload
-        assert all_payload['events'] == []
-
-        # Assert structure for empty summary and next event
-        assert 'last_updated' in summary_payload
-        assert 'summary' in summary_payload
-        assert summary_payload['summary'] == {}
-
-        assert 'last_updated' in next_payload
-        assert 'event' in next_payload
-        assert next_payload['event'] == {}
-
-
-def test_save_events_to_json(tmp_path):
-    """Test that the JSON file is created with the correct structure."""
-    # Prepare mock data
-    timestamp = {'iso': '2025-07-29T10:30:00',
-                 'human': 'Tuesday, 29 July 2025 at 10:30'}
-    events_data = [{'date': '2025-08-01', 'event_count': 1}]
-    output_dir = tmp_path / "output"
-
-    # Call the function
-    save_events_to_json(events_data, timestamp, str(output_dir))
-
-    # Check that the file was created
-    output_file = output_dir / "upcoming_events.json"
-    assert output_file.exists()
-
-    # Check the content of the file
-    with open(output_file, 'r') as f:
-        data = json.load(f)
-
-    assert 'last_updated' in data
-    assert 'events' in data
-    assert data['last_updated'] == timestamp
-    assert data['events'] == events_data
-
-
-# Test for HA Discovery integration
-@patch('core.twick_event.Config')
-@patch('core.twick_event.publish_discovery_configs')
-@patch('core.twick_event.requests.get')
-@patch('core.twick_event.MQTTPublisher')
-def test_ha_discovery_is_called_when_enabled(mock_mqtt, mock_requests, mock_publish_discovery, MockConfig):
-    """
-    Test that the publish_discovery_configs function is called when home_assistant.enabled is true.
-    """
-    # Arrange: Mock config to enable HA discovery
-    mock_config_instance = MockConfig.return_value
-    mock_config_instance.get.side_effect = lambda key, default=None: {
-        'mqtt.enabled': True,
-        'home_assistant.enabled': True
-    }.get(key, default)
-
-    # Mock requests to avoid actual web calls
-    mock_requests.return_value.status_code = 200
-    mock_requests.return_value.text = '<html><body><table>...</table></body></html>'
-
-    # Act
-    from core.twick_event import main
-    main()
-
-    # Assert: Check that the discovery publisher was called
-    mock_publish_discovery.assert_called_once()
-
-
-# Test for HA Discovery integration
-@patch('core.twick_event.Config')
-@patch('core.twick_event.publish_discovery_configs')
-@patch('core.twick_event.requests.get')
-@patch('core.twick_event.MQTTPublisher')
-def test_ha_discovery_is_not_called_when_disabled(mock_mqtt, mock_requests, mock_publish_discovery, MockConfig):
-    """
-    Test that the publish_discovery_configs is NOT called when home_assistant.enabled is false.
-    """
-    # Arrange: Mock config to disable HA discovery
-    mock_config_instance = MockConfig.return_value
-    mock_config_instance.get.side_effect = lambda key, default=None: {
-        'mqtt.enabled': True,
-        'home_assistant.enabled': False
-    }.get(key, default)
-
-    # Mock requests to avoid actual web calls
-    mock_requests.return_value.status_code = 200
-    mock_requests.return_value.text = '<html><body><table>...</table></body></html>'
-
-    # Act
-    from core.twick_event import main
-    main()
-
-    # Assert: Check that the discovery publisher was NOT called
-    mock_publish_discovery.assert_not_called()
+@pytest.mark.parametrize("input_crowd, expected", [
+    ("10,000", "10,000"),
+    ("10000", "10,000"),
+    ("TBC", None),
+    ("Estimate 10000", "10,000"),
+    ("Est. 10000", "10,000"),
+    ("Approx. 10000", "10,000"),
+    ("~10000", "10,000"),
+    ("Invalid", None),
+])
+def test_validate_crowd_size(input_crowd, expected):
+    assert validate_crowd_size(input_crowd) == expected

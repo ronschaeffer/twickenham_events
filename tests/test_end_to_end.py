@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch, call
 from core.twick_event import process_and_publish_events, find_next_event_and_summary
 from core.config import Config
 from datetime import datetime
-import json
 
 # --- Test Data ---
 
@@ -70,7 +69,7 @@ def mock_config():
                 'next': 'test/events/next',
                 'next_day_summary': 'test/events/next_day_summary',
                 'all_upcoming': 'test/events/all_upcoming',
-                'status': 'test/events/status'
+                'errors': 'test/events/errors'
             }
         }
     }
@@ -104,32 +103,22 @@ def test_process_and_publish_events_successful(mock_datetime, mock_mqtt_publishe
     # Act
     # Call the function under test with our sample data.
     process_and_publish_events(
-        SAMPLE_SUMMARIZED_EVENTS, mock_config, SAMPLE_TIMESTAMP, [], mock_publisher_instance)
+        SAMPLE_SUMMARIZED_EVENTS, mock_config, SAMPLE_TIMESTAMP, [])
 
     # Assert
-    # The function should publish to 3 event topics, plus the status topic and its attributes.
-    assert mock_publisher_instance.publish.call_count == 5
+    # Check that the publisher was called for each of the 4 topics.
+    assert mock_publisher_instance.publish.call_count == 4
 
     # Define the expected payloads for each topic.
+    # This calculation is now inside the test, using the same mocked time.
     next_event, next_day_summary = find_next_event_and_summary(
         SAMPLE_SUMMARIZED_EVENTS)
 
-    # Expected payloads for the event topics
-    expected_event_payloads = {
+    expected_payloads = {
         'test/events/all_upcoming': {'last_updated': SAMPLE_TIMESTAMP, 'events': SAMPLE_SUMMARIZED_EVENTS},
         'test/events/next_day_summary': {'last_updated': SAMPLE_TIMESTAMP, 'summary': next_day_summary},
         'test/events/next': {'last_updated': SAMPLE_TIMESTAMP, 'event': next_event},
-    }
-
-    # Expected payloads for the status topic
-    expected_status_payload = "OFF"
-    expected_attributes_payload = {
-        'last_updated': SAMPLE_TIMESTAMP['iso'],
-        'error_count': 0,
-        'errors': [],
-        'events_found': True,
-        'last_success': SAMPLE_TIMESTAMP['iso'],
-        'last_error': None
+        'test/events/errors': {'last_updated': SAMPLE_TIMESTAMP, 'error_count': 0, 'errors': []}
     }
 
     # Create a dictionary of actual published topics and payloads for easy lookup.
@@ -137,19 +126,10 @@ def test_process_and_publish_events_successful(mock_datetime, mock_mqtt_publishe
         call.args[0]: call.args[1] for call in mock_publisher_instance.publish.call_args_list
     }
 
-    # Verify that each event topic received the correct JSON payload.
-    for topic, payload in expected_event_payloads.items():
+    # Verify that each topic received the correct payload.
+    for topic, payload in expected_payloads.items():
         assert topic in actual_published_data
-        assert json.loads(actual_published_data[topic]) == payload
-
-    # Verify the status topic payloads
-    status_topic = 'test/events/status'
-    attributes_topic = f"{status_topic}/attributes"
-    assert status_topic in actual_published_data
-    assert actual_published_data[status_topic] == expected_status_payload
-    assert attributes_topic in actual_published_data
-    assert json.loads(
-        actual_published_data[attributes_topic]) == expected_attributes_payload
+        assert actual_published_data[topic] == payload
 
 
 @patch('core.twick_event.MQTTPublisher')
@@ -166,28 +146,22 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
     # Act
     # Call the function with empty events and a list of sample errors.
     process_and_publish_events(
-        [], mock_config, SAMPLE_TIMESTAMP, SAMPLE_ERRORS, mock_publisher_instance)
+        [], mock_config, SAMPLE_TIMESTAMP, SAMPLE_ERRORS)
 
     # Assert
-    # Check that the publisher was called for the 3 event topics, plus the status topic and its attributes.
-    assert mock_publisher_instance.publish.call_count == 5
+    # Check that the publisher was still called for all 4 topics.
+    assert mock_publisher_instance.publish.call_count == 4
 
-    # Define the expected payloads for event topics in an error scenario.
-    expected_event_payloads = {
+    # Define the expected payloads for all topics in an error scenario.
+    expected_payloads = {
         'test/events/all_upcoming': {'last_updated': SAMPLE_TIMESTAMP, 'events': []},
         'test/events/next_day_summary': {'last_updated': SAMPLE_TIMESTAMP, 'summary': {}},
         'test/events/next': {'last_updated': SAMPLE_TIMESTAMP, 'event': {}},
-    }
-
-    # Define the expected payloads for the status topic in an error scenario.
-    expected_status_payload = "ON"
-    expected_attributes_payload = {
-        'last_updated': SAMPLE_TIMESTAMP['iso'],
-        'error_count': len(SAMPLE_ERRORS),
-        'errors': SAMPLE_ERRORS,
-        'events_found': False,
-        'last_success': None,
-        'last_error': SAMPLE_TIMESTAMP['iso']
+        'test/events/errors': {
+            'last_updated': SAMPLE_TIMESTAMP,
+            'error_count': len(SAMPLE_ERRORS),
+            'errors': SAMPLE_ERRORS
+        }
     }
 
     # Create a dictionary of actual calls for easy lookup.
@@ -195,16 +169,7 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
         call.args[0]: call.args[1] for call in mock_publisher_instance.publish.call_args_list
     }
 
-    # Verify the payload of all event topics.
-    for topic, payload in expected_event_payloads.items():
+    # Verify the payload of all topics.
+    for topic, payload in expected_payloads.items():
         assert topic in actual_published_data
-        assert json.loads(actual_published_data[topic]) == payload
-
-    # Verify the status topic payloads
-    status_topic = 'test/events/status'
-    attributes_topic = f"{status_topic}/attributes"
-    assert status_topic in actual_published_data
-    assert actual_published_data[status_topic] == expected_status_payload
-    assert attributes_topic in actual_published_data
-    assert json.loads(
-        actual_published_data[attributes_topic]) == expected_attributes_payload
+        assert actual_published_data[topic] == payload
