@@ -16,6 +16,9 @@ default_duration: 6
 # MQTT Configuration
 # ------------------------------------------------------------------------------
 mqtt:
+  # Set to true to enable publishing to the MQTT broker.
+  enabled: true
+
   # MQTT Broker Connection Details
   broker_url: "broker.hivemq.com" # Use "mqtt://" or "mqtts://" for TLS
   broker_port: 1883 # Standard ports: 1883 for unencrypted, 8883 for TLS
