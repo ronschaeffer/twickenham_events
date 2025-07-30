@@ -25,7 +25,7 @@ mqtt:
     next: "twickenham_events/events/next"
     next_day_summary: "twickenham_events/events/next_day_summary"
     all_upcoming: "twickenham_events/events/all_upcoming"
-    errors: "twickenham_events/events/errors"
+    status: "twickenham_events/status"
 
 # Home Assistant Integration
 home_assistant:

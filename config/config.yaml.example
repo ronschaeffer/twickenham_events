@@ -56,8 +56,8 @@ mqtt:
     next_day_summary: "twickenham_events/events/next_day_summary"
     # Topic for a JSON object containing all upcoming events.
     all_upcoming: "twickenham_events/events/all_upcoming"
-    # Topic for publishing any parsing or operational errors.
-    errors: "twickenham_events/events/errors"
+    # Topic for the script's operational status binary_sensor.
+    status: "twickenham_events/status"
 
 # ------------------------------------------------------------------------------
 # Home Assistant Integration
