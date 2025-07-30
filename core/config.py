@@ -2,7 +2,7 @@ import os
 import yaml
 from functools import reduce
 import operator
-from typing import Optional
+from typing import Optional, Any
 
 
 class Config:
@@ -43,7 +43,7 @@ class Config:
             raise ValueError(
                 "Either config_path or config_data must be provided.")
 
-    def get(self, key: str, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         """
         Retrieve a value from the configuration using dot notation.
         If a key is not found, or its value is None, the default is returned.

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 from core.mqtt_publisher import MQTTPublisher
-from core.ha_discovery.publisher import HADiscoveryPublisher
+from core.ha_mqtt_discovery import publish_discovery_configs
 from core.config import Config
 import json
 import os
 import re
 import sys
 from datetime import datetime, timedelta
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup
@@ -262,17 +262,8 @@ def save_events_to_json(events_data: list, timestamp: dict, directory: str) -> N
                   'events': events_data}, f, indent=4)
 
 
-def process_and_publish_events(summarized_events: list, config: Config, timestamp: dict, errors: list) -> None:
+def process_and_publish_events(summarized_events: list, config: Config, timestamp: dict, errors: list, publisher: MQTTPublisher) -> None:
     """Process events and publish them via MQTT."""
-    mqtt_settings = {
-        'broker_url': str(config.get('mqtt.broker_url')),
-        'broker_port': int(config.get('mqtt.broker_port')),
-        'client_id': str(config.get('mqtt.client_id', 'twickenham_events_publisher')),
-        'security': str(config.get('mqtt.security', 'none')),
-        'auth': config.get('mqtt.auth'),
-        'tls': config.get('mqtt.tls')
-    }
-
     next_individual_event, next_day_summary = find_next_event_and_summary(
         summarized_events)
     all_upcoming_payload = {
@@ -281,19 +272,40 @@ def process_and_publish_events(summarized_events: list, config: Config, timestam
         'last_updated': timestamp, 'summary': next_day_summary or {}}
     next_individual_event_payload = {
         'last_updated': timestamp, 'event': next_individual_event or {}}
-    error_payload = {'last_updated': timestamp,
-                     'error_count': len(errors), 'errors': errors}
 
-    print("\nPublishing event topics to MQTT...")
-    with MQTTPublisher(**mqtt_settings) as publisher:
-        publisher.publish(
-            str(config.get('mqtt.topics.all_upcoming')), all_upcoming_payload, retain=True)
-        publisher.publish(str(config.get('mqtt.topics.next_day_summary')),
-                          next_day_summary_payload, retain=True)
-        publisher.publish(str(config.get('mqtt.topics.next')),
-                          next_individual_event_payload, retain=True)
-        publisher.publish(str(config.get('mqtt.topics.errors')),
-                          error_payload, retain=True)
+    # --- Status Sensor Payload ---
+    status_topic = config.get('mqtt.topics.status')
+    if status_topic:
+        attributes_topic = f"{status_topic}/attributes"
+
+        has_errors = bool(errors)
+        status_payload = "ON" if has_errors else "OFF"
+
+        now_iso = timestamp['iso']
+
+        attributes_payload = {
+            "last_updated": now_iso,
+            "error_count": len(errors),
+            "errors": errors,
+            "events_found": bool(summarized_events),
+            "last_success": now_iso if not has_errors else None,
+            "last_error": now_iso if has_errors else None,
+        }
+
+        print("\nPublishing event and status topics to MQTT...")
+        # Publish status
+        publisher.publish(str(status_topic), status_payload, retain=True)
+        publisher.publish(attributes_topic, json.dumps(
+            attributes_payload), retain=True)
+    else:
+        print("\nPublishing event topics to MQTT...")
+
+    publisher.publish(
+        str(config.get('mqtt.topics.all_upcoming')), json.dumps(all_upcoming_payload), retain=True)
+    publisher.publish(str(config.get('mqtt.topics.next_day_summary')),
+                      json.dumps(next_day_summary_payload), retain=True)
+    publisher.publish(str(config.get('mqtt.topics.next')),
+                      json.dumps(next_individual_event_payload), retain=True)
 
 
 def display_summary(summarized_events: list, timestamp: dict, config: Config, errors: list) -> None:
@@ -346,19 +358,10 @@ def main():
     """Main function to fetch, process, and publish Twickenham event data."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(base_dir, 'config', 'config.yaml')
-    config = Config(config_path)
+    config = Config(config_path=config_path)
     http_error = None
     events = []
     summarized_events = []
-
-    # --- Home Assistant Discovery ---
-    if config.get('home_assistant.enabled', False):
-        print("Home Assistant integration enabled. Publishing discovery topics...")
-        entities_config_path = os.path.join(
-            base_dir, 'config', 'ha_entities.yaml')
-        ha_publisher = HADiscoveryPublisher(config, entities_config_path)
-        ha_publisher.publish_discovery_topics()
-        print("Discovery topics published.")
 
     # --- Web Scraping ---
     url = 'https://www.richmond.gov.uk/services/parking/cpz/twickenham_events'
@@ -433,16 +436,33 @@ def main():
     # --- Final Processing and Publishing ---
     if events:
         upcoming_events = [e for e in events if datetime.strptime(
-            e['date'], '%Y-%m-%d') >= datetime.now()]
+            e['date'], '%Y-%m-%d').date() >= datetime.now().date()]
         adjusted_events = adjust_end_times(upcoming_events)
         summarized_events = group_events_by_date(adjusted_events)
 
     output_dir = os.path.join(base_dir, 'output')
     save_events_to_json(summarized_events, update_timestamp, output_dir)
 
+    # --- Home Assistant Discovery & MQTT Publishing ---
     if config.get('mqtt.enabled', False):
-        process_and_publish_events(
-            summarized_events, config, update_timestamp, error_log)
+        mqtt_settings = {
+            'broker_url': str(config.get('mqtt.broker_url')),
+            'broker_port': int(str(config.get('mqtt.broker_port', 1883))),
+            'client_id': str(config.get('mqtt.client_id', 'twickenham_events_publisher')),
+            'security': str(config.get('mqtt.security', 'none')),
+            'auth': config.get('mqtt.auth'),
+            'tls': config.get('mqtt.tls')
+        }
+        with MQTTPublisher(**mqtt_settings) as publisher:
+            if config.get('home_assistant.enabled', False):
+                print(
+                    "Home Assistant integration enabled. Publishing discovery topics...")
+                publish_discovery_configs(config, publisher)
+                print("Discovery topics published.")
+
+            process_and_publish_events(
+                summarized_events, config, update_timestamp, error_log, publisher
+            )
 
     display_summary(summarized_events, update_timestamp, config, error_log)
 
