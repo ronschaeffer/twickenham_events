@@ -262,11 +262,11 @@ def save_events_to_json(events_data: list, timestamp: dict, directory: str) -> N
                   'events': events_data}, f, indent=4)
 
 
-def process_and_publish_events(events: list, config: Config, timestamp: dict, errors: list) -> None:
+def process_and_publish_events(summarized_events: list, config: Config, timestamp: dict, errors: list) -> None:
     """Process events and publish them via MQTT."""
     mqtt_settings = {
-        'broker_url': str(config.get('mqtt.broker_url', 'localhost')),
-        'broker_port': int(config.get('mqtt.broker_port', 1883)),
+        'broker_url': str(config.get('mqtt.broker_url')),
+        'broker_port': int(config.get('mqtt.broker_port')),
         'client_id': str(config.get('mqtt.client_id', 'twickenham_events_publisher')),
         'security': str(config.get('mqtt.security', 'none')),
         'auth': config.get('mqtt.auth'),
@@ -274,8 +274,9 @@ def process_and_publish_events(events: list, config: Config, timestamp: dict, er
     }
 
     next_individual_event, next_day_summary = find_next_event_and_summary(
-        events)
-    all_upcoming_payload = {'last_updated': timestamp, 'events': events}
+        summarized_events)
+    all_upcoming_payload = {
+        'last_updated': timestamp, 'events': summarized_events}
     next_day_summary_payload = {
         'last_updated': timestamp, 'summary': next_day_summary or {}}
     next_individual_event_payload = {
@@ -283,6 +284,7 @@ def process_and_publish_events(events: list, config: Config, timestamp: dict, er
     error_payload = {'last_updated': timestamp,
                      'error_count': len(errors), 'errors': errors}
 
+    print("\nPublishing event topics to MQTT...")
     with MQTTPublisher(**mqtt_settings) as publisher:
         publisher.publish(
             str(config.get('mqtt.topics.all_upcoming')), all_upcoming_payload, retain=True)
@@ -296,12 +298,8 @@ def process_and_publish_events(events: list, config: Config, timestamp: dict, er
 
 def display_summary(summarized_events: list, timestamp: dict, config: Config, errors: list) -> None:
     """Displays the final summary to the console."""
-    print("\n=== Twickenham Stadium Events ===")
+    print("\n=== Event Summary ===")
     print(f"Last updated: {timestamp['human']}")
-    print("\nMQTT Configuration:")
-    print(
-        f"Broker: {config.get('mqtt.broker_url', 'localhost')}:{config.get('mqtt.broker_port', 1883)}")
-    print(f"Security: {config.get('mqtt.security', 'none')}")
 
     next_event, _ = find_next_event_and_summary(summarized_events)
     if next_event:
@@ -349,6 +347,9 @@ def main():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     config_path = os.path.join(base_dir, 'config', 'config.yaml')
     config = Config(config_path)
+    http_error = None
+    events = []
+    summarized_events = []
 
     # --- Home Assistant Discovery ---
     if config.get('home_assistant.enabled', False):
@@ -364,64 +365,65 @@ def main():
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        table_rows = soup.select("table.table tr")
+        if not table_rows:
+            error_log.append("No event table found on the webpage.")
+        else:
+            # --- Data Processing ---
+            headers = [th.text.strip().lower()
+                       for th in table_rows[0].find_all('th')]
+            header_aliases = {'date': ['date'], 'fixture': ['fixture'], 'time': [
+                'kick off', 'time'], 'crowd': ['crowd', 'attendance']}
+            header_map = {key: next((headers.index(alias) for alias in aliases if alias in headers), -1)
+                          for key, aliases in header_aliases.items()}
+
+            if any(idx == -1 for idx in header_map.values()):
+                missing = [key for key, idx in header_map.items() if idx == -1]
+                error_log.append(
+                    f"Missing required columns in table headers: {missing}")
+            else:
+                for row in table_rows[1:]:
+                    cols = row.find_all('td')
+                    if len(cols) < len(headers):
+                        error_log.append(
+                            f"Skipping row due to insufficient columns: {row}")
+                        continue
+
+                    try:
+                        date_text = cols[header_map['date']].text
+                        fixture = cols[header_map['fixture']].text.strip()
+                        time_str = cols[header_map['time']].text.strip()
+                        crowd_str = cols[header_map['crowd']].text.strip()
+
+                        dates = extract_date_range(date_text)
+                        if not dates:
+                            dates = [d for d in [
+                                normalize_date_range(date_text)] if d]
+
+                        for date in dates:
+                            start_times = normalize_time(time_str)
+                            if start_times:
+                                for time in start_times.split(' & '):
+                                    start = datetime.strptime(time, '%H:%M')
+                                    duration = int(str(config.get(
+                                        'default_duration', 2)))
+                                    end = start + timedelta(hours=duration)
+                                    events.append({
+                                        'date': date, 'fixture': fixture, 'start_time': time,
+                                        'end_time': end.strftime('%H:%M'), 'crowd': validate_crowd_size(crowd_str)
+                                    })
+                            else:
+                                events.append({
+                                    'date': date, 'fixture': fixture, 'start_time': None,
+                                    'end_time': None, 'crowd': validate_crowd_size(crowd_str)
+                                })
+                    except Exception as e:
+                        error_log.append(
+                            f"Error processing row: {row} - {str(e)}")
     except requests.RequestException as e:
-        print(f"Error fetching webpage: {e}")
-        sys.exit(1)
-
-    soup = BeautifulSoup(response.text, 'html.parser')
-    table_rows = soup.select("table.table tr")
-    if not table_rows:
-        print("No event table found on the webpage.")
-        sys.exit(0)
-
-    # --- Data Processing ---
-    headers = [th.text.strip().lower() for th in table_rows[0].find_all('th')]
-    header_aliases = {'date': ['date'], 'fixture': ['fixture'], 'time': [
-        'kick off', 'time'], 'crowd': ['crowd', 'attendance']}
-    header_map = {key: next((headers.index(alias) for alias in aliases if alias in headers), -1)
-                  for key, aliases in header_aliases.items()}
-
-    if any(idx == -1 for idx in header_map.values()):
-        missing = [key for key, idx in header_map.items() if idx == -1]
-        print(f"Missing required columns in table headers: {missing}")
-        sys.exit(1)
-
-    events = []
-    for row in table_rows[1:]:
-        cols = row.find_all('td')
-        if len(cols) < len(headers):
-            error_log.append(
-                f"Skipping row due to insufficient columns: {row}")
-            continue
-
-        try:
-            date_text = cols[header_map['date']].text
-            fixture = cols[header_map['fixture']].text.strip()
-            time_str = cols[header_map['time']].text.strip()
-            crowd_str = cols[header_map['crowd']].text.strip()
-
-            dates = extract_date_range(date_text)
-            if not dates:
-                dates = [d for d in [normalize_date_range(date_text)] if d]
-
-            for date in dates:
-                start_times = normalize_time(time_str)
-                if start_times:
-                    for time in start_times.split(' & '):
-                        start = datetime.strptime(time, '%H:%M')
-                        duration = int(config.get('default_duration', 2))
-                        end = start + timedelta(hours=duration)
-                        events.append({
-                            'date': date, 'fixture': fixture, 'start_time': time,
-                            'end_time': end.strftime('%H:%M'), 'crowd': validate_crowd_size(crowd_str)
-                        })
-                else:
-                    events.append({
-                        'date': date, 'fixture': fixture, 'start_time': None,
-                        'end_time': None, 'crowd': validate_crowd_size(crowd_str)
-                    })
-        except Exception as e:
-            error_log.append(f"Error processing row: {row} - {str(e)}")
+        http_error = f"Error fetching webpage: {e}"
+        error_log.append(http_error)
 
     update_timestamp = {
         'iso': datetime.now().isoformat(),
@@ -429,10 +431,11 @@ def main():
     }
 
     # --- Final Processing and Publishing ---
-    upcoming_events = [e for e in events if datetime.strptime(
-        e['date'], '%Y-%m-%d') >= datetime.now()]
-    adjusted_events = adjust_end_times(upcoming_events)
-    summarized_events = group_events_by_date(adjusted_events)
+    if events:
+        upcoming_events = [e for e in events if datetime.strptime(
+            e['date'], '%Y-%m-%d') >= datetime.now()]
+        adjusted_events = adjust_end_times(upcoming_events)
+        summarized_events = group_events_by_date(adjusted_events)
 
     output_dir = os.path.join(base_dir, 'output')
     save_events_to_json(summarized_events, update_timestamp, output_dir)

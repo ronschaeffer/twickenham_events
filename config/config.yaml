@@ -3,6 +3,7 @@ default_duration: 6 # Duration in hours
 
 # MQTT Configuration
 mqtt:
+  enabled: true
   broker_url: 10.10.10.21
   broker_port: 8883
   client_id: server
