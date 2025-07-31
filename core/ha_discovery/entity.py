@@ -42,11 +42,16 @@ class Entity:
 
     def get_config_payload(self) -> dict:
         """Returns the base configuration payload for this entity."""
+        # Construct a globally unique ID and a clean object ID
+        prefix = self._config.get('app.unique_id_prefix', 'twickenham_events')
+        object_id = f"{prefix}_{self.unique_id}"
+
         payload = {
             "name": self.name,
-            "unique_id": self.unique_id,
+            "unique_id": object_id,  # Use the full, prefixed ID for uniqueness
             "device": self.device.get_device_info(),
-            "state_topic": self.state_topic
+            "state_topic": self.state_topic,
+            "object_id": object_id  # Explicitly set the object_id for a clean entity_id
         }
         # Merge the specific entity attributes
         for key, value in self.__dict__.items():
