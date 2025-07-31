@@ -93,7 +93,7 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
         SAMPLE_SUMMARIZED_EVENTS, mock_publisher_instance, mock_config)
 
     # Assert
-    assert mock_publisher_instance.publish.call_count == 4
+    assert mock_publisher_instance.publish.call_count == 3
 
     next_event, next_day_summary = find_next_event_and_summary(
         SAMPLE_SUMMARIZED_EVENTS, mock_config)
@@ -109,8 +109,9 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
 
     # Verify event payloads (checking structure and content, ignoring timestamp)
     assert actual_published_data['test/events/all_upcoming']['events'] == SAMPLE_SUMMARIZED_EVENTS
-    assert actual_published_data['test/events/next_day_summary']['summary'] == next_day_summary
     assert actual_published_data['test/events/next']['event'] == next_event
+    assert actual_published_data['test/events/next']['date'] == (
+        next_day_summary['date'] if next_day_summary else None)
 
     # Verify status payloads
     status_topic = 'test/events/status'
@@ -142,7 +143,7 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
             [], mock_publisher_instance, mock_config)
 
     # Assert
-    assert mock_publisher_instance.publish.call_count == 4
+    assert mock_publisher_instance.publish.call_count == 3
 
     # Create a dictionary of actual published topics and payloads
     actual_published_data = {}
@@ -154,8 +155,8 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
 
     # Verify event payloads
     assert actual_published_data['test/events/all_upcoming']['events'] == []
-    assert actual_published_data['test/events/next_day_summary']['summary'] is None
     assert actual_published_data['test/events/next']['event'] is None
+    assert actual_published_data['test/events/next']['date'] is None
 
     # Verify status payloads
     status_topic = 'test/events/status'
@@ -183,7 +184,7 @@ def test_process_and_publish_events_no_upcoming_events(mock_mqtt_publisher, mock
         [], mock_publisher_instance, mock_config)
 
     # Assert
-    assert mock_publisher_instance.publish.call_count == 4
+    assert mock_publisher_instance.publish.call_count == 3
 
     # Create a dictionary of actual published topics and payloads
     actual_published_data = {}
@@ -195,8 +196,8 @@ def test_process_and_publish_events_no_upcoming_events(mock_mqtt_publisher, mock
 
     # Verify event payloads
     assert actual_published_data['test/events/all_upcoming']['events'] == []
-    assert actual_published_data['test/events/next_day_summary']['summary'] is None
     assert actual_published_data['test/events/next']['event'] is None
+    assert actual_published_data['test/events/next']['date'] is None
 
     # Verify status payloads
     status_topic = 'test/events/status'

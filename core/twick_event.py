@@ -371,13 +371,12 @@ def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher
         retain=True
     )
     publisher.publish(
-        config.get('mqtt.topics.next_day_summary'),
-        {'last_updated': timestamp, 'summary': next_day_summary},
-        retain=True
-    )
-    publisher.publish(
         config.get('mqtt.topics.next'),
-        {'last_updated': timestamp, 'event': next_event},
+        {
+            'last_updated': timestamp,
+            'event': next_event,
+            'date': next_day_summary['date'] if next_day_summary else None
+        },
         retain=True
     )
 
