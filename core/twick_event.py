@@ -23,8 +23,8 @@ error_log = []
 
 # --- Data Parsing and Normalization Functions ---
 
-def normalize_time(time_str: Optional[str]) -> Optional[str]:
-    """Normalize time format, handling multiple times separated by '&'."""
+def normalize_time(time_str: Optional[str]) -> Optional[list[str]]:
+    """Normalize time format, returning a list of sorted times."""
     if not time_str or time_str.lower() == 'tbc':
         return None
 
@@ -72,7 +72,7 @@ def normalize_time(time_str: Optional[str]) -> Optional[str]:
         m := ('am' if 'am' in t else 'pm' if 'pm' in t else None))), None)
     converted_times = [parsed_time for time in time_patterns if (
         parsed_time := parse_single_time(time, last_meridian)[0])]
-    return ' & '.join(sorted(converted_times)) if converted_times else None
+    return sorted(converted_times) if converted_times else None
 
 
 def normalize_date_range(date_str: Optional[str]) -> Optional[str]:
@@ -231,26 +231,42 @@ def summarise_events(raw_events: list[dict]) -> list[dict]:
                 'earliest_start': None
             }
 
-        start_time = normalize_time(event.get('time'))
+        start_times = normalize_time(event.get('time'))
         crowd_size = validate_crowd_size(event.get('crowd'))
 
-        summarized_by_date[event_date_iso]['events'].append({
-            'fixture': event['title'],
-            'start_time': start_time,
-            'crowd': crowd_size
-        })
+        if start_times:
+            for time in start_times:
+                summarized_by_date[event_date_iso]['events'].append({
+                    'fixture': event['title'],
+                    'start_time': time,
+                    'crowd': crowd_size
+                })
+        else:
+            # Handle events with no specific start time (TBC)
+            summarized_by_date[event_date_iso]['events'].append({
+                'fixture': event['title'],
+                'start_time': None,
+                'crowd': crowd_size
+            })
 
-    # Determine the earliest start time for each day
+    # Determine the earliest start time for each day and add event counts
     for date_summary in summarized_by_date.values():
+        # Sort events within the day by start_time
+        date_summary['events'].sort(
+            key=lambda x: x.get('start_time') or '23:59')
+
+        # Add event_index and event_count to each event
+        total_events = len(date_summary['events'])
+        for i, event in enumerate(date_summary['events']):
+            event['event_index'] = i + 1
+            event['event_count'] = total_events
+
         start_times = [
-            t for e in date_summary['events']
-            if (t := e.get('start_time'))
+            e.get('start_time') for e in date_summary['events']
+            if e.get('start_time')
         ]
         if start_times:
-            # Handle multiple times like "15:00 & 18:00"
-            all_times = [t.strip()
-                         for times in start_times for t in times.split('&')]
-            date_summary['earliest_start'] = min(all_times)
+            date_summary['earliest_start'] = min(start_times)
 
     return sorted(summarized_by_date.values(), key=lambda x: x['date'])
 
@@ -297,8 +313,8 @@ def find_next_event_and_summary(summarized_events: list, config: Config) -> Tupl
         # If the event day is today, we need to apply the new logic
         if event_date == today:
             # Sort today's individual events by start time
-            sorted_events_today = sorted(
-                event_day['events'], key=lambda x: x.get('start_time') or '23:59')
+            sorted_events_today = event_day['events']
+            total_events_today = len(sorted_events_today)
 
             # Check if we are past the end-of-day cutoff time
             if now.time() >= cutoff_time:
@@ -312,8 +328,7 @@ def find_next_event_and_summary(summarized_events: list, config: Config) -> Tupl
                     return event_item, event_day
 
                 # Handle multiple times, e.g., "15:00 & 18:00", take the earliest
-                earliest_start_str = min(t.strip()
-                                         for t in start_time_str.split('&'))
+                earliest_start_str = start_time_str
                 try:
                     start_time = datetime.strptime(
                         earliest_start_str, '%H:%M').time()
@@ -352,15 +367,15 @@ def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher
     # Publish to event topics
     publisher.publish(
         config.get('mqtt.topics.all_upcoming'),
-        json.dumps({'last_updated': timestamp, 'events': summarized_events})
+        {'last_updated': timestamp, 'events': summarized_events}
     )
     publisher.publish(
         config.get('mqtt.topics.next_day_summary'),
-        json.dumps({'last_updated': timestamp, 'summary': next_day_summary})
+        {'last_updated': timestamp, 'summary': next_day_summary}
     )
     publisher.publish(
         config.get('mqtt.topics.next'),
-        json.dumps({'last_updated': timestamp, 'event': next_event})
+        {'last_updated': timestamp, 'event': next_event}
     )
 
     # Publish to status topic
