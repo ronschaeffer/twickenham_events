@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Event name shortener using Google Gemini API.
+Event name shortener using Google Gemini API. Model chosen in config.yaml.
 
 This module provides functionality to shorten event names using AI,
 designed to be self-contained with graceful fallback behavior.
