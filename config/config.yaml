@@ -1,6 +1,4 @@
-# Event settings
-default_duration: 6 # Duration in hours
-
+# Event source
 scraping:
   url: "https://www.richmond.gov.uk/services/parking/cpz/twickenham_events"
 
