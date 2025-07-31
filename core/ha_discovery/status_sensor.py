@@ -24,8 +24,7 @@ class StatusSensor(Entity):
         self.name = "Status"
         self.state_topic = f"{self.base_topic}/status"
         self.json_attributes_topic = f"{self.base_topic}/status"
-        self.payload_on = "ON"
-        self.payload_off = "OFF"
+        self.value_template = "{{ 'ON' if value_json.status == 'error' else 'OFF' }}"
         self.json_attributes_template = "{{ value_json | tojson }}"
 
     def get_config_payload(self):
@@ -35,8 +34,7 @@ class StatusSensor(Entity):
         payload = super().get_config_payload()
         payload.update({
             "device_class": self.device_class,
-            "payload_on": self.payload_on,
-            "payload_off": self.payload_off,
+            "value_template": self.value_template,
             "json_attributes_template": self.json_attributes_template,
         })
         return payload
