@@ -44,6 +44,7 @@ event_shortener:
   api_key: "AIzaSyBnS_jrez0HfAgd2aONJy1s0VAm79yvNy8" # Your Google Gemini API key
   model_name: "gemini-2.5-pro"
   char_limit: 16
+  cache_enabled: true # Enable caching to avoid repeated API calls
   prompt_template: >
     You are an expert editor. Your task is to shorten event names
     to a maximum of {char_limit} characters while keeping them recognizable.
