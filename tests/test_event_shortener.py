@@ -90,10 +90,11 @@ class TestEventShortener(unittest.TestCase):
                 "original": "Women's Rugby World Cup Final"
             }
         }
-        
+
         original_name = "Women's Rugby World Cup Final"
-        result_name, had_error = get_short_name(original_name, self.test_config_enabled)
-        
+        result_name, had_error = get_short_name(
+            original_name, self.test_config_enabled)
+
         self.assertEqual(result_name, "W RWC Final")
         self.assertFalse(had_error)
         # Verify cache was loaded but no API call was made

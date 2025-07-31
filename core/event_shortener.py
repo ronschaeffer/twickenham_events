@@ -55,7 +55,7 @@ def save_cache(cache: Dict[str, Dict[str, str]]) -> None:
 def get_cached_short_name(original_name: str, cache: Dict[str, Dict[str, str]]) -> Tuple[str, bool]:
     """
     Get shortened name from cache if available.
-    
+
     Returns:
         Tuple of (short_name_or_original, is_cached):
         - short_name_or_original: The cached short name or original if not cached
@@ -88,7 +88,7 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
     # Load cache and check if we already have this name
     cache_enabled = config.get('event_shortener.cache_enabled', True)
     cache = load_cache() if cache_enabled else {}
-    
+
     if cache_enabled:
         cached_result, is_cached = get_cached_short_name(original_name, cache)
         if is_cached:
