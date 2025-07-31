@@ -13,7 +13,7 @@ try:
     import google.generativeai as genai
     GENAI_AVAILABLE = True
 except ImportError:
-    genai = None  # Make genai available for mocking even when not installed
+    genai = None  # type: ignore # Make genai available for mocking even when not installed
     GENAI_AVAILABLE = False
     logging.warning(
         "google.generativeai not available. Event shortening will be disabled.")
@@ -49,7 +49,7 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
             logging.error("Event shortening enabled but no API key provided")
             return original_name, True
 
-        genai.configure(api_key=api_key)
+        genai.configure(api_key=api_key)  # type: ignore
 
         # Get configuration values
         model_name = config.get(
@@ -69,7 +69,7 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
         )
 
         # Make the API call
-        model = genai.GenerativeModel(model_name)
+        model = genai.GenerativeModel(model_name)  # type: ignore
         response = model.generate_content(final_prompt)
 
         if response.text:
