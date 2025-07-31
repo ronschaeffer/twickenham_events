@@ -3,6 +3,7 @@
 from core.mqtt_publisher import MQTTPublisher
 from core.ha_mqtt_discovery import publish_discovery_configs
 from core.config import Config
+from core.event_shortener import get_short_name
 import json
 import os
 import re
@@ -198,7 +199,7 @@ def fetch_events(url: Optional[str]) -> list[dict]:
     return raw_events
 
 
-def summarise_events(raw_events: list[dict]) -> list[dict]:
+def summarise_events(raw_events: list[dict], config: Config) -> list[dict]:
     """
     Summarises and filters a list of raw event data.
     - Normalizes date and time formats.
@@ -234,20 +235,34 @@ def summarise_events(raw_events: list[dict]) -> list[dict]:
         start_times = normalize_time(event.get('time'))
         crowd_size = validate_crowd_size(event.get('crowd'))
 
+        # Get shortened name for the fixture
+        fixture_name = event['title']
+        short_name, shortening_error = get_short_name(fixture_name, config)
+        if shortening_error:
+            error_log.append(f"Error shortening event name: {fixture_name}")
+
         if start_times:
             for time in start_times:
-                summarized_by_date[event_date_iso]['events'].append({
-                    'fixture': event['title'],
+                event_data = {
+                    'fixture': fixture_name,
                     'start_time': time,
                     'crowd': crowd_size
-                })
+                }
+                # Add short name if different from original
+                if short_name != fixture_name:
+                    event_data['fixture_short'] = short_name
+                summarized_by_date[event_date_iso]['events'].append(event_data)
         else:
             # Handle events with no specific start time (TBC)
-            summarized_by_date[event_date_iso]['events'].append({
-                'fixture': event['title'],
+            event_data = {
+                'fixture': fixture_name,
                 'start_time': None,
                 'crowd': crowd_size
-            })
+            }
+            # Add short name if different from original
+            if short_name != fixture_name:
+                event_data['fixture_short'] = short_name
+            summarized_by_date[event_date_iso]['events'].append(event_data)
 
     # Determine the earliest start time for each day and add event counts
     for date_summary in summarized_by_date.values():
@@ -428,7 +443,7 @@ def main():
     raw_events = fetch_events(config.get('scraping.url'))
 
     if raw_events:
-        summarized_events = summarise_events(raw_events)
+        summarized_events = summarise_events(raw_events, config)
         process_and_publish_events(summarized_events, publisher, config)
 
     # Save errors to a file
