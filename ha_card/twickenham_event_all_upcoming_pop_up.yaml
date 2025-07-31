@@ -1,0 +1,78 @@
+type: vertical-stack
+cards:
+  - type: custom:bubble-card
+    card_type: pop-up
+    hash: "#twickenham-event"
+    shadow_opacity: 60000
+    button_type: name
+    show_header: false
+  - type: markdown
+    content: >
+      {% set status_sensor = states('binary_sensor.twickenham_events_status') %}
+
+      {% set status_attrs = state_attr('binary_sensor.twickenham_events_status',
+      'errors') %}
+
+      {% set error_count = state_attr('binary_sensor.twickenham_events_status',
+      'error_count') %}
+
+      {% set all_events = state_attr('sensor.twickenham_events_all_upcoming',
+      'events') %}
+
+
+      {% if status_sensor == 'ON' %}
+
+      <ha-icon icon="mdi:alert-circle"></ha-icon> **{{ error_count }} Error{{
+      's' if error_count != 1 else '' }}**
+
+      {% for error in status_attrs %}
+
+      - {{ error }}
+
+      {% endfor %}
+
+      {% elif all_events == none or all_events|length == 0 %}
+
+      **No events scheduled**
+
+      {% else %}
+
+      {% set ns = namespace(current_month='', months_shown=0) %}
+
+      {% for date_group in all_events %}
+
+      {% set event_date = strptime(date_group.date, '%Y-%m-%d') %}
+
+      {% set month_year = event_date.strftime('%B %Y') %}
+
+
+      {% if month_year != ns.current_month and ns.months_shown < 6 %}
+
+      {% set ns.current_month = month_year %}
+
+      {% set ns.months_shown = ns.months_shown + 1 %}
+
+
+      ### <ha-icon icon="mdi:calendar-month"></ha-icon> {{ month_year }}
+
+      {% set month_key = event_date.strftime('%Y-%m') %}
+
+      {% for dg in all_events if dg.date.startswith(month_key) %}
+
+      {% set ed = strptime(dg.date, '%Y-%m-%d') %}
+
+      {% for event in dg.events %}
+
+      - **{{ ed.strftime('%d') }}**: {{ event.fixture }}{% if event.start_time
+      %} *({{ event.start_time }})*{% endif %}
+
+      {% endfor %}
+
+      {% endfor %}
+
+
+      {% endif %}
+
+      {% endfor %}
+
+      {% endif %}
