@@ -42,19 +42,6 @@ def publish_discovery_configs(config: Config, publisher: MQTTPublisher):
             icon="mdi:calendar-multiple"
         ),
 
-        # Sensor for Next Day Summary
-        Sensor(
-            config=config,
-            device=device,
-            name="Next Day Summary",
-            unique_id="next_day_summary",
-            state_topic=config.get('mqtt.topics.next_day_summary'),
-            value_template="{{ value_json.summary.date if value_json.summary else 'None' }}",
-            json_attributes_topic=config.get('mqtt.topics.next_day_summary'),
-            json_attributes_template="{{ value_json | tojson }}",
-            icon="mdi:calendar-today"
-        ),
-
         # Sensor for the very next event
         Sensor(
             config=config,
