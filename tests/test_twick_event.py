@@ -9,7 +9,8 @@ from core.twick_event import (
 import sys
 from pathlib import Path
 import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, MagicMock
+from core.config import Config
 from datetime import date, datetime
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -42,6 +43,17 @@ def mock_response_no_table():
     mock.status_code = 200
     mock.content = b"<html><body><p>No events scheduled.</p></body></html>"
     mock.raise_for_status = Mock()
+    return mock
+
+
+@pytest.fixture
+def mock_config():
+    """Provides a mock Config object for tests."""
+    mock = MagicMock(spec=Config)
+    mock.get.side_effect = lambda key, default=None: {
+        'event_rules.end_of_day_cutoff': '23:00',
+        'event_rules.next_event_delay_hours': 1
+    }.get(key, default)
     return mock
 
 
@@ -85,7 +97,7 @@ def test_summarise_events_filters_past_events():
         assert summarized[1]['date'] == '2025-10-04'
 
 
-def test_find_next_event_and_summary():
+def test_find_next_event_and_summary(mock_config):
     """Test finding the next event from a list of summarized events."""
     summarized_events = [
         {
@@ -99,20 +111,81 @@ def test_find_next_event_and_summary():
             'earliest_start': None
         }
     ]
-    with patch('core.twick_event.datetime') as mock_datetime:
-        mock_datetime.now.return_value.date.return_value = date(2025, 7, 31)
+    with patch('core.twick_event.datetime', autospec=True) as mock_datetime:
+        mock_datetime.now.return_value = datetime(2025, 7, 31, 12, 0, 0)
         # The original strptime needs to be used, not the mock
         mock_datetime.strptime = datetime.strptime
-        # also need to mock now() for the time comparison inside the function
-        mock_datetime.now.return_value = datetime(2025, 7, 31, 12, 0, 0)
+        mock_datetime.combine = datetime.combine
+
         next_event, next_day_summary = find_next_event_and_summary(
-            summarized_events)
+            summarized_events, mock_config)
         assert next_event is not None
-        assert next_day_summary is not None
         assert next_event['fixture'] == 'Future Event 1'
+        assert next_day_summary is not None
         assert next_day_summary['date'] == '2025-09-27'
 
 
+@pytest.mark.parametrize("input_date, expected", [
+    ("16 May 2025", "2025-05-16"),
+    ("16/17 May 2025", "2025-05-16"),
+    ("Mon 16 May 2025", "2025-05-16"),
+    ("16th May 2025", "2025-05-16"),
+    ("01 January 2023", "2023-01-01"),
+    ("31 December 2023", "2023-12-31"),
+    ("29 February 2024", "2024-02-29"),  # Leap year
+    ("30 Feb 2023", None),  # Invalid date
+    ("15-08-2023", "2023-08-15"),
+    ("15/08/2023", "2023-08-15"),
+    ("15.08.2023", "2023-08-15"),
+    ("15-Aug-2023", "2023-08-15"),
+    ("15-Aug-23", "2023-08-15"),
+    ("15/08/23", "2023-08-15"),
+    ("15.08.23", "2023-08-15"),
+    ("15-08-23", "2023-08-15"),
+    ("15th August 2023", "2023-08-15"),
+    ("15th Aug 2023", "2023-08-15"),
+    ("15th Aug 23", "2023-08-15"),
+    ("15th August 23", "2023-08-15"),
+    ("Invalid Date", None),
+    ("Monday 1st December 2024", "2024-12-01"),
+    ("Tuesday 2nd December 2024", "2024-12-02"),
+    ("Wednesday 3rd December 2024", "2024-12-03"),
+    ("Thursday 4th December 2024", "2024-12-04"),
+    ("Friday 5th December 2024", "2024-12-05"),
+    ("Saturday 6th December 2024", "2024-12-06"),
+    ("Sunday 7th December 2024", "2024-12-07"),
+    ("Mon 8th Dec 2024", "2024-12-08"),
+    ("Tue 9th Dec 2024", "2024-12-09"),
+    ("Wed 10th Dec 2024", "2024-12-10"),
+    ("Thu 11th Dec 2024", "2024-12-11"),
+    ("Fri 12th Dec 2024", "2024-12-12"),
+    ("Sat 13th Dec 2024", "2024-12-13"),
+    ("Sun 14th Dec 2024", "2024-12-14"),
+    ("Weekend 16/17 May 2025", "2025-05-16"),
+    ("Wknd 23/24 May 2025", "2025-05-23"),
+    ("7-Jan-25", "2025-01-07"),
+    ("7/1/2025", "2025-01-07"),
+    ("07-01-25", "2025-01-07"),
+    ("07.01.2025", "2025-01-07"),
+    ("7.1.25", "2025-01-07"),
+    ("7-May-25", "2025-05-07"),
+    ("1st May 2025", "2025-05-01"),
+    ("2nd May 2025", "2025-05-02"),
+    ("3rd May 2025", "2025-05-03"),
+    ("4th May 2025", "2025-05-04"),
+    ("21st June 2025", "2025-06-21"),
+    ("Mon 7-Jan-25", "2025-01-07"),
+    ("Tuesday 07/01/2025", "2025-01-07"),
+    ("Wed 7.1.25", "2025-01-07"),
+    ("", None),
+    ("32/13/25", None),
+    ("Weekend", None),
+    ("Saturday 2nd November 2024", "2024-11-02"),
+    ("Sunday 24th November 2024", "2024-11-24"),
+    ("Saturday 28th December 2024", "2024-12-28"),
+    ("Saturday 8th February 2025", "2025-02-08"),
+    ("Saturday 21st June 2025", "2025-06-21"),
+])
 @pytest.mark.parametrize("input_date, expected", [
     ("16 May 2025", "2025-05-16"),
     ("16/17 May 2025", "2025-05-16"),

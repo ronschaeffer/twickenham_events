@@ -2,6 +2,11 @@
 scraping:
   url: "https://www.richmond.gov.uk/services/parking/cpz/twickenham_events"
 
+# Rules for determining when an event is over
+event_rules:
+  end_of_day_cutoff: "23:00" # Time to consider all events for the day over
+  next_event_delay_hours: 1 # Hours after an event starts before it's considered over (if another event follows)
+
 # MQTT Configuration
 mqtt:
   enabled: true
