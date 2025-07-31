@@ -7,7 +7,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, date
+from datetime import datetime, date, time, timedelta
 from typing import Optional, Tuple
 
 import requests
@@ -255,59 +255,88 @@ def summarise_events(raw_events: list[dict]) -> list[dict]:
     return sorted(summarized_by_date.values(), key=lambda x: x['date'])
 
 
-def find_next_event_and_summary(summarized_events: list) -> Tuple[Optional[dict], Optional[dict]]:
+def find_next_event_and_summary(summarized_events: list, config: Config) -> Tuple[Optional[dict], Optional[dict]]:
     """
-    Finds the very next event and a summary of all events on that same day.
+    Finds the current or next upcoming event and a summary for that day.
+    An event is considered "over" based on rules in the config.
     """
-    today = datetime.now().date()
+    now = datetime.now()
+    today = now.date()
 
-    future_events = [
+    # Get rules from config, with defaults
+    cutoff_str = config.get('event_rules.end_of_day_cutoff', '23:00')
+    delay_hours = config.get('event_rules.next_event_delay_hours', 1)
+
+    try:
+        cutoff_time = datetime.strptime(cutoff_str, '%H:%M').time()
+    except ValueError:
+        cutoff_time = time(23, 0)  # Default fallback
+        error_log.append(
+            f"Invalid cutoff time format '{cutoff_str}', defaulting to 23:00.")
+
+    # Filter for events that are not definitively in the past
+    future_or_current_events = [
         event for event in summarized_events
         if datetime.strptime(event['date'], '%Y-%m-%d').date() >= today
     ]
 
-    if not future_events:
+    if not future_or_current_events:
         return None, None
 
-    # Sort by date, then by start time (handling None)
-    future_events.sort(key=lambda x: (
+    # Sort by date, then by earliest start time
+    future_or_current_events.sort(key=lambda x: (
         x['date'], x.get('earliest_start') or '23:59'))
 
-    next_event_day = future_events[0]
-    next_event_date = datetime.strptime(
-        next_event_day['date'], '%Y-%m-%d').date()
+    for i, event_day in enumerate(future_or_current_events):
+        event_date = datetime.strptime(event_day['date'], '%Y-%m-%d').date()
 
-    # Find the very next individual event item
-    next_individual_event = None
-    # Sort events within the day by start time
-    sorted_events_today = sorted(
-        next_event_day['events'], key=lambda x: x.get('start_time') or '23:59')
+        # If the event day is in the future, it's the one we want
+        if event_date > today:
+            return event_day['events'][0], event_day
 
-    for event_item in sorted_events_today:
-        # If the event is today, check if the start time is in the future
-        if next_event_date == today:
-            start_time_str = event_item.get('start_time')
-            if start_time_str:
-                # Handle multiple times, e.g., "15:00 & 18:00"
-                times = [t.strip() for t in start_time_str.split('&')]
-                future_times = [
-                    t for t in times if datetime.strptime(t, '%H:%M').time() >= datetime.now().time()]
-                if future_times:
-                    # We found an event today that hasn't started yet
-                    next_individual_event = event_item
-                    break
-            else:
-                if next_individual_event is None:
-                    next_individual_event = event_item
-        else:
-            # If the event is on a future date, it's the next one
-            next_individual_event = event_item
-            break
+        # If the event day is today, we need to apply the new logic
+        if event_date == today:
+            # Sort today's individual events by start time
+            sorted_events_today = sorted(
+                event_day['events'], key=lambda x: x.get('start_time') or '23:59')
 
-    if not next_individual_event and sorted_events_today:
-        next_individual_event = sorted_events_today[0]
+            # Check if we are past the end-of-day cutoff time
+            if now.time() >= cutoff_time:
+                # If so, all of today's events are over. Look for the next day's event.
+                continue
 
-    return next_individual_event, next_event_day
+            for j, event_item in enumerate(sorted_events_today):
+                start_time_str = event_item.get('start_time')
+                if not start_time_str:
+                    # If no start time, it can't be determined to be "over" until cutoff, so it's the next one
+                    return event_item, event_day
+
+                # Handle multiple times, e.g., "15:00 & 18:00", take the earliest
+                earliest_start_str = min(t.strip()
+                                         for t in start_time_str.split('&'))
+                try:
+                    start_time = datetime.strptime(
+                        earliest_start_str, '%H:%M').time()
+                except ValueError:
+                    continue  # Skip if time is invalid
+
+                # Check if the event is over
+                is_over = False
+                # Rule 1: Is there a subsequent event on the same day?
+                if j + 1 < len(sorted_events_today):
+                    # Event is over if current time is past its start time + delay
+                    if now.time() >= (datetime.combine(date.today(), start_time) + timedelta(hours=delay_hours)).time():
+                        is_over = True
+
+                # If not over by the delay rule, it's our current/next event
+                if not is_over:
+                    return event_item, event_day
+
+            # If all of today's events are considered over by the delay rule, check the next day
+            continue
+
+    # If the loop completes, no future events were found
+    return None, None
 
 
 def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher, config: Config):
@@ -316,10 +345,9 @@ def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher
     Also publishes status information.
     """
     next_event, next_day_summary = find_next_event_and_summary(
-        summarized_events)
+        summarized_events, config)
 
-    timestamp = {'iso': datetime.now().isoformat(
-    ), 'human': datetime.now().strftime('%A, %d %B %Y at %H:%M')}
+    timestamp = datetime.now().isoformat()
 
     # Publish to event topics
     publisher.publish(
@@ -339,7 +367,7 @@ def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher
     errors = error_log
     status_payload = {
         'status': 'ok' if not errors else 'error',
-        'last_updated': timestamp['iso'],
+        'last_updated': timestamp,
         'event_count': len(summarized_events),
         'error_count': len(errors),
         'errors': errors
@@ -387,8 +415,6 @@ def main():
     if raw_events:
         summarized_events = summarise_events(raw_events)
         process_and_publish_events(summarized_events, publisher, config)
-
-    publisher.disconnect()
 
     # Save errors to a file
     if error_log:

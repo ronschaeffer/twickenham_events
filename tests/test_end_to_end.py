@@ -9,10 +9,6 @@ from datetime import datetime
 
 # --- Test Data ---
 
-# A timestamp to use for test data, ensuring consistency.
-SAMPLE_TIMESTAMP = {'iso': '2025-07-30T10:00:00',
-                    'human': 'Wednesday, 30 July 2025 at 10:00'}
-
 # Sample data representing successfully parsed and summarized events.
 SAMPLE_SUMMARIZED_EVENTS = [
     {
@@ -100,7 +96,7 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
     assert mock_publisher_instance.publish.call_count == 5
 
     next_event, next_day_summary = find_next_event_and_summary(
-        SAMPLE_SUMMARIZED_EVENTS)
+        SAMPLE_SUMMARIZED_EVENTS, mock_config)
 
     # Create a dictionary of actual published topics and payloads
     actual_published_data = {}

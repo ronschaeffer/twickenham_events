@@ -28,10 +28,7 @@ def main():
     output_dir.mkdir(exist_ok=True)
 
     # --- Timestamp for all files ---
-    timestamp = {
-        'iso': datetime.now().isoformat(),
-        'human': datetime.now().strftime('%A, %d %B %Y at %H:%M')
-    }
+    timestamp = datetime.now().isoformat()
 
     # --- Fetch and Process Events ---
     raw_events = fetch_events(config.get('scraping.url'))
@@ -85,8 +82,9 @@ def main():
             print(f"Failed to publish to MQTT: {e}")
 
     # --- Console Output ---
+    # Find the next event and summary
     next_event, next_day_summary = find_next_event_and_summary(
-        summarized_events)
+        summarized_events, config)
 
     print("\n" + "="*30)
     print("    UPCOMING EVENT SUMMARY")
