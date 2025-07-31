@@ -4,9 +4,10 @@ import time
 from typing import Any, Optional, Dict
 import paho.mqtt.client as mqtt
 
+
 class MQTTPublisher:
     def __init__(self, broker_url: str, broker_port: int, client_id: str,
-                 security: str = 'none', auth: Optional[Dict] = None, 
+                 security: str = 'none', auth: Optional[Dict] = None,
                  tls: Optional[Dict] = None, max_retries: int = 3):
         self.client = mqtt.Client(client_id=client_id)
         self.broker_url = broker_url
@@ -20,13 +21,14 @@ class MQTTPublisher:
                 raise ValueError("Username/password required but not provided")
             self.client.username_pw_set(auth['username'], auth['password'])
 
-        if security in ['tls', 'tls_with_client_cert']:
+        if security in ['tls', 'tls_with_client_cert'] and tls:
             try:
                 self.client.tls_set(
                     ca_certs=tls.get('ca_cert'),
                     certfile=tls.get('client_cert'),
                     keyfile=tls.get('client_key'),
-                    cert_reqs=ssl.CERT_REQUIRED if tls.get('verify') else ssl.CERT_NONE,
+                    cert_reqs=ssl.CERT_REQUIRED if tls.get(
+                        'verify') else ssl.CERT_NONE,
                     tls_version=ssl.PROTOCOL_TLS
                 )
                 self.client.tls_insecure_set(not tls.get('verify', True))
@@ -55,8 +57,10 @@ class MQTTPublisher:
         retries = 0
         while retries < self.max_retries:
             try:
-                print(f"Attempting connection to {self.broker_url}:{self.broker_port}")
-                self.client.connect(self.broker_url, self.broker_port, keepalive=60)
+                print(
+                    f"Attempting connection to {self.broker_url}:{self.broker_port}")
+                self.client.connect(
+                    self.broker_url, self.broker_port, keepalive=60)
                 self.client.loop_start()
                 # Wait for connection
                 timeout = 5
@@ -86,10 +90,12 @@ class MQTTPublisher:
         if not self._connected:
             print("Not connected to broker")
             return False
-        
+
         try:
+            # Automatically serialize dicts/lists to JSON
             if isinstance(payload, (dict, list)):
                 payload = json.dumps(payload)
+
             result = self.client.publish(topic, payload, qos, retain)
             return result.rc == mqtt.MQTT_ERR_SUCCESS
         except Exception as e:
