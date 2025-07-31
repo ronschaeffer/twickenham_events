@@ -76,7 +76,7 @@ def test_fetch_events_no_table(mock_get, mock_response_no_table):
     assert len(events) == 0
 
 
-def test_summarise_events_filters_past_events():
+def test_summarise_events_filters_past_events(mock_config):
     """Test that summarise_events correctly filters out past events."""
     raw_events = [
         {'date': '14 June 2025', 'title': 'Past Event',
@@ -91,10 +91,13 @@ def test_summarise_events_filters_past_events():
         mock_datetime.now.return_value.date.return_value = date(2025, 7, 31)
         # We need to make sure that strptime is not mocked
         mock_datetime.strptime = datetime.strptime
-        summarized = summarise_events(raw_events)
-        assert len(summarized) == 2
-        assert summarized[0]['date'] == '2025-09-27'
-        assert summarized[1]['date'] == '2025-10-04'
+        with patch('core.twick_event.get_short_name') as mock_shortener:
+            # Mock the shortener to return original name (disabled behavior)
+            mock_shortener.return_value = ('original_name', False)
+            summarized = summarise_events(raw_events, mock_config)
+            assert len(summarized) == 2
+            assert summarized[0]['date'] == '2025-09-27'
+            assert summarized[1]['date'] == '2025-10-04'
 
 
 def test_find_next_event_and_summary(mock_config):

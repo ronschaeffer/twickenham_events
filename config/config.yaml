@@ -37,3 +37,29 @@ mqtt:
 home_assistant:
   enabled: true
   discovery_prefix: "homeassistant" # Default Home Assistant discovery topic
+
+# Event Name Shortening (AI-powered)
+event_shortener:
+  enabled: true # Set to true and add API key to enable
+  api_key: "AIzaSyBnS_jrez0HfAgd2aONJy1s0VAm79yvNy8" # Your Google Gemini API key
+  model_name: "gemini-2.5-pro"
+  char_limit: 16
+  prompt_template: >
+    You are an expert editor. Your task is to shorten event names
+    to a maximum of {char_limit} characters while keeping them recognizable.
+    The events are usually rugby matches, but can also be concerts.
+    Use standard abbreviations.
+
+    Examples:
+    fixture: Women's Rugby World Cup Final
+    fixture_short: W RWC Final
+
+    fixture: Taylor Swift | The Eras Tour
+    fixture_short: Taylor Swift
+
+    fixture: Harlequins Big Game
+    fixture_short: Quins Big Game
+    ---
+    Now, shorten this event name:
+    fixture: {event_name}
+    fixture_short:

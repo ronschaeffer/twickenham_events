@@ -47,7 +47,7 @@ def main():
         print("No events found or failed to fetch events.")
         return
 
-    summarized_events = summarise_events(raw_events)
+    summarized_events = summarise_events(raw_events, config)
 
     # --- Output ---
     # Write upcoming events to JSON file
