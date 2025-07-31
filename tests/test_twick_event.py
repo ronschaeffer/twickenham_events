@@ -1,8 +1,116 @@
-from core.twick_event import normalize_date_range, normalize_time, validate_crowd_size
+from core.twick_event import (
+    find_next_event_and_summary,
+    summarise_events,
+    fetch_events,
+    normalize_date_range,
+    normalize_time,
+    validate_crowd_size
+)
 import sys
 from pathlib import Path
 import pytest
+from unittest.mock import patch, Mock
+from datetime import date, datetime
+
 sys.path.append(str(Path(__file__).parent.parent))
+
+
+@pytest.fixture
+def mock_response_success():
+    """Fixture for a successful requests.get response."""
+    mock = Mock()
+    mock.status_code = 200
+    mock.content = b"""
+    <html><body>
+        <table class="table">
+            <caption>Events at Twickenham Stadium</caption>
+            <tr><th>Date</th><th>Fixture</th><th>Kick off</th><th>Crowd</th></tr>
+            <tr><td>Saturday 14 June 2025</td><td>Past Event</td><td>3pm</td><td>10,000</td></tr>
+            <tr><td>Saturday 27 September 2025</td><td>Future Event 1</td><td>4pm</td><td>80,000</td></tr>
+            <tr><td>Saturday 4 October 2025</td><td>Future Event 2</td><td>TBC</td><td>50,000</td></tr>
+        </table>
+    </body></html>
+    """
+    mock.raise_for_status = Mock()
+    return mock
+
+
+@pytest.fixture
+def mock_response_no_table():
+    """Fixture for a response with no event table."""
+    mock = Mock()
+    mock.status_code = 200
+    mock.content = b"<html><body><p>No events scheduled.</p></body></html>"
+    mock.raise_for_status = Mock()
+    return mock
+
+
+@patch('requests.get')
+def test_fetch_events_success(mock_get, mock_response_success):
+    """Test successful event fetching and parsing."""
+    mock_get.return_value = mock_response_success
+    events = fetch_events("http://fakeurl.com")
+    assert len(events) == 3
+    assert events[0]['title'] == "Past Event"
+    assert events[1]['title'] == "Future Event 1"
+    assert events[2]['time'] == "TBC"
+
+
+@patch('requests.get')
+def test_fetch_events_no_table(mock_get, mock_response_no_table):
+    """Test fetching when no event table is present."""
+    mock_get.return_value = mock_response_no_table
+    events = fetch_events("http://fakeurl.com")
+    assert len(events) == 0
+
+
+def test_summarise_events_filters_past_events():
+    """Test that summarise_events correctly filters out past events."""
+    raw_events = [
+        {'date': '14 June 2025', 'title': 'Past Event',
+            'time': '3pm', 'crowd': '10,000'},
+        {'date': '27 September 2025', 'title': 'Future Event 1',
+            'time': '4pm', 'crowd': '80,000'},
+        {'date': '04 October 2025', 'title': 'Future Event 2',
+            'time': 'TBC', 'crowd': '50,000'},
+    ]
+    # Today's date is July 31, 2025, so June event should be filtered out
+    with patch('core.twick_event.datetime') as mock_datetime:
+        mock_datetime.now.return_value.date.return_value = date(2025, 7, 31)
+        # We need to make sure that strptime is not mocked
+        mock_datetime.strptime = datetime.strptime
+        summarized = summarise_events(raw_events)
+        assert len(summarized) == 2
+        assert summarized[0]['date'] == '2025-09-27'
+        assert summarized[1]['date'] == '2025-10-04'
+
+
+def test_find_next_event_and_summary():
+    """Test finding the next event from a list of summarized events."""
+    summarized_events = [
+        {
+            'date': '2025-09-27',
+            'events': [{'fixture': 'Future Event 1', 'start_time': '16:00'}],
+            'earliest_start': '16:00'
+        },
+        {
+            'date': '2025-10-04',
+            'events': [{'fixture': 'Future Event 2', 'start_time': None}],
+            'earliest_start': None
+        }
+    ]
+    with patch('core.twick_event.datetime') as mock_datetime:
+        mock_datetime.now.return_value.date.return_value = date(2025, 7, 31)
+        # The original strptime needs to be used, not the mock
+        mock_datetime.strptime = datetime.strptime
+        # also need to mock now() for the time comparison inside the function
+        mock_datetime.now.return_value = datetime(2025, 7, 31, 12, 0, 0)
+        next_event, next_day_summary = find_next_event_and_summary(
+            summarized_events)
+        assert next_event is not None
+        assert next_day_summary is not None
+        assert next_event['fixture'] == 'Future Event 1'
+        assert next_day_summary['date'] == '2025-09-27'
 
 
 @pytest.mark.parametrize("input_date, expected", [
