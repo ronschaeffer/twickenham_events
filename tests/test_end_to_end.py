@@ -105,7 +105,7 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
         payload_str = call_args.args[1]
         try:
             actual_published_data[topic] = json.loads(payload_str)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             actual_published_data[topic] = payload_str
 
     # Verify event payloads (checking structure and content, ignoring timestamp)
@@ -154,7 +154,7 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
         payload_str = call_args.args[1]
         try:
             actual_published_data[topic] = json.loads(payload_str)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             actual_published_data[topic] = payload_str
 
     # Verify event payloads
@@ -199,7 +199,7 @@ def test_process_and_publish_events_no_upcoming_events(mock_mqtt_publisher, mock
         payload_str = call_args.args[1]
         try:
             actual_published_data[topic] = json.loads(payload_str)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError):
             actual_published_data[topic] = payload_str
 
     # Verify event payloads

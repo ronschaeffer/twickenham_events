@@ -392,7 +392,7 @@ def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher
     attributes_topic = f"{status_topic}/attributes"
 
     publisher.publish(status_topic, status_payload['status'])
-    publisher.publish(attributes_topic, json.dumps(status_payload))
+    publisher.publish(attributes_topic, status_payload)
 
 
 def main():
