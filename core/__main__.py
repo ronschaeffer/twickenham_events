@@ -34,7 +34,7 @@ def main():
     raw_events = fetch_events(config.get('scraping.url'))
 
     # Write parsing errors to JSON file immediately after fetch
-    errors_path = output_dir / 'parsing_errors.json'
+    errors_path = output_dir / 'event_processing_errors.json'
     with open(errors_path, 'w') as f:
         json.dump({'last_updated': timestamp,
                   'errors': error_log}, f, indent=4)

@@ -93,7 +93,7 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
         SAMPLE_SUMMARIZED_EVENTS, mock_publisher_instance, mock_config)
 
     # Assert
-    assert mock_publisher_instance.publish.call_count == 5
+    assert mock_publisher_instance.publish.call_count == 4
 
     next_event, next_day_summary = find_next_event_and_summary(
         SAMPLE_SUMMARIZED_EVENTS, mock_config)
@@ -102,11 +102,9 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
     actual_published_data = {}
     for call_args in mock_publisher_instance.publish.call_args_list:
         topic = call_args.args[0]
-        payload_str = call_args.args[1]
-        try:
-            actual_published_data[topic] = json.loads(payload_str)
-        except (json.JSONDecodeError, TypeError):
-            actual_published_data[topic] = payload_str
+        payload = call_args.args[1]
+        # The payload should already be a dict/list due to MQTTPublisher's auto-serialization
+        actual_published_data[topic] = payload
 
     # Verify event payloads (checking structure and content, ignoring timestamp)
     assert actual_published_data['test/events/all_upcoming']['events'] == SAMPLE_SUMMARIZED_EVENTS
@@ -115,16 +113,14 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
 
     # Verify status payloads
     status_topic = 'test/events/status'
-    attributes_topic = f"{status_topic}/attributes"
-    assert actual_published_data[status_topic] == 'ok'
-    attributes = actual_published_data[attributes_topic]
-    assert attributes['status'] == 'ok'
-    assert attributes['event_count'] == 2
-    assert attributes['error_count'] == 0
-    assert attributes['errors'] == []
+    status_payload = actual_published_data[status_topic]
+    assert status_payload['status'] == 'ok'
+    assert status_payload['event_count'] == 2
+    assert status_payload['error_count'] == 0
+    assert status_payload['errors'] == []
     # Check for timestamp existence and basic format
-    assert 'last_updated' in attributes
-    assert isinstance(attributes['last_updated'], str)
+    assert 'last_updated' in status_payload
+    assert isinstance(status_payload['last_updated'], str)
 
 
 @patch('core.twick_event.MQTTPublisher')
@@ -145,17 +141,14 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
             [], mock_publisher_instance, mock_config)
 
     # Assert
-    assert mock_publisher_instance.publish.call_count == 5
+    assert mock_publisher_instance.publish.call_count == 4
 
     # Create a dictionary of actual published topics and payloads
     actual_published_data = {}
     for call_args in mock_publisher_instance.publish.call_args_list:
         topic = call_args.args[0]
-        payload_str = call_args.args[1]
-        try:
-            actual_published_data[topic] = json.loads(payload_str)
-        except (json.JSONDecodeError, TypeError):
-            actual_published_data[topic] = payload_str
+        payload = call_args.args[1]
+        actual_published_data[topic] = payload
 
     # Verify event payloads
     assert actual_published_data['test/events/all_upcoming']['events'] == []
@@ -164,15 +157,13 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
 
     # Verify status payloads
     status_topic = 'test/events/status'
-    attributes_topic = f"{status_topic}/attributes"
-    assert actual_published_data[status_topic] == 'error'
-    attributes = actual_published_data[attributes_topic]
-    assert attributes['status'] == 'error'
-    assert attributes['event_count'] == 0
-    assert attributes['error_count'] == 2
-    assert attributes['errors'] == SAMPLE_ERRORS
-    assert 'last_updated' in attributes
-    assert isinstance(attributes['last_updated'], str)
+    status_payload = actual_published_data[status_topic]
+    assert status_payload['status'] == 'error'
+    assert status_payload['event_count'] == 0
+    assert status_payload['error_count'] == 2
+    assert status_payload['errors'] == SAMPLE_ERRORS
+    assert 'last_updated' in status_payload
+    assert isinstance(status_payload['last_updated'], str)
 
 
 @patch('core.twick_event.MQTTPublisher')
@@ -190,17 +181,14 @@ def test_process_and_publish_events_no_upcoming_events(mock_mqtt_publisher, mock
         [], mock_publisher_instance, mock_config)
 
     # Assert
-    assert mock_publisher_instance.publish.call_count == 5
+    assert mock_publisher_instance.publish.call_count == 4
 
     # Create a dictionary of actual published topics and payloads
     actual_published_data = {}
     for call_args in mock_publisher_instance.publish.call_args_list:
         topic = call_args.args[0]
-        payload_str = call_args.args[1]
-        try:
-            actual_published_data[topic] = json.loads(payload_str)
-        except (json.JSONDecodeError, TypeError):
-            actual_published_data[topic] = payload_str
+        payload = call_args.args[1]
+        actual_published_data[topic] = payload
 
     # Verify event payloads
     assert actual_published_data['test/events/all_upcoming']['events'] == []
@@ -209,12 +197,10 @@ def test_process_and_publish_events_no_upcoming_events(mock_mqtt_publisher, mock
 
     # Verify status payloads
     status_topic = 'test/events/status'
-    attributes_topic = f"{status_topic}/attributes"
-    assert actual_published_data[status_topic] == 'ok'
-    attributes = actual_published_data[attributes_topic]
-    assert attributes['status'] == 'ok'
-    assert attributes['event_count'] == 0
-    assert attributes['error_count'] == 0
-    assert attributes['errors'] == []
-    assert 'last_updated' in attributes
-    assert isinstance(attributes['last_updated'], str)
+    status_payload = actual_published_data[status_topic]
+    assert status_payload['status'] == 'ok'
+    assert status_payload['event_count'] == 0
+    assert status_payload['error_count'] == 0
+    assert status_payload['errors'] == []
+    assert 'last_updated' in status_payload
+    assert isinstance(status_payload['last_updated'], str)
