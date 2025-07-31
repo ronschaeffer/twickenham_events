@@ -29,12 +29,12 @@ def publish_discovery_configs(config: Config, publisher: MQTTPublisher):
 
     # Add other sensors
     entities.extend([
-        # Main Sensor for All Upcoming Events
+        # Sensor for All Upcoming Events
         Sensor(
             config=config,
             device=device,
             name="All Upcoming",
-            unique_id=f"{config.get('app.unique_id_prefix', 'twickenham_events')}_all_upcoming",
+            unique_id="all_upcoming",
             state_topic=config.get('mqtt.topics.all_upcoming'),
             value_template="{{ value_json.events | count }}",
             json_attributes_topic=config.get('mqtt.topics.all_upcoming'),
@@ -47,7 +47,7 @@ def publish_discovery_configs(config: Config, publisher: MQTTPublisher):
             config=config,
             device=device,
             name="Next Day Summary",
-            unique_id=f"{config.get('app.unique_id_prefix', 'twickenham_events')}_next_day_summary",
+            unique_id="next_day_summary",
             state_topic=config.get('mqtt.topics.next_day_summary'),
             value_template="{{ value_json.summary.date if value_json.summary else 'None' }}",
             json_attributes_topic=config.get('mqtt.topics.next_day_summary'),
@@ -60,7 +60,7 @@ def publish_discovery_configs(config: Config, publisher: MQTTPublisher):
             config=config,
             device=device,
             name="Next Event",
-            unique_id=f"{config.get('app.unique_id_prefix', 'twickenham_events')}_next",
+            unique_id="next",
             state_topic=config.get('mqtt.topics.next'),
             value_template="{{ value_json.event.fixture if value_json.event else 'None' }}",
             json_attributes_topic=config.get('mqtt.topics.next'),

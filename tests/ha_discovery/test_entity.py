@@ -13,7 +13,8 @@ def mock_config():
     """Provides a mock Config object."""
     config = MagicMock(spec=Config)
     config.get.side_effect = lambda key, default=None: {
-        'home_assistant.discovery_prefix': 'homeassistant'
+        'home_assistant.discovery_prefix': 'homeassistant',
+        'app.unique_id_prefix': 'twickenham_events'
     }.get(key, default)
     return config
 
@@ -68,8 +69,10 @@ def test_get_config_payload(sample_sensor_config, mock_config, mock_device):
     payload_dict = sensor.get_config_payload()
 
     # Check that all keys from the sensor config are in the payload
-    # Note: The 'device' key is added by the get_config_payload method
-    expected_keys = list(sample_sensor_config.keys()) + ['device']
+    # Note: The 'device', 'unique_id', and 'object_id' keys are modified by get_config_payload method
+    expected_keys = list(sample_sensor_config.keys()) + ['device', 'object_id']
+    # Remove 'unique_id' from sample_sensor_config keys since it's modified in the payload
+    expected_keys = [k for k in expected_keys if k != 'unique_id'] + ['unique_id']
     for key in expected_keys:
         assert key in payload_dict
 
@@ -79,4 +82,4 @@ def test_get_config_payload(sample_sensor_config, mock_config, mock_device):
 
     # Check a few key values
     assert payload_dict["name"] == sample_sensor_config["name"]
-    assert payload_dict["unique_id"] == sample_sensor_config["unique_id"]
+    assert payload_dict["unique_id"] == f"twickenham_events_{sample_sensor_config['unique_id']}"

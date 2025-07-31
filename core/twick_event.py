@@ -367,15 +367,18 @@ def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher
     # Publish to event topics
     publisher.publish(
         config.get('mqtt.topics.all_upcoming'),
-        {'last_updated': timestamp, 'events': summarized_events}
+        {'last_updated': timestamp, 'events': summarized_events},
+        retain=True
     )
     publisher.publish(
         config.get('mqtt.topics.next_day_summary'),
-        {'last_updated': timestamp, 'summary': next_day_summary}
+        {'last_updated': timestamp, 'summary': next_day_summary},
+        retain=True
     )
     publisher.publish(
         config.get('mqtt.topics.next'),
-        {'last_updated': timestamp, 'event': next_event}
+        {'last_updated': timestamp, 'event': next_event},
+        retain=True
     )
 
     # Publish to status topic
@@ -390,7 +393,7 @@ def process_and_publish_events(summarized_events: list, publisher: MQTTPublisher
 
     status_topic = config.get('mqtt.topics.status')
 
-    publisher.publish(status_topic, status_payload)
+    publisher.publish(status_topic, status_payload, retain=True)
 
 
 def main():

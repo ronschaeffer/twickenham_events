@@ -103,6 +103,7 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
     for call_args in mock_publisher_instance.publish.call_args_list:
         topic = call_args.args[0]
         payload = call_args.args[1]
+        assert call_args.kwargs == {'retain': True}
         # The payload should already be a dict/list due to MQTTPublisher's auto-serialization
         actual_published_data[topic] = payload
 
@@ -148,6 +149,7 @@ def test_process_and_publish_events_with_errors(mock_mqtt_publisher, mock_config
     for call_args in mock_publisher_instance.publish.call_args_list:
         topic = call_args.args[0]
         payload = call_args.args[1]
+        assert call_args.kwargs == {'retain': True}
         actual_published_data[topic] = payload
 
     # Verify event payloads
@@ -188,6 +190,7 @@ def test_process_and_publish_events_no_upcoming_events(mock_mqtt_publisher, mock
     for call_args in mock_publisher_instance.publish.call_args_list:
         topic = call_args.args[0]
         payload = call_args.args[1]
+        assert call_args.kwargs == {'retain': True}
         actual_published_data[topic] = payload
 
     # Verify event payloads

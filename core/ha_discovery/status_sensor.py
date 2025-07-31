@@ -20,11 +20,11 @@ class StatusSensor(Entity):
         super().__init__(config, device)
         self.component = "binary_sensor"
         self.device_class = "problem"
-        self.unique_id = f"{self._config.get('app.unique_id_prefix', 'twickenham_events')}_status"
+        self.unique_id = "status"
         self.name = "Status"
         self.state_topic = f"{self.base_topic}/status"
-        self.json_attributes_topic = f"{self.base_topic}/status"
         self.value_template = "{{ 'ON' if value_json.status == 'error' else 'OFF' }}"
+        self.json_attributes_topic = f"{self.base_topic}/status"
         self.json_attributes_template = "{{ value_json | tojson }}"
 
     def get_config_payload(self):
@@ -35,6 +35,7 @@ class StatusSensor(Entity):
         payload.update({
             "device_class": self.device_class,
             "value_template": self.value_template,
+            "json_attributes_topic": self.json_attributes_topic,
             "json_attributes_template": self.json_attributes_template,
         })
         return payload
