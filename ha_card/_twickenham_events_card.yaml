@@ -42,10 +42,22 @@ entity: sensor.twickenham_events_next
 icon_color: |
   {% set status_sensor = states('binary_sensor.twickenham_events_status') %}
   {% set next_event = state_attr('sensor.twickenham_events_next', 'event') %}
+  {% set event_date_str = state_attr('sensor.twickenham_events_next', 'date') %}
+
   {% if status_sensor == 'ON' or next_event == none %}
     red
   {% else %}
-    blue
+    {% set event_date = strptime(event_date_str, '%Y-%m-%d') %}
+    {% set today = now().date() %}
+    {% set days_diff = (event_date.date() - today).days %}
+    
+    {% if days_diff == 0 %}
+      green
+    {% elif days_diff == 1 %}
+      yellow
+    {% else %}
+      blue
+    {% endif %}
   {% endif %}
 multiline_secondary: true
 fill_container: true
