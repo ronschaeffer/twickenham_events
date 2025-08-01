@@ -49,11 +49,15 @@ event_shortener:
     You are an expert editor. Your task is to shorten event names
     to a maximum of {char_limit} characters while keeping them recognizable.
     The events are usually rugby matches, but can also be concerts.
-    Use standard abbreviations.
+    Use standard abbreviations. IMPORTANT: Always capitalize country abbreviations
+    (ENG, AUS, NZ, ARG, RSA, FRA, ITA, WAL, SCO, IRE, FIJ, etc.).
 
     Examples:
     fixture: Women's Rugby World Cup Final
     fixture_short: W RWC Final
+
+    fixture: England v Australia
+    fixture_short: ENG v AUS
 
     fixture: Taylor Swift | The Eras Tour
     fixture_short: Taylor Swift
