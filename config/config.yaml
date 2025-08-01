@@ -39,25 +39,27 @@ home_assistant:
   discovery_prefix: "homeassistant" # Default Home Assistant discovery topic
 
 # Event Name Shortening (AI-powered)
-event_shortener:
-  enabled: true # Set to true and add API key to enable
-  api_key: "AIzaSyBnS_jrez0HfAgd2aONJy1s0VAm79yvNy8" # Your Google Gemini API key
-  model_name: "gemini-2.5-pro"
-  char_limit: 16
-  cache_enabled: true # Enable caching to avoid repeated API calls
+ai_shortener:
+  enabled: true
+  api_key: ${GEMINI_API_KEY}
+  model: gemini-2.5-pro
+  max_length: 25
+  flags_enabled: true
+  standardize_spacing: true
   prompt_template: >
     You are an expert editor. Your task is to shorten event names
-    to a maximum of {char_limit} characters while keeping them recognizable.
+    to fit within {char_limit} display units while keeping them recognizable.
+    Count regular characters as 1 unit each, and flag emojis as 2 units each.
     The events are usually rugby matches, but can also be concerts.
     Use standard abbreviations. IMPORTANT: Always capitalize country abbreviations
     (ENG, AUS, NZ, ARG, RSA, FRA, ITA, WAL, SCO, IRE, FIJ, etc.).
+    {flag_instructions}
 
     Examples:
     fixture: Women's Rugby World Cup Final
     fixture_short: W RWC Final
 
-    fixture: England v Australia
-    fixture_short: ENG v AUS
+    {flag_examples}
 
     fixture: Taylor Swift | The Eras Tour
     fixture_short: Taylor Swift

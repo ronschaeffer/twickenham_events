@@ -52,7 +52,67 @@ def save_cache(cache: Dict[str, Dict[str, str]]) -> None:
         logging.error(f"Failed to save cache: {e}")
 
 
-def get_cached_short_name(original_name: str, cache: Dict[str, Dict[str, str]]) -> Tuple[str, bool]:
+def standardize_flag_spacing(text: str) -> str:
+    """
+    Ensure consistent flag + space + country format.
+    Fixes AI inconsistencies in flag spacing.
+
+    Args:
+        text: AI-generated shortened name
+
+    Returns:
+        Text with standardized flag spacing
+    """
+    import re
+
+    # Flag-to-country mappings with consistent spacing
+    flag_patterns = [
+        (r'🏴󠁧󠁢󠁥󠁮󠁧󠁿\s*ENG', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG'),  # England
+        (r'🏴󠁧󠁢󠁳󠁣󠁴󠁿\s*SCO', '🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO'),  # Scotland
+        (r'🏴󠁧󠁢󠁷󠁬󠁳󠁿\s*WAL', '🏴󠁧󠁢󠁷󠁬󠁳󠁿 WAL'),  # Wales
+        (r'🇦🇺\s*AUS', '🇦🇺 AUS'),    # Australia
+        (r'🇳🇿\s*NZ', '🇳🇿 NZ'),      # New Zealand
+        (r'🇦🇷\s*ARG', '🇦🇷 ARG'),    # Argentina
+        (r'🇿🇦\s*RSA', '🇿🇦 RSA'),    # South Africa
+        (r'🇫🇷\s*FRA', '🇫🇷 FRA'),    # France
+        (r'🇮🇹\s*ITA', '🇮🇹 ITA'),    # Italy
+        (r'🇮🇪\s*IRE', '🇮🇪 IRE'),    # Ireland
+        (r'🇫🇯\s*FIJ', '🇫🇯 FIJ'),    # Fiji
+    ]
+
+    result = text
+    for pattern, replacement in flag_patterns:
+        result = re.sub(pattern, replacement, result)
+
+    return result
+
+
+def calculate_visual_width(text: str) -> int:
+    """
+    Calculate visual display width where each flag emoji counts as 2 units
+    and regular characters count as 1 unit each.
+
+    Args:
+        text: Text to measure
+
+    Returns:
+        Visual width in display units
+    """
+    import re
+
+    # Count flag emojis (they start with regional indicator symbols or black flag)
+    flag_pattern = r'[\U0001F1E6-\U0001F1FF][\U0001F1E6-\U0001F1FF]|\U0001F3F4[\U000E0060-\U000E007F]+'
+    flag_count = len(re.findall(flag_pattern, text))
+
+    # Remove flags to count remaining characters
+    text_without_flags = re.sub(flag_pattern, '', text)
+    char_count = len(text_without_flags)
+
+    # Each flag = 2 units, each character = 1 unit
+    return char_count + (flag_count * 2)
+
+
+def get_cached_short_name(original_name: str, cache: dict) -> Tuple[str, bool]:
     """
     Get shortened name from cache if available.
 
@@ -82,11 +142,11 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
         - had_error: Boolean indicating if an error occurred during processing
     """
     # Check if feature is disabled
-    if not config.get('event_shortener.enabled', False):
+    if not config.get('ai_shortener.enabled', False):
         return original_name, False
 
     # Load cache and check if we already have this name
-    cache_enabled = config.get('event_shortener.cache_enabled', True)
+    cache_enabled = config.get('ai_shortener.cache_enabled', True)
     cache = load_cache() if cache_enabled else {}
 
     if cache_enabled:
@@ -104,7 +164,13 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
 
     try:
         # Configure the API
-        api_key = config.get('event_shortener.api_key')
+        api_key = config.get('ai_shortener.api_key')
+
+        # Handle environment variable expansion
+        if api_key and api_key.startswith('${') and api_key.endswith('}'):
+            env_var = api_key[2:-1]  # Remove ${ and }
+            api_key = os.environ.get(env_var)
+
         if not api_key:
             logging.error("Event shortening enabled but no API key provided")
             return original_name, True
@@ -112,30 +178,67 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
         genai.configure(api_key=api_key)  # type: ignore
 
         # Get configuration values
-        model_name = config.get(
-            'event_shortener.model_name', 'gemini-2.0-flash')
-        char_limit = config.get('event_shortener.char_limit', 16)
-        prompt_template = config.get('event_shortener.prompt_template', '')
+        model_name = config.get('ai_shortener.model', 'gemini-2.5-pro')
+        char_limit = config.get('ai_shortener.max_length', 16)
+        prompt_template = config.get('ai_shortener.prompt_template', '')
+        flags_enabled = config.get('ai_shortener.flags_enabled', False)
+        standardize_spacing = config.get(
+            'ai_shortener.standardize_spacing', True)
 
         if not prompt_template:
             logging.error(
                 "Event shortening enabled but no prompt template provided")
             return original_name, True
 
+        # Prepare flag-specific content based on configuration
+        if flags_enabled:
+            flag_instructions = """
+    When there's space and the event involves countries, add Unicode flag emojis
+    with EXACTLY ONE SPACE between flag and country code.
+    
+    Flag examples: 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG (St George's Cross), 🇦🇺 AUS, 🇳🇿 NZ, 🇦🇷 ARG, 🇿🇦 RSA, 
+    🇫🇷 FRA, 🇮🇹 ITA, 🏴󠁧󠁢󠁷󠁬󠁳󠁿 WAL, 🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO, 🇮🇪 IRE, 🇫🇯 FIJ"""
+
+            flag_examples = """fixture: England v Australia
+    fixture_short: 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG v 🇦🇺 AUS
+
+    fixture: Argentina V South Africa
+    fixture_short: 🇦🇷 ARG V 🇿🇦 RSA"""
+        else:
+            flag_instructions = "Keep text-only format without flag emojis."
+            flag_examples = """fixture: England v Australia
+    fixture_short: ENG v AUS
+
+    fixture: Argentina V South Africa
+    fixture_short: ARG V RSA"""
+
         # Prepare the prompt
         final_prompt = prompt_template.format(
             char_limit=char_limit,
-            event_name=original_name
+            event_name=original_name,
+            flag_instructions=flag_instructions,
+            flag_examples=flag_examples
         )
 
-        # Make the API call
+        # Make the API call with rate limiting
+        import time
         model = genai.GenerativeModel(model_name)  # type: ignore
+
+        # Add delay to prevent rate limiting (especially important for batch processing)
+        time.sleep(2)  # 2 second delay between API calls
+
         response = model.generate_content(final_prompt)
 
         if response.text:
             shortened_name = response.text.strip()
-            # Basic validation - ensure it's not longer than the limit
-            if len(shortened_name) <= char_limit and shortened_name:
+
+            # Apply flag spacing standardization if enabled
+            if flags_enabled and standardize_spacing:
+                shortened_name = standardize_flag_spacing(shortened_name)
+
+            # Visual width validation - count flags as 2 units, characters as 1 unit
+            visual_width = calculate_visual_width(shortened_name)
+            if visual_width <= char_limit and shortened_name:
                 # Save successful result to cache if caching is enabled
                 if cache_enabled:
                     cache[original_name] = {
@@ -147,7 +250,7 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
                 return shortened_name, False
             else:
                 logging.warning(
-                    f"Generated name '{shortened_name}' exceeds limit or is empty")
+                    f"Generated name '{shortened_name}' exceeds visual width limit ({visual_width} > {char_limit}) or is empty")
                 return original_name, True
         else:
             logging.error("Empty response from Gemini API")
