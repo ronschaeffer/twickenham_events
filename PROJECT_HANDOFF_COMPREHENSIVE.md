@@ -1,47 +1,39 @@
-# Comprehensive Project Handoff Document
+# Twickenham Events Project Handoff
 
-## Web Scraping
-This project employs web scraping techniques to gather data from various online sources. The primary tools used include:
-- **Beautiful Soup**: For parsing HTML and XML documents.
-- **Scrapy**: A framework for building web scrapers.
-- **Selenium**: For scraping dynamic content.
+## Project Overview
+This project focuses on creating a comprehensive event-handling system for the Richmond Council, utilizing web scraping techniques and AI-powered event processing. The goal is to curate events from various sources and provide timely information to the community.
 
-## AI Processing
-The project utilizes AI processing to analyze and interpret the scraped data. Key components include:
-- **Machine Learning Models**: Built using libraries such as TensorFlow and Scikit-learn.
-- **Natural Language Processing**: Implemented with NLTK and spaCy for text analysis.
+## Detailed File Structure
+- **/scraper**: Contains scripts for web scraping.
+- **/ai_processing**: AI models and processing scripts.
+- **/config**: Configuration files, including `config.json`.
+- **/cache**: Redis caching implementation.
+- **/testing**: Testing scripts and procedures.
+- **/deployment**: Deployment scripts and documentation.
 
-## MQTT Integration
-MQTT (Message Queuing Telemetry Transport) is used for lightweight messaging between devices. The integration details include:
-- **MQTT Broker**: Setup instructions for Mosquitto or HiveMQ.
-- **Client Libraries**: For Python, Node.js, and other languages.
+## Web Scraping Implementation
+Utilize Beautiful Soup for scraping event data from the Richmond Council's website. The scraper will extract necessary details such as event name, date, time, and location.
+
+## Google Gemini AI Integration
+Integrate Google Gemini AI for processing the scraped events. This AI will help in shortening event descriptions and adding country flags to enhance user experience.
+
+## MQTT Publishing
+The system will publish events to the MQTT topic: `twickenham/events`, allowing for real-time updates to subscribed clients.
 
 ## Home Assistant Integration
-To enhance home automation, this project integrates with Home Assistant. Key steps include:
-- **Configuration**: YAML configuration for MQTT and device integration.
-- **Automation Scripts**: Example scripts for automated routines.
+Events will be integrated into Home Assistant for smart home notifications and automation related to local events.
 
 ## Configuration Management
-Configuration management is handled using:
-- **Ansible**: For automation of application deployment.
-- **Docker**: Containerization of applications for consistent environments.
-  
-## Caching
-To improve performance, caching strategies include:
-- **Redis**: In-memory data structure store for caching frequently accessed data.
-- **HTTP Caching**: Utilizing headers to cache responses.
+Utilize `config.json` for managing configuration settings across different environments. This includes API keys, database connections, and other critical settings.
 
-## Testing
-The project follows a robust testing strategy, which includes:
-- **Unit Testing**: Using frameworks like PyTest and Jest.
-- **Integration Testing**: Ensuring that components work together seamlessly.
+## Redis Caching
+Implement Redis caching to improve the performance of event data retrieval, ensuring quick access to frequently requested information.
 
-## Deployment
-Deployment of the application is managed through:
-- **CI/CD Pipelines**: Implemented with GitHub Actions or Jenkins for automated testing and deployment.
-- **Cloud Services**: Deployment on platforms like AWS or Azure.
+## Testing Procedures
+Establish comprehensive testing procedures to ensure the reliability of the web scraper, AI processing, and overall system functionality. This includes unit tests and integration tests.
 
-## Maintenance
-Ongoing maintenance guidelines include:
-- **Regular Updates**: Keeping dependencies and libraries up-to-date.
-- **Monitoring**: Using tools like Prometheus and Grafana for system health monitoring.
+## Deployment Steps
+Outline the steps for deploying the application to production, including environment setup, dependencies installation, and deployment commands.
+
+## Maintenance Guidelines
+Provide guidelines for maintaining the system, including regular updates, monitoring for errors, and procedures for adding new event sources.
