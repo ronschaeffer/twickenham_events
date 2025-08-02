@@ -237,9 +237,11 @@ def summarise_events(raw_events: list[dict], config: Config) -> list[dict]:
 
         # Get shortened name for the fixture
         fixture_name = event['title']
-        short_name, shortening_error = get_short_name(fixture_name, config)
+        short_name, shortening_error, error_message = get_short_name(
+            fixture_name, config)
         if shortening_error:
-            error_log.append(f"Error shortening event name: {fixture_name}")
+            error_log.append(
+                f"AI shortening failed for '{fixture_name}': {error_message}")
 
         if start_times:
             for time in start_times:

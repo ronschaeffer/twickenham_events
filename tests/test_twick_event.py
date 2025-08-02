@@ -93,7 +93,7 @@ def test_summarise_events_filters_past_events(mock_config):
         mock_datetime.strptime = datetime.strptime
         with patch('core.twick_event.get_short_name') as mock_shortener:
             # Mock the shortener to return original name (disabled behavior)
-            mock_shortener.return_value = ('original_name', False)
+            mock_shortener.return_value = ('original_name', False, '')
             summarized = summarise_events(raw_events, mock_config)
             assert len(summarized) == 2
             assert summarized[0]['date'] == '2025-09-27'

@@ -127,7 +127,7 @@ def get_cached_short_name(original_name: str, cache: dict) -> Tuple[str, bool]:
     return original_name, False
 
 
-def get_short_name(original_name: str, config) -> Tuple[str, bool]:
+def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
     """
     Get a shortened version of an event name using Google Gemini API.
     Uses caching to avoid repeated API calls for the same event names.
@@ -137,13 +137,14 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
         config: Configuration object with get() method
 
     Returns:
-        Tuple of (name_to_use, had_error):
+        Tuple of (name_to_use, had_error, error_message):
         - name_to_use: Either the shortened name or original name
         - had_error: Boolean indicating if an error occurred during processing
+        - error_message: Detailed error message if had_error is True, empty string otherwise
     """
     # Check if feature is disabled
     if not config.get('ai_shortener.enabled', False):
-        return original_name, False
+        return original_name, False, ""
 
     # Load cache and check if we already have this name
     cache_enabled = config.get('ai_shortener.cache_enabled', True)
@@ -153,14 +154,14 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
         cached_result, is_cached = get_cached_short_name(original_name, cache)
         if is_cached:
             # Return cached result - no error since we successfully retrieved it
-            return cached_result, False
+            return cached_result, False, ""
 
     # Not in cache, proceed with API call
     # Check if dependencies are available
     if not GENAI_AVAILABLE:
-        logging.warning(
-            "Event shortening requested but google.generativeai not available")
-        return original_name, True
+        error_msg = "google.generativeai library not available - install with 'poetry install --with ai'"
+        logging.warning(f"Event shortening requested but {error_msg}")
+        return original_name, True, error_msg
 
     try:
         # Configure the API
@@ -172,8 +173,9 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
             api_key = os.environ.get(env_var)
 
         if not api_key:
-            logging.error("Event shortening enabled but no API key provided")
-            return original_name, True
+            error_msg = "AI shortener enabled but no API key provided - check ai_shortener.api_key in config"
+            logging.error(error_msg)
+            return original_name, True, error_msg
 
         genai.configure(api_key=api_key)  # type: ignore
 
@@ -186,9 +188,9 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
             'ai_shortener.standardize_spacing', True)
 
         if not prompt_template:
-            logging.error(
-                "Event shortening enabled but no prompt template provided")
-            return original_name, True
+            error_msg = "AI shortener enabled but no prompt template provided - check ai_shortener.prompt_template in config"
+            logging.error(error_msg)
+            return original_name, True, error_msg
 
         # Prepare flag-specific content based on configuration
         if flags_enabled:
@@ -247,15 +249,17 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool]:
                         'original': original_name
                     }
                     save_cache(cache)
-                return shortened_name, False
+                return shortened_name, False, ""
             else:
-                logging.warning(
-                    f"Generated name '{shortened_name}' exceeds visual width limit ({visual_width} > {char_limit}) or is empty")
-                return original_name, True
+                error_msg = f"Generated name '{shortened_name}' exceeds visual width limit ({visual_width} > {char_limit}) or is empty"
+                logging.warning(error_msg)
+                return original_name, True, error_msg
         else:
-            logging.error("Empty response from Gemini API")
-            return original_name, True
+            error_msg = "Empty response received from Gemini API"
+            logging.error(error_msg)
+            return original_name, True, error_msg
 
     except Exception as e:
-        logging.error(f"Error shortening event name '{original_name}': {e}")
-        return original_name, True
+        error_msg = f"API error while shortening '{original_name}': {str(e)}"
+        logging.error(error_msg)
+        return original_name, True, error_msg

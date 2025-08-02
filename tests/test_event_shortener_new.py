@@ -144,7 +144,8 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
             mock_genai.GenerativeModel.return_value = mock_model
 
             original_name = "Test Event"
-            get_short_name(original_name, self.test_config_flags_enabled)
+            _, _, _ = _, _, _ = get_short_name(
+                original_name, self.test_config_flags_enabled)
 
             # Verify that genai.configure was called with the expanded environment variable
             mock_genai.configure.assert_called_once_with(
@@ -157,7 +158,7 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
                 patch('core.event_shortener.load_cache', return_value={}):
 
             original_name = "Test Event"
-            result, had_error = get_short_name(
+            result, had_error, error_message = get_short_name(
                 original_name, self.test_config_flags_enabled)
 
             # Should return original name and have error due to missing API key
@@ -180,7 +181,8 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Test Event"
-        get_short_name(original_name, self.test_config_flags_disabled)
+        _, _, _ = _, _, _ = get_short_name(
+            original_name, self.test_config_flags_disabled)
 
         # Verify that sleep was called with 2 seconds
         mock_sleep.assert_called_once_with(2)
@@ -204,7 +206,7 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Argentina vs South Africa"
-        result, had_error = get_short_name(
+        result, had_error, error_message = get_short_name(
             original_name, self.test_config_flags_enabled)
 
         # Should be standardized to consistent spacing
@@ -230,7 +232,7 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Argentina vs South Africa"
-        result, had_error = get_short_name(
+        result, had_error, error_message = get_short_name(
             original_name, self.test_config_flags_enabled)
 
         # Should return original name due to width limit exceeded
@@ -246,7 +248,8 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         }.get(key, default)
 
         original_name = "Test Event"
-        result, had_error = get_short_name(original_name, config)
+        result, had_error, error_message = get_short_name(
+            original_name, config)
 
         # Should return original name when disabled
         self.assertEqual(result, original_name)
@@ -271,7 +274,7 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Argentina vs South Africa"
-        get_short_name(original_name, self.test_config_flags_enabled)
+        _, _, _ = get_short_name(original_name, self.test_config_flags_enabled)
 
         # Get the prompt that was passed to the model
         call_args = mock_model.generate_content.call_args[0][0]
@@ -295,7 +298,8 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Argentina vs South Africa"
-        get_short_name(original_name, self.test_config_flags_disabled)
+        _, _, _ = get_short_name(
+            original_name, self.test_config_flags_disabled)
 
         # Get the prompt that was passed to the model
         call_args = mock_model.generate_content.call_args[0][0]

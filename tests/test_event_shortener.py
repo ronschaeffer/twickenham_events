@@ -43,21 +43,24 @@ class TestEventShortener(unittest.TestCase):
     def test_disabled_feature_returns_original_name(self):
         """Test that disabled feature returns original name with no error."""
         original_name = "Women's Rugby World Cup Final"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, self.test_config_disabled)
 
         self.assertEqual(result_name, original_name)
         self.assertFalse(had_error)
+        self.assertEqual(error_message, "")
 
     def test_missing_config_returns_original_name(self):
         """Test that missing config returns original name with no error."""
         original_name = "Test Event"
         empty_config = Mock()
         empty_config.get.return_value = None
-        result_name, had_error = get_short_name(original_name, empty_config)
+        result_name, had_error, error_message = get_short_name(
+            original_name, empty_config)
 
         self.assertEqual(result_name, original_name)
         self.assertFalse(had_error)
+        self.assertEqual(error_message, "")
 
     @patch('core.event_shortener.GENAI_AVAILABLE', True)
     @patch('core.event_shortener.load_cache')
@@ -75,11 +78,12 @@ class TestEventShortener(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Women's Rugby World Cup Final"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, self.test_config_enabled)
 
         self.assertEqual(result_name, "W RWC Final")
         self.assertFalse(had_error)
+        self.assertEqual(error_message, "")
         mock_genai.configure.assert_called_once_with(api_key='test_api_key')
         mock_genai.GenerativeModel.assert_called_once_with('gemini-2.5-pro')
         mock_save_cache.assert_called_once()  # Verify cache was saved
@@ -97,7 +101,7 @@ class TestEventShortener(unittest.TestCase):
         }
 
         original_name = "Women's Rugby World Cup Final"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, self.test_config_enabled)
 
         self.assertEqual(result_name, "W RWC Final")
@@ -115,7 +119,7 @@ class TestEventShortener(unittest.TestCase):
         mock_genai.configure.side_effect = Exception("API Error")
 
         original_name = "Test Event"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, self.test_config_enabled)
 
         self.assertEqual(result_name, original_name)
@@ -128,11 +132,13 @@ class TestEventShortener(unittest.TestCase):
         mock_load_cache.return_value = {}  # Empty cache to avoid cached results
 
         original_name = "Test Event"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, self.test_config_enabled)
 
         self.assertEqual(result_name, original_name)
         self.assertTrue(had_error)
+        self.assertIn(
+            "google.generativeai library not available", error_message)
 
     @patch('core.event_shortener.load_cache')
     def test_missing_api_key_returns_error(self, mock_load_cache):
@@ -151,7 +157,8 @@ class TestEventShortener(unittest.TestCase):
         }.get(key, default)
 
         original_name = "Test Event"
-        result_name, had_error = get_short_name(original_name, config_no_key)
+        result_name, had_error, error_message = get_short_name(
+            original_name, config_no_key)
 
         self.assertEqual(result_name, original_name)
         self.assertTrue(had_error)
@@ -173,7 +180,7 @@ class TestEventShortener(unittest.TestCase):
         }.get(key, default)
 
         original_name = "Test Event"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, config_no_template)
 
         self.assertEqual(result_name, original_name)
@@ -195,7 +202,7 @@ class TestEventShortener(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Test Event"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, self.test_config_enabled)
 
         self.assertEqual(result_name, original_name)
@@ -217,7 +224,7 @@ class TestEventShortener(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Test Event"
-        result_name, had_error = get_short_name(
+        result_name, had_error, error_message = get_short_name(
             original_name, self.test_config_enabled)
 
         self.assertEqual(result_name, original_name)
@@ -238,7 +245,7 @@ class TestEventShortener(unittest.TestCase):
         mock_genai.GenerativeModel.return_value = mock_model
 
         original_name = "Long Event Name"
-        get_short_name(original_name, self.test_config_enabled)
+        _, _, _ = get_short_name(original_name, self.test_config_enabled)
 
         # Check that generate_content was called and contains expected parts
         mock_model.generate_content.assert_called_once()
