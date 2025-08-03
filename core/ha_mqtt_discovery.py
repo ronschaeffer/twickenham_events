@@ -1,17 +1,19 @@
 # core/ha_mqtt_discovery.py
 
-import json
+from mqtt_publisher.ha_discovery import (
+    Device,
+    Sensor,
+    StatusSensor,
+    publish_discovery_configs,
+)
+from mqtt_publisher.publisher import MQTTPublisher
 
 from core.config import Config
-from core.ha_discovery.device import Device
-from core.ha_discovery.entity import Sensor
-from core.ha_discovery.status_sensor import StatusSensor
-from core.mqtt_publisher import MQTTPublisher
 
 
-def publish_discovery_configs(config: Config, publisher: MQTTPublisher):
+def publish_discovery_configs_for_twickenham(config: Config, publisher: MQTTPublisher):
     """
-    Publishes the MQTT discovery configurations for all defined entities.
+    Publishes the MQTT discovery configurations for Twickenham Events entities.
     """
     if not config.get("home_assistant.enabled"):
         return
@@ -26,7 +28,7 @@ def publish_discovery_configs(config: Config, publisher: MQTTPublisher):
     if config.get("mqtt.topics.status"):
         entities.append(StatusSensor(config, device))
 
-    # Add other sensors
+    # Add other sensors specific to Twickenham Events
     entities.extend(
         [
             # Sensor for All Upcoming Events
@@ -56,11 +58,5 @@ def publish_discovery_configs(config: Config, publisher: MQTTPublisher):
         ]
     )
 
-    # Publish the discovery config for each entity
-    for entity in entities:
-        config_topic = entity.get_config_topic()
-        config_payload = entity.get_config_payload()
-        publisher.publish(
-            topic=config_topic, payload=json.dumps(config_payload), retain=True
-        )
-        print(f"Published discovery config to {config_topic}")
+    # Use the reference implementation to publish discovery configs
+    publish_discovery_configs(config, publisher, entities, device)
