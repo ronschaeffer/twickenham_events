@@ -7,21 +7,25 @@ The MQTT Publisher project has been successfully migrated from the mixed toolcha
 ### Changes Made:
 
 #### 1. **Pre-commit Configuration** (`.pre-commit-config.yaml`)
+
 - ❌ **Removed:** `black`, `isort`, `flake8` hooks
 - ✅ **Added:** `ruff` and `ruff-format` hooks
 - ✅ **Kept:** `mypy`, `codespell`, and basic pre-commit-hooks
 
 #### 2. **Dependencies** (`pyproject.toml`)
-- ❌ **Removed:** `black`, `isort`, `flake8`, `autopep8` 
+
+- ❌ **Removed:** `black`, `isort`, `flake8`, `autopep8`
 - ✅ **Added:** `ruff ^0.12.7`
 - ✅ **Updated:** Development dependencies to use Ruff exclusively
 
 #### 3. **Code Quality Fixes**
+
 - ✅ **Fixed:** Exception chaining (`raise ... from err`)
 - ✅ **Fixed:** Modern isinstance syntax (`dict | list` instead of `(dict, list)`)
 - ✅ **Fixed:** Proper exception handling in tests
 
 #### 4. **Validation**
+
 - ✅ **Pre-commit hooks:** All passing
 - ✅ **Git status:** Clean working directory
 - ✅ **Ruff integration:** Working correctly with VS Code
@@ -41,7 +45,7 @@ The MQTT Publisher project has been successfully migrated from the mixed toolcha
 # Format both projects
 dev-format
 
-# Check project status  
+# Check project status
 dev-status
 
 # Update pre-commit environments
