@@ -1,10 +1,12 @@
 # tests/ha_discovery/test_status_sensor.py
 
-import pytest
 from unittest.mock import MagicMock
-from core.ha_discovery.status_sensor import StatusSensor
-from core.ha_discovery.device import Device
+
+import pytest
+
 from core.config import Config
+from core.ha_discovery.device import Device
+from core.ha_discovery.status_sensor import StatusSensor
 
 
 @pytest.fixture
@@ -12,9 +14,9 @@ def mock_config():
     """Provides a mock Config object."""
     config = MagicMock(spec=Config)
     config.get.side_effect = lambda key, default=None: {
-        'home_assistant.discovery_prefix': 'homeassistant',
-        'mqtt.base_topic': 'twickenham_events',
-        'app.unique_id_prefix': 'twickenham_events'
+        "home_assistant.discovery_prefix": "homeassistant",
+        "mqtt.base_topic": "twickenham_events",
+        "app.unique_id_prefix": "twickenham_events",
     }.get(key, default)
     return config
 
@@ -26,7 +28,7 @@ def mock_device(mock_config):
     device.get_device_info.return_value = {
         "identifiers": ["test_device_01"],
         "name": "Test Device",
-        "manufacturer": "Test Corp"
+        "manufacturer": "Test Corp",
     }
     return device
 
@@ -64,7 +66,10 @@ def test_status_sensor_get_config_payload(mock_config, mock_device):
     assert payload_dict["unique_id"] == "twickenham_events_status"
     assert payload_dict["object_id"] == "twickenham_events_status"
     assert payload_dict["device_class"] == "problem"
-    assert payload_dict["value_template"] == "{{ 'ON' if value_json.status == 'error' else 'OFF' }}"
+    assert (
+        payload_dict["value_template"]
+        == "{{ 'ON' if value_json.status == 'error' else 'OFF' }}"
+    )
     assert payload_dict["json_attributes_topic"] == "twickenham_events/status"
     assert payload_dict["json_attributes_template"] == "{{ value_json | tojson }}"
     assert payload_dict["device"] == mock_device.get_device_info()

@@ -1,6 +1,7 @@
 # core/ha_discovery/entity.py
 
 from core.config import Config
+
 from .device import Device
 
 
@@ -24,8 +25,7 @@ class Entity:
         self.name = "Unnamed"
         self.unique_id = "unnamed"
         self.state_topic = ""
-        self.base_topic = self._config.get(
-            'mqtt.base_topic', 'twickenham_events')
+        self.base_topic = self._config.get("mqtt.base_topic", "twickenham_events")
         self.component = "sensor"
         self.attributes = {}
         for key, value in kwargs.items():
@@ -37,13 +37,14 @@ class Entity:
         Format: <discovery_prefix>/<component>/<unique_id>/config
         """
         discovery_prefix = self._config.get(
-            'home_assistant.discovery_prefix', 'homeassistant')
+            "home_assistant.discovery_prefix", "homeassistant"
+        )
         return f"{discovery_prefix}/{self.component}/{self.unique_id}/config"
 
     def get_config_payload(self) -> dict:
         """Returns the base configuration payload for this entity."""
         # Construct a globally unique ID and a clean object ID
-        prefix = self._config.get('app.unique_id_prefix', 'twickenham_events')
+        prefix = self._config.get("app.unique_id_prefix", "twickenham_events")
         object_id = f"{prefix}_{self.unique_id}"
 
         payload = {
@@ -51,11 +52,19 @@ class Entity:
             "unique_id": object_id,  # Use the full, prefixed ID for uniqueness
             "device": self.device.get_device_info(),
             "state_topic": self.state_topic,
-            "object_id": object_id  # Explicitly set the object_id for a clean entity_id
+            "object_id": object_id,  # Explicitly set the object_id for a clean entity_id
         }
         # Merge the specific entity attributes
         for key, value in self.__dict__.items():
-            if key not in ['_config', 'device', 'name', 'unique_id', 'state_topic', 'component', 'attributes']:
+            if key not in [
+                "_config",
+                "device",
+                "name",
+                "unique_id",
+                "state_topic",
+                "component",
+                "attributes",
+            ]:
                 payload[key] = value
         payload.update(self.attributes)
         return payload

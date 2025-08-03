@@ -1,6 +1,7 @@
 """
 Defines the Home Assistant MQTT discovery payload for the status binary_sensor.
 """
+
 from .entity import Entity
 
 
@@ -32,10 +33,12 @@ class StatusSensor(Entity):
         Returns the discovery configuration payload for the status sensor.
         """
         payload = super().get_config_payload()
-        payload.update({
-            "device_class": self.device_class,
-            "value_template": self.value_template,
-            "json_attributes_topic": self.json_attributes_topic,
-            "json_attributes_template": self.json_attributes_template,
-        })
+        payload.update(
+            {
+                "device_class": self.device_class,
+                "value_template": self.value_template,
+                "json_attributes_topic": self.json_attributes_topic,
+                "json_attributes_template": self.json_attributes_template,
+            }
+        )
         return payload

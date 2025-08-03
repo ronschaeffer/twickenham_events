@@ -1,8 +1,9 @@
-import os
-import yaml
 from functools import reduce
 import operator
-from typing import Optional, Any
+import os
+from typing import Any
+
+import yaml
 
 
 class Config:
@@ -10,7 +11,7 @@ class Config:
     Handles loading and accessing configuration from a YAML file.
     """
 
-    def __init__(self, config_path: Optional[str] = None, config_data: Optional[dict] = None):
+    def __init__(self, config_path: str | None = None, config_data: dict | None = None):
         """
         Initializes the Config object.
 
@@ -31,7 +32,7 @@ class Config:
             self.config = {}  # Default to an empty config
 
             try:
-                with open(self.config_path, 'r') as config_file:
+                with open(self.config_path) as config_file:
                     loaded_config = yaml.safe_load(config_file)
                     # Ensure config is a dictionary even if the file is empty
                     if isinstance(loaded_config, dict):
@@ -40,8 +41,7 @@ class Config:
                 # If the file doesn't exist, self.config remains {}
                 pass
         else:
-            raise ValueError(
-                "Either config_path or config_data must be provided.")
+            raise ValueError("Either config_path or config_data must be provided.")
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -55,7 +55,7 @@ class Config:
         Returns:
             The value from the configuration or the default.
         """
-        keys = key.split('.')
+        keys = key.split(".")
         try:
             # Traverse the nested dictionaries using the keys
             value = reduce(operator.getitem, keys, self.config)

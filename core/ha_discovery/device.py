@@ -17,12 +17,14 @@ class Device:
             config: The application's Config object.
         """
         self._config = config
-        self.identifiers = [self._config.get(
-            'app.unique_id_prefix', 'twickenham_events')]
-        self.name = self._config.get('app.name', 'Twickenham Events')
+        self.identifiers = [
+            self._config.get("app.unique_id_prefix", "twickenham_events")
+        ]
+        self.name = self._config.get("app.name", "Twickenham Events")
         self.manufacturer = self._config.get(
-            'app.manufacturer', 'Twickenham Events Publisher')
-        self.model = self._config.get('app.model', 'TwickEvent-Py')
+            "app.manufacturer", "Twickenham Events Publisher"
+        )
+        self.model = self._config.get("app.model", "TwickEvent-Py")
 
     def get_device_info(self) -> dict:
         """
