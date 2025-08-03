@@ -7,12 +7,12 @@ import re
 import sys
 
 from bs4 import BeautifulSoup
+from mqtt_publisher.publisher import MQTTPublisher
 import requests
 
 from core.config import Config
 from core.event_shortener import get_short_name
-from core.ha_mqtt_discovery import publish_discovery_configs
-from core.mqtt_publisher import MQTTPublisher
+from core.ha_mqtt_discovery import publish_discovery_configs_for_twickenham
 
 # Add project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -345,7 +345,7 @@ def find_next_event_and_summary(
         key=lambda x: (x["date"], x.get("earliest_start") or "23:59")
     )
 
-    for i, event_day in enumerate(future_or_current_events):
+    for _i, event_day in enumerate(future_or_current_events):
         event_date = datetime.strptime(event_day["date"], "%Y-%m-%d").date()
 
         # If the event day is in the future, it's the one we want
@@ -356,7 +356,6 @@ def find_next_event_and_summary(
         if event_date == today:
             # Sort today's individual events by start time
             sorted_events_today = event_day["events"]
-            total_events_today = len(sorted_events_today)
 
             # Check if we are past the end-of-day cutoff time
             if now.time() >= cutoff_time:
@@ -450,8 +449,6 @@ def main():
     Main function to run the event scraper and publisher.
     """
     config = Config()
-    # Load HA entities from a separate YAML file
-    ha_entities_config_path = os.path.join(config.config_dir, "ha_entities.yaml")
     # Publisher for Home Assistant discovery
     ha_discovery_publisher = MQTTPublisher(
         broker_url=config.get("mqtt.broker.url"),
@@ -461,7 +458,7 @@ def main():
         auth=config.get("mqtt.security.auth"),
         tls=config.get("mqtt.security.tls"),
     )
-    publish_discovery_configs(config, ha_discovery_publisher)
+    publish_discovery_configs_for_twickenham(config, ha_discovery_publisher)
     ha_discovery_publisher.disconnect()
 
     # Main publisher for event data

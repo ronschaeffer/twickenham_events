@@ -4,10 +4,10 @@ from pathlib import Path
 import sys
 
 from dotenv import load_dotenv
+from mqtt_publisher.publisher import MQTTPublisher
 
 from core.config import Config
 from core.ha_mqtt_discovery import publish_discovery_configs
-from core.mqtt_publisher import MQTTPublisher
 from core.twick_event import (
     error_log,
     fetch_events,

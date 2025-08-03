@@ -197,8 +197,8 @@ def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
             flag_instructions = """
     When there's space and the event involves countries, add Unicode flag emojis
     with EXACTLY ONE SPACE between flag and country code.
-    
-    Flag examples: 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG (St George's Cross), 🇦🇺 AUS, 🇳🇿 NZ, 🇦🇷 ARG, 🇿🇦 RSA, 
+
+    Flag examples: 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG (St George's Cross), 🇦🇺 AUS, 🇳🇿 NZ, 🇦🇷 ARG, 🇿🇦 RSA,
     🇫🇷 FRA, 🇮🇹 ITA, 🏴󠁧󠁢󠁷󠁬󠁳󠁿 WAL, 🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO, 🇮🇪 IRE, 🇫🇯 FIJ"""
 
             flag_examples = """fixture: England v Australia
