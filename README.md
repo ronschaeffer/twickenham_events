@@ -22,13 +22,22 @@ This project fetches and processes event data from the Twickenham events page an
    poetry install --with ai
    ```
 
+> **Note**: The project automatically loads environment variables from a `.env` file using `python-dotenv`.
+
 ## Configuration
 
-Copy `config/config.yaml.example` to `config/config.yaml` and customize:
+1. Copy `config/config.yaml.example` to `config/config.yaml` and customize:
+   - MQTT broker settings
+   - Home Assistant integration options
+   - Event shortening configuration (optional)
 
-- MQTT broker settings
-- Home Assistant integration options
-- Event shortening configuration (optional)
+2. **For AI Event Shortening**: Create a `.env` file in the project root with your Gemini API key:
+   ```sh
+   # .env
+   GEMINI_API_KEY="your_actual_gemini_api_key_here"
+   ```
+   
+   > **Note**: The `.env` file is already included in `.gitignore` and will not be committed to version control.
 
 ## Usage
 
