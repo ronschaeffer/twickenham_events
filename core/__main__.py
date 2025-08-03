@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import sys
 
+from dotenv import load_dotenv
+
 from core.config import Config
 from core.ha_mqtt_discovery import publish_discovery_configs
 from core.mqtt_publisher import MQTTPublisher
@@ -22,6 +24,9 @@ def main():
     """
     Main function to run the Twickenham event scraper and publisher.
     """
+    # Load environment variables from .env file
+    load_dotenv()
+
     # --- Configuration ---
     config_path = Path(__file__).parent.parent / "config" / "config.yaml"
     config = Config(config_path=str(config_path))
