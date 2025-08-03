@@ -1,0 +1,20 @@
+{
+  "python.defaultInterpreterPath": "/home/ron/projects/twickenham_events/.venv/bin/python",
+  "autopep8.interpreter": [
+    "/home/ron/projects/twickenham_events/.venv/bin/python"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "python.testing.cwd": "${workspaceFolder}",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.autopep8"
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  "python.testing.unittestEnabled": false
+}
