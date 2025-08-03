@@ -1,73 +1,72 @@
-# ==============================================================================
-# Twickenham Events Configuration
-# ==============================================================================
+# Event source
+scraping:
+  url: "https://www.richmond.gov.uk/services/parking/cpz/twickenham_events"
 
-# ------------------------------------------------------------------------------
-# Event Settings
-# ------------------------------------------------------------------------------
+# Rules for determining when an event is over
+event_rules:
+  end_of_day_cutoff: "23:00" # Time to consider all events for the day over
+  next_event_delay_hours: 1 # Hours after an event starts before it's considered over (if another event follows)
 
-# Default duration of events in hours (e.g., 6, 2.5, 0.75).
-# This is used to calculate an event's end time if it's not specified.
-# Note: If another event starts within this duration, the end time will be
-# automatically adjusted to prevent overlaps.
-default_duration: 6
-
-# ------------------------------------------------------------------------------
 # MQTT Configuration
-# ------------------------------------------------------------------------------
 mqtt:
-  # Set to true to enable publishing to the MQTT broker.
   enabled: true
+  broker_url: 10.10.10.21
+  broker_port: 8883
+  client_id: server
+  security: "username"
 
-  # MQTT Broker Connection Details
-  broker_url: "broker.hivemq.com" # Use "mqtt://" or "mqtts://" for TLS
-  broker_port: 1883 # Standard ports: 1883 for unencrypted, 8883 for TLS
-
-  # A unique ID for this client. Some brokers require this to be unique.
-  client_id: "twickenham_events_monitor"
-
-  # Connection security: choose one of:
-  # - 'none': No security (typically port 1883)
-  # - 'username': Username/password only (typically port 1883 or 8883)
-  # - 'tls': TLS without client authentication (typically port 8883)
-  security: "none"
-
-  # --- Authentication Settings ---
-  # Required if security is set to 'username'.
+  # Authentication settings
   auth:
-    username: "my_username"
-    password: "my_password"
+    username: 136worple
+    password: 011020MQTT
 
-  # --- TLS Settings ---
-  # Required for 'tls' security.
+  # TLS settings
   tls:
-    # Path to the Certificate Authority (CA) certificate file.
-    # If your broker uses a well-known CA, this might not be needed.
-    ca_cert: null # e.g., /path/to/ca.crt
-    # Set to true to verify the broker's server certificate against the CA.
-    verify: true
+    ca_cert: null
+    client_cert: null
+    client_key: null
+    verify: false
 
-  # --- MQTT Topics ---
-  # Define the topics where event information will be published.
   topics:
-    # Topic for the very next upcoming event.
     next: "twickenham_events/events/next"
-    # Topic for a summary of all events happening on the next event day.
     next_day_summary: "twickenham_events/events/next_day_summary"
-    # Topic for a JSON object containing all upcoming events.
     all_upcoming: "twickenham_events/events/all_upcoming"
-    # Topic for the script's operational status binary_sensor.
     status: "twickenham_events/status"
 
-# ------------------------------------------------------------------------------
 # Home Assistant Integration
-# ------------------------------------------------------------------------------
 home_assistant:
-  # Set to true to enable Home Assistant MQTT discovery.
-  # This will automatically create sensor entities in Home Assistant.
   enabled: true
+  discovery_prefix: "homeassistant" # Default Home Assistant discovery topic
 
-  # The prefix for the discovery topic.
-  # "homeassistant" is the default and should not be changed unless you have
-  # a custom configuration in Home Assistant.
-  discovery_prefix: "homeassistant"
+# Event Name Shortening (AI-powered)
+ai_shortener:
+  enabled: true
+  api_key: ${GEMINI_API_KEY}
+  model: gemini-2.5-pro
+  max_length: 25
+  flags_enabled: true
+  standardize_spacing: true
+  prompt_template: >
+    You are an expert editor. Your task is to shorten event names
+    to fit within {char_limit} display units while keeping them recognizable.
+    Count regular characters as 1 unit each, and flag emojis as 2 units each.
+    The events are usually rugby matches, but can also be concerts.
+    Use standard abbreviations. IMPORTANT: Always capitalize country abbreviations
+    (ENG, AUS, NZ, ARG, RSA, FRA, ITA, WAL, SCO, IRE, FIJ, etc.).
+    {flag_instructions}
+
+    Examples:
+    fixture: Women's Rugby World Cup Final
+    fixture_short: W RWC Final
+
+    {flag_examples}
+
+    fixture: Taylor Swift | The Eras Tour
+    fixture_short: Taylor Swift
+
+    fixture: Harlequins Big Game
+    fixture_short: Quins Big Game
+    ---
+    Now, shorten this event name:
+    fixture: {event_name}
+    fixture_short:
