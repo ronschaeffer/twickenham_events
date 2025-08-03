@@ -1,14 +1,22 @@
-import ssl
 import json
+import ssl
 import time
-from typing import Any, Optional, Dict
+from typing import Any
+
 import paho.mqtt.client as mqtt
 
 
 class MQTTPublisher:
-    def __init__(self, broker_url: str, broker_port: int, client_id: str,
-                 security: str = 'none', auth: Optional[Dict] = None,
-                 tls: Optional[Dict] = None, max_retries: int = 3):
+    def __init__(
+        self,
+        broker_url: str,
+        broker_port: int,
+        client_id: str,
+        security: str = "none",
+        auth: dict | None = None,
+        tls: dict | None = None,
+        max_retries: int = 3,
+    ):
         self.client = mqtt.Client(client_id=client_id)
         self.broker_url = broker_url
         self.broker_port = broker_port
@@ -16,22 +24,21 @@ class MQTTPublisher:
         self._connected = False
 
         # Configure security based on type
-        if security in ['username', 'tls_with_client_cert']:
-            if not auth or not auth.get('username') or not auth.get('password'):
+        if security in ["username", "tls_with_client_cert"]:
+            if not auth or not auth.get("username") or not auth.get("password"):
                 raise ValueError("Username/password required but not provided")
-            self.client.username_pw_set(auth['username'], auth['password'])
+            self.client.username_pw_set(auth["username"], auth["password"])
 
-        if security in ['tls', 'tls_with_client_cert'] and tls:
+        if security in ["tls", "tls_with_client_cert"] and tls:
             try:
                 self.client.tls_set(
-                    ca_certs=tls.get('ca_cert'),
-                    certfile=tls.get('client_cert'),
-                    keyfile=tls.get('client_key'),
-                    cert_reqs=ssl.CERT_REQUIRED if tls.get(
-                        'verify') else ssl.CERT_NONE,
-                    tls_version=ssl.PROTOCOL_TLS
+                    ca_certs=tls.get("ca_cert"),
+                    certfile=tls.get("client_cert"),
+                    keyfile=tls.get("client_key"),
+                    cert_reqs=ssl.CERT_REQUIRED if tls.get("verify") else ssl.CERT_NONE,
+                    tls_version=ssl.PROTOCOL_TLS,
                 )
-                self.client.tls_insecure_set(not tls.get('verify', True))
+                self.client.tls_insecure_set(not tls.get("verify", True))
             except Exception as e:
                 print(f"TLS setup failed: {e}")
                 raise
@@ -57,10 +64,8 @@ class MQTTPublisher:
         retries = 0
         while retries < self.max_retries:
             try:
-                print(
-                    f"Attempting connection to {self.broker_url}:{self.broker_port}")
-                self.client.connect(
-                    self.broker_url, self.broker_port, keepalive=60)
+                print(f"Attempting connection to {self.broker_url}:{self.broker_port}")
+                self.client.connect(self.broker_url, self.broker_port, keepalive=60)
                 self.client.loop_start()
                 # Wait for connection
                 timeout = 5
@@ -84,8 +89,9 @@ class MQTTPublisher:
             self.client.disconnect()
             self._connected = False
 
-    def publish(self, topic: str, payload: Any, qos: int = 0,
-                retain: bool = False) -> bool:
+    def publish(
+        self, topic: str, payload: Any, qos: int = 0, retain: bool = False
+    ) -> bool:
         """Publish a payload to a topic."""
         if not self._connected:
             print("Not connected to broker")

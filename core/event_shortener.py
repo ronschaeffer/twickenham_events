@@ -6,49 +6,50 @@ This module provides functionality to shorten event names using AI,
 designed to be self-contained with graceful fallback behavior.
 """
 
-import logging
-import json
-import os
 from datetime import datetime
-from typing import Tuple, Dict, Any
+import json
+import logging
+import os
 from pathlib import Path
 
 try:
     import google.generativeai as genai
+
     GENAI_AVAILABLE = True
 except ImportError:
     genai = None  # type: ignore # Make genai available for mocking even when not installed
     GENAI_AVAILABLE = False
     logging.warning(
-        "google.generativeai not available. Event shortening will be disabled.")
+        "google.generativeai not available. Event shortening will be disabled."
+    )
 
 
 # Cache management functions
 def get_cache_path() -> Path:
     """Get the path to the cache file."""
-    return Path(__file__).parent.parent / 'output' / 'event_name_cache.json'
+    return Path(__file__).parent.parent / "output" / "event_name_cache.json"
 
 
-def load_cache() -> Dict[str, Dict[str, str]]:
+def load_cache() -> dict[str, dict[str, str]]:
     """Load the event name cache from file."""
     cache_path = get_cache_path()
     if cache_path.exists():
         try:
-            with open(cache_path, 'r') as f:
+            with open(cache_path) as f:
                 return json.load(f)
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logging.warning(f"Failed to load cache: {e}")
     return {}
 
 
-def save_cache(cache: Dict[str, Dict[str, str]]) -> None:
+def save_cache(cache: dict[str, dict[str, str]]) -> None:
     """Save the event name cache to file."""
     cache_path = get_cache_path()
     cache_path.parent.mkdir(exist_ok=True)
     try:
-        with open(cache_path, 'w') as f:
+        with open(cache_path, "w") as f:
             json.dump(cache, f, indent=2)
-    except IOError as e:
+    except OSError as e:
         logging.error(f"Failed to save cache: {e}")
 
 
@@ -67,17 +68,17 @@ def standardize_flag_spacing(text: str) -> str:
 
     # Flag-to-country mappings with consistent spacing
     flag_patterns = [
-        (r'🏴󠁧󠁢󠁥󠁮󠁧󠁿\s*ENG', '🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG'),  # England
-        (r'🏴󠁧󠁢󠁳󠁣󠁴󠁿\s*SCO', '🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO'),  # Scotland
-        (r'🏴󠁧󠁢󠁷󠁬󠁳󠁿\s*WAL', '🏴󠁧󠁢󠁷󠁬󠁳󠁿 WAL'),  # Wales
-        (r'🇦🇺\s*AUS', '🇦🇺 AUS'),    # Australia
-        (r'🇳🇿\s*NZ', '🇳🇿 NZ'),      # New Zealand
-        (r'🇦🇷\s*ARG', '🇦🇷 ARG'),    # Argentina
-        (r'🇿🇦\s*RSA', '🇿🇦 RSA'),    # South Africa
-        (r'🇫🇷\s*FRA', '🇫🇷 FRA'),    # France
-        (r'🇮🇹\s*ITA', '🇮🇹 ITA'),    # Italy
-        (r'🇮🇪\s*IRE', '🇮🇪 IRE'),    # Ireland
-        (r'🇫🇯\s*FIJ', '🇫🇯 FIJ'),    # Fiji
+        (r"🏴󠁧󠁢󠁥󠁮󠁧󠁿\s*ENG", "🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG"),  # England
+        (r"🏴󠁧󠁢󠁳󠁣󠁴󠁿\s*SCO", "🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO"),  # Scotland
+        (r"🏴󠁧󠁢󠁷󠁬󠁳󠁿\s*WAL", "🏴󠁧󠁢󠁷󠁬󠁳󠁿 WAL"),  # Wales
+        (r"🇦🇺\s*AUS", "🇦🇺 AUS"),  # Australia
+        (r"🇳🇿\s*NZ", "🇳🇿 NZ"),  # New Zealand
+        (r"🇦🇷\s*ARG", "🇦🇷 ARG"),  # Argentina
+        (r"🇿🇦\s*RSA", "🇿🇦 RSA"),  # South Africa
+        (r"🇫🇷\s*FRA", "🇫🇷 FRA"),  # France
+        (r"🇮🇹\s*ITA", "🇮🇹 ITA"),  # Italy
+        (r"🇮🇪\s*IRE", "🇮🇪 IRE"),  # Ireland
+        (r"🇫🇯\s*FIJ", "🇫🇯 FIJ"),  # Fiji
     ]
 
     result = text
@@ -101,18 +102,18 @@ def calculate_visual_width(text: str) -> int:
     import re
 
     # Count flag emojis (they start with regional indicator symbols or black flag)
-    flag_pattern = r'[\U0001F1E6-\U0001F1FF][\U0001F1E6-\U0001F1FF]|\U0001F3F4[\U000E0060-\U000E007F]+'
+    flag_pattern = r"[\U0001F1E6-\U0001F1FF][\U0001F1E6-\U0001F1FF]|\U0001F3F4[\U000E0060-\U000E007F]+"
     flag_count = len(re.findall(flag_pattern, text))
 
     # Remove flags to count remaining characters
-    text_without_flags = re.sub(flag_pattern, '', text)
+    text_without_flags = re.sub(flag_pattern, "", text)
     char_count = len(text_without_flags)
 
     # Each flag = 2 units, each character = 1 unit
     return char_count + (flag_count * 2)
 
 
-def get_cached_short_name(original_name: str, cache: dict) -> Tuple[str, bool]:
+def get_cached_short_name(original_name: str, cache: dict) -> tuple[str, bool]:
     """
     Get shortened name from cache if available.
 
@@ -123,11 +124,11 @@ def get_cached_short_name(original_name: str, cache: dict) -> Tuple[str, bool]:
     """
     if original_name in cache:
         cached_entry = cache[original_name]
-        return cached_entry.get('short', original_name), True
+        return cached_entry.get("short", original_name), True
     return original_name, False
 
 
-def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
+def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
     """
     Get a shortened version of an event name using Google Gemini API.
     Uses caching to avoid repeated API calls for the same event names.
@@ -143,11 +144,11 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
         - error_message: Detailed error message if had_error is True, empty string otherwise
     """
     # Check if feature is disabled
-    if not config.get('ai_shortener.enabled', False):
+    if not config.get("ai_shortener.enabled", False):
         return original_name, False, ""
 
     # Load cache and check if we already have this name
-    cache_enabled = config.get('ai_shortener.cache_enabled', True)
+    cache_enabled = config.get("ai_shortener.cache_enabled", True)
     cache = load_cache() if cache_enabled else {}
 
     if cache_enabled:
@@ -165,10 +166,10 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
 
     try:
         # Configure the API
-        api_key = config.get('ai_shortener.api_key')
+        api_key = config.get("ai_shortener.api_key")
 
         # Handle environment variable expansion
-        if api_key and api_key.startswith('${') and api_key.endswith('}'):
+        if api_key and api_key.startswith("${") and api_key.endswith("}"):
             env_var = api_key[2:-1]  # Remove ${ and }
             api_key = os.environ.get(env_var)
 
@@ -180,12 +181,11 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
         genai.configure(api_key=api_key)  # type: ignore
 
         # Get configuration values
-        model_name = config.get('ai_shortener.model', 'gemini-2.5-pro')
-        char_limit = config.get('ai_shortener.max_length', 16)
-        prompt_template = config.get('ai_shortener.prompt_template', '')
-        flags_enabled = config.get('ai_shortener.flags_enabled', False)
-        standardize_spacing = config.get(
-            'ai_shortener.standardize_spacing', True)
+        model_name = config.get("ai_shortener.model", "gemini-2.5-pro")
+        char_limit = config.get("ai_shortener.max_length", 16)
+        prompt_template = config.get("ai_shortener.prompt_template", "")
+        flags_enabled = config.get("ai_shortener.flags_enabled", False)
+        standardize_spacing = config.get("ai_shortener.standardize_spacing", True)
 
         if not prompt_template:
             error_msg = "AI shortener enabled but no prompt template provided - check ai_shortener.prompt_template in config"
@@ -219,11 +219,12 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
             char_limit=char_limit,
             event_name=original_name,
             flag_instructions=flag_instructions,
-            flag_examples=flag_examples
+            flag_examples=flag_examples,
         )
 
         # Make the API call with rate limiting
         import time
+
         model = genai.GenerativeModel(model_name)  # type: ignore
 
         # Add delay to prevent rate limiting (especially important for batch processing)
@@ -244,9 +245,9 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
                 # Save successful result to cache if caching is enabled
                 if cache_enabled:
                     cache[original_name] = {
-                        'short': shortened_name,
-                        'created': datetime.now().isoformat(),
-                        'original': original_name
+                        "short": shortened_name,
+                        "created": datetime.now().isoformat(),
+                        "original": original_name,
                     }
                     save_cache(cache)
                 return shortened_name, False, ""
@@ -260,6 +261,6 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:
             return original_name, True, error_msg
 
     except Exception as e:
-        error_msg = f"API error while shortening '{original_name}': {str(e)}"
+        error_msg = f"API error while shortening '{original_name}': {e!s}"
         logging.error(error_msg)
         return original_name, True, error_msg
