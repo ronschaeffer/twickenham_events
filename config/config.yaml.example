@@ -11,7 +11,7 @@ event_rules:
 mqtt:
   enabled: true
   broker_url: "${MQTT_BROKER_URL}" # Environment variable: your-broker.example.com
-  broker_port: 8883
+  broker_port: "${MQTT_BROKER_PORT}" # Environment variable: 8883 or 1883
   client_id: "${MQTT_CLIENT_ID}" # Environment variable: your_client_id
   security: "username"
 
