@@ -62,7 +62,7 @@ This project uses the [`mqtt_publisher`](https://github.com/ronschaeffer/mqtt_pu
    ```bash
    # Create .env file in project root
    MQTT_BROKER_URL=your-broker.example.com
-   MQTT_BROKER_PORT=8883
+   MQTT_BROKER_PORT=${MQTT_BROKER_PORT}
    MQTT_CLIENT_ID=twickenham_events_client
    MQTT_USERNAME=your_mqtt_username
    MQTT_PASSWORD=your_mqtt_password
@@ -155,6 +155,7 @@ Creates shortened event names using Google's Gemini API:
 
 - **Original**: "Guinness Six Nations Championship - England vs Wales"
 - **Shortened**: "6N: ENG vs WAL"
+- **With Country Flags**: "6N: 🏴󠁧󠁢󠁥󠁮󠁧󠁿 vs 🏴󠁧󠁢󠁷󠁬󠁳󠁿" (optional)
 
 ### Setup:
 
