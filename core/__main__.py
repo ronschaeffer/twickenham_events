@@ -71,12 +71,18 @@ def main():
     # --- MQTT Publishing ---
     if config.get("mqtt.enabled"):
         try:
+            # Build auth dictionary with environment variable substitution
+            auth_config = {
+                "username": config.get("mqtt.auth.username"),
+                "password": config.get("mqtt.auth.password"),
+            }
+
             with MQTTPublisher(
                 broker_url=config.get("mqtt.broker_url"),
-                broker_port=config.get("mqtt.broker_port"),
+                broker_port=int(config.get("mqtt.broker_port", 1883)),
                 client_id=config.get("mqtt.client_id", "twickenham_event_publisher"),
                 security=config.get("mqtt.security", "none"),
-                auth=config.get("mqtt.auth"),
+                auth=auth_config,
                 tls=config.get("mqtt.tls"),
             ) as publisher:
                 # Publish Home Assistant discovery configs
