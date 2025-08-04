@@ -112,10 +112,11 @@ def test_environment_variable_handling():
     ):
         config_data = {
             "mqtt": {
+                "broker_url": "test.broker.com",  # Add required field
                 "auth": {
                     "username": "${TEST_USERNAME}",
                     "password": "${TEST_PASSWORD}",
-                }
+                },
             }
         }
 
@@ -129,3 +130,61 @@ def test_environment_variable_handling():
         mqtt_config = config.get_mqtt_config()
         assert mqtt_config["auth"]["username"] == "env_user"
         assert mqtt_config["auth"]["password"] == "env_pass"
+
+
+def test_config_validation_missing_broker_url():
+    """Test that missing broker_url raises proper error."""
+    config_data = {"mqtt": {"broker_port": 1883, "client_id": "test_client"}}
+
+    config = Config(config_data=config_data)
+
+    try:
+        config.get_mqtt_config()
+        raise AssertionError("Should have raised ValueError for missing broker_url")
+    except ValueError as e:
+        assert "broker_url is required" in str(e)
+
+
+def test_config_validation_invalid_port():
+    """Test that invalid port values raise proper errors."""
+    test_cases = [
+        ("invalid_port", "must be 1-65535"),
+        (0, "must be 1-65535"),
+        (65536, "must be 1-65535"),
+        (-1, "must be 1-65535"),
+    ]
+
+    for invalid_port, expected_error in test_cases:
+        config_data = {
+            "mqtt": {"broker_url": "test.broker.com", "broker_port": invalid_port}
+        }
+
+        config = Config(config_data=config_data)
+
+        try:
+            config.get_mqtt_config()
+            raise AssertionError(
+                f"Should have raised ValueError for port: {invalid_port}"
+            )
+        except ValueError as e:
+            assert expected_error in str(e)
+
+
+def test_string_port_conversion():
+    """Test that string ports are properly converted to integers."""
+    config_data = {
+        "mqtt": {
+            "broker_url": "test.broker.com",
+            "broker_port": "8883",  # String port
+            "max_retries": "5",  # String retries
+        }
+    }
+
+    config = Config(config_data=config_data)
+    mqtt_config = config.get_mqtt_config()
+
+    # Verify conversion happened
+    assert isinstance(mqtt_config["broker_port"], int)
+    assert mqtt_config["broker_port"] == 8883
+    assert isinstance(mqtt_config["max_retries"], int)
+    assert mqtt_config["max_retries"] == 5

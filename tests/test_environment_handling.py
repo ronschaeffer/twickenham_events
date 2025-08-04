@@ -32,7 +32,11 @@ class TestTwickenhamEventsEnvironmentLoading:
                 # Mock file existence checks - return True for specific paths
                 def exists_side_effect(*args, **kwargs):
                     # Get the Path object from the mock call
-                    path_obj = mock_exists.__self__ if hasattr(mock_exists, '__self__') else None
+                    path_obj = (
+                        mock_exists.__self__
+                        if hasattr(mock_exists, "__self__")
+                        else None
+                    )
                     if path_obj:
                         path_str = str(path_obj)
                         if "/home/ron/projects/.env" in path_str:
@@ -46,8 +50,9 @@ class TestTwickenhamEventsEnvironmentLoading:
 
                 # Simulate the loading logic from __main__.py
                 try:
-                    from dotenv import load_dotenv
                     from pathlib import Path
+
+                    from dotenv import load_dotenv
 
                     # Parent environment loading - just test path construction
                     parent_env = Path(__file__).parent.parent.parent / ".env"

@@ -97,15 +97,32 @@ class Config:
 
     def get_mqtt_config(self) -> dict[str, Any]:
         """
-        Build MQTT configuration dictionary following mqtt_publisher best practices.
+        Build MQTT configuration dictionary with enhanced validation and type conversion.
         Handles individual access for proper environment variable substitution.
 
         Returns:
             dict: MQTT configuration ready for MQTTPublisher initialization
+
+        Raises:
+            ValueError: If required configuration is missing or invalid
         """
-        return {
+        # Handle port conversion with proper validation
+        raw_port = self.get("mqtt.broker_port", 1883)
+        try:
+            broker_port = int(raw_port) if raw_port is not None else 1883
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"MQTT broker_port '{raw_port}' must be 1-65535") from e
+
+        if not (1 <= broker_port <= 65535):
+            raise ValueError(f"MQTT broker_port {broker_port} must be 1-65535")
+
+        # Handle max_retries conversion with proper defaults
+        raw_retries = self.get("mqtt.max_retries", 3)
+        max_retries = int(raw_retries) if raw_retries is not None else 3
+
+        config = {
             "broker_url": self.get("mqtt.broker_url"),
-            "broker_port": self.get("mqtt.broker_port", 1883),  # Auto-converts to int
+            "broker_port": broker_port,
             "client_id": self.get("mqtt.client_id", "twickenham_event_publisher"),
             "security": self.get("mqtt.security", "none"),
             "auth": {
@@ -113,5 +130,11 @@ class Config:
                 "password": self.get("mqtt.auth.password"),
             },
             "tls": self.get("mqtt.tls"),
-            "max_retries": self.get("mqtt.max_retries", 3),
+            "max_retries": max_retries,
         }
+
+        # Validate required fields
+        if not config["broker_url"]:
+            raise ValueError("MQTT broker_url is required but not configured")
+
+        return config
