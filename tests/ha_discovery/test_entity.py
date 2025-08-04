@@ -2,11 +2,10 @@
 
 from unittest.mock import MagicMock
 
+from mqtt_publisher.ha_discovery import Device, Sensor
 import pytest
 
 from core.config import Config
-from core.ha_discovery.device import Device
-from core.ha_discovery.entity import Sensor
 
 
 @pytest.fixture
