@@ -42,11 +42,11 @@ A robust event scraping and MQTT publishing system that fetches upcoming events 
 
 This project uses **hierarchical environment variable loading**:
 
-1. **Shared environment** (recommended): Create `/path/to/parent/.env` with shared MQTT settings
+1. **Shared environment** (recommended): Create `/home/ron/projects/.env` with shared MQTT settings
 2. **Project-specific overrides**: Create `.env` in project root for project-specific settings  
 3. **System environment**: System variables have highest priority
 
-#### Shared Environment Example (`/path/to/parent/.env`):
+#### Shared Environment Example (`/home/ron/projects/.env`):
 ```bash
 # MQTT Broker Configuration (shared across projects)
 MQTT_BROKER_URL=your-broker.example.com
