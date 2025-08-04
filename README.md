@@ -15,18 +15,21 @@ A robust event scraping and MQTT publishing system that fetches upcoming events 
 ## 📦 Installation
 
 ### Prerequisites
+
 - Python 3.11+
 - [Poetry](https://python-poetry.org/docs/#installation)
 
 ### Setup Steps
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/ronschaeffer/twickenham_events.git
    cd twickenham_events
    ```
 
 2. **Install dependencies:**
+
    ```bash
    poetry install
    ```
@@ -43,10 +46,11 @@ A robust event scraping and MQTT publishing system that fetches upcoming events 
 This project uses **hierarchical environment variable loading**:
 
 1. **Shared environment** (recommended): Create `/home/ron/projects/.env` with shared MQTT settings
-2. **Project-specific overrides**: Create `.env` in project root for project-specific settings  
+2. **Project-specific overrides**: Create `.env` in project root for project-specific settings
 3. **System environment**: System variables have highest priority
 
 #### Shared Environment Example (`/home/ron/projects/.env`):
+
 ```bash
 # MQTT Broker Configuration (shared across projects)
 MQTT_BROKER_URL=your-broker.example.com
@@ -60,6 +64,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 #### Project-Specific Environment (`.env`):
+
 ```bash
 # Project-specific MQTT client ID
 MQTT_CLIENT_ID=twickenham_events_client
@@ -71,6 +76,7 @@ MQTT_CLIENT_ID=twickenham_events_client
 ### Configuration File
 
 1. **Copy the example configuration:**
+
    ```bash
    cp config/config.yaml.example config/config.yaml
    ```
@@ -84,7 +90,7 @@ MQTT_CLIENT_ID=twickenham_events_client
      broker_port: 8883
      client_id: "${MQTT_CLIENT_ID}"
      security: "username"
-     
+
      auth:
        username: "${MQTT_USERNAME}"
        password: "${MQTT_PASSWORD}"
@@ -93,16 +99,19 @@ MQTT_CLIENT_ID=twickenham_events_client
 ## 🚀 Usage
 
 ### Basic Usage
+
 ```bash
 poetry run python -m core
 ```
 
 ### With Dry Run (testing)
+
 ```bash
 poetry run python -m core --dry-run
 ```
 
 ### Example Output
+
 ```
 2024-01-01 12:00:00 INFO - Starting Twickenham Events scraper
 2024-01-01 12:00:01 INFO - Found 3 upcoming events
@@ -114,29 +123,32 @@ poetry run python -m core --dry-run
 ## 🏠 Home Assistant Integration
 
 ### Auto-Discovery Features
+
 - **📊 Event Sensors**: Next event, all upcoming events, daily summaries
-- **🔴 Status Sensor**: Online/offline status monitoring  
+- **🔴 Status Sensor**: Online/offline status monitoring
 - **📅 Event Attributes**: Full event details with metadata
 - **🏷️ Device Grouping**: All sensors grouped under "Twickenham Events" device
 
 ### Available Sensors
-| Sensor | Entity ID | Description |
-|--------|-----------|-------------|
-| Next Event | `sensor.twickenham_events_next` | Details of the next upcoming event |
-| All Upcoming | `sensor.twickenham_events_all_upcoming` | JSON list of all future events |
-| Next Day Summary | `sensor.twickenham_events_next_day_summary` | Summary for next event day |
-| Status | `binary_sensor.twickenham_events_status` | System online/offline status |
+
+| Sensor           | Entity ID                                   | Description                        |
+| ---------------- | ------------------------------------------- | ---------------------------------- |
+| Next Event       | `sensor.twickenham_events_next`             | Details of the next upcoming event |
+| All Upcoming     | `sensor.twickenham_events_all_upcoming`     | JSON list of all future events     |
+| Next Day Summary | `sensor.twickenham_events_next_day_summary` | Summary for next event day         |
+| Status           | `binary_sensor.twickenham_events_status`    | System online/offline status       |
 
 ### Sample Home Assistant Card
+
 ```yaml
 type: markdown
 content: |
   ## 🏉 Next Twickenham Event
   **{{ states('sensor.twickenham_events_next') }}**
-  
+
   📅 {{ state_attr('sensor.twickenham_events_next', 'date') }}
   🕐 {{ state_attr('sensor.twickenham_events_next', 'time') }}
-  
+
   Status: {{ states('binary_sensor.twickenham_events_status') }}
 ```
 
@@ -144,10 +156,11 @@ content: |
 
 Automatically creates shortened event names using Google's Gemini API:
 
-- **Original**: "Guinness Six Nations Championship - England vs Wales"  
+- **Original**: "Guinness Six Nations Championship - England vs Wales"
 - **Shortened**: "6N: ENG vs WAL"
 
 ### Setup:
+
 1. Get a [Google Gemini API key](https://aistudio.google.com/app/apikey)
 2. Add to your environment: `GEMINI_API_KEY=your_api_key`
 3. Enable in config: `ai_shortener.enabled: true`
@@ -157,16 +170,19 @@ See [docs/EVENT_SHORTENING.md](docs/EVENT_SHORTENING.md) for detailed setup.
 ## 🧪 Testing
 
 ### Run Tests
+
 ```bash
 poetry run pytest
 ```
 
 ### Run with Coverage
+
 ```bash
 poetry run pytest --cov=core --cov-report=html
 ```
 
 ### Test Environment Connection
+
 ```bash
 poetry run python -c "
 from core.config import Config
@@ -198,6 +214,7 @@ twickenham_events/
 ## 🔧 Development
 
 ### Code Quality
+
 ```bash
 # Format code
 poetry run ruff format
@@ -210,6 +227,7 @@ poetry run mypy core/
 ```
 
 ### Dependencies
+
 - **Core**: `requests`, `pyyaml`, `python-dotenv`
 - **MQTT**: Uses [`mqtt_publisher`](https://github.com/ronschaeffer/mqtt_publisher) as Git dependency
 - **AI (Optional)**: `google-generativeai`
