@@ -96,6 +96,37 @@ def main():
                 # Publish event data
                 process_and_publish_events(summarized_events, publisher, config)
                 print("Successfully published events to MQTT.")
+
+        except ValueError as e:
+            # Configuration validation errors
+            print(f"MQTT Configuration Error: {e}")
+            print("Check your config.yaml and environment variables.")
+
+        except ConnectionError as e:
+            # Connection-specific errors with helpful hints
+            try:
+                mqtt_config = config.get_mqtt_config()
+                port = mqtt_config.get("broker_port", 1883)
+                tls_enabled = bool(mqtt_config.get("tls"))
+
+                print(f"MQTT Connection Failed: {e}")
+
+                # Provide specific guidance based on configuration
+                if tls_enabled and port == 1883:
+                    print(
+                        "💡 Hint: TLS is enabled but using port 1883. Try port 8883 for TLS."
+                    )
+                elif not tls_enabled and port == 8883:
+                    print(
+                        "💡 Hint: Port 8883 is typically for TLS. Try port 1883 or enable TLS."
+                    )
+                else:
+                    print(
+                        f"💡 Check: Broker URL, port {port}, and network connectivity."
+                    )
+            except Exception:
+                print(f"MQTT Connection Failed: {e}")
+
         except Exception as e:
             print(f"Failed to publish to MQTT: {e}")
 
