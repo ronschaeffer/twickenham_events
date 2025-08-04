@@ -1,67 +1,237 @@
-# Twickenham Events
+# 🏉 Twickenham Events
 
-This project fetches and processes event data from the Twickenham events page and publishes it via MQTT for use with Home Assistant.
+A robust event scraping and MQTT publishing system that fetches upcoming events from Twickenham Stadium and publishes them to Home Assistant via MQTT with auto-discovery support.
 
-## Features
+## ✨ Features
 
-- **Event Scraping**: Automatically fetches upcoming events from Twickenham Stadium
-- **MQTT Publishing**: Publishes event data to MQTT topics with retain flags
-- **Home Assistant Integration**: Auto-discovery support with binary status sensor
-- **Event Name Shortening**: Optional AI-powered shortening for compact displays
-- **Comprehensive Testing**: Full test coverage with pytest
+- **🕸️ Event Scraping**: Automatically fetches upcoming events from Twickenham Stadium website
+- **📡 MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
+- **🏠 Home Assistant Integration**: Full auto-discovery support with status monitoring
+- **🤖 AI Event Shortening**: Optional AI-powered event name shortening for compact displays
+- **🧪 Comprehensive Testing**: Full test coverage with pytest and error handling
+- **🔒 Secure Configuration**: Environment variable support with hierarchical loading
+- **📊 Professional Logging**: Detailed logging with configurable levels
 
-## Setup
+## 📦 Installation
 
-1. Install [Poetry](https://python-poetry.org/docs/#installation).
-2. Install dependencies:
-   ```sh
+### Prerequisites
+- Python 3.11+
+- [Poetry](https://python-poetry.org/docs/#installation)
+
+### Setup Steps
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/ronschaeffer/twickenham_events.git
+   cd twickenham_events
+   ```
+
+2. **Install dependencies:**
+   ```bash
    poetry install
    ```
-3. (Optional) For AI event shortening:
-   ```sh
+
+3. **Optional - For AI event shortening:**
+   ```bash
    poetry install --with ai
    ```
 
-> **Note**: The project automatically loads environment variables from a `.env` file using `python-dotenv`.
+## ⚙️ Configuration
 
-## Configuration
+### Environment Variables Setup
 
-1. Copy `config/config.yaml.example` to `config/config.yaml` and customize:
-   - MQTT broker settings
-   - Home Assistant integration options
-   - Event shortening configuration (optional)
+This project uses **hierarchical environment variable loading**:
 
-2. **For AI Event Shortening**: Create a `.env` file in the project root with your Gemini API key:
-   ```sh
-   # .env
-   GEMINI_API_KEY="your_actual_gemini_api_key_here"
+1. **Shared environment** (recommended): Create `/path/to/parent/.env` with shared MQTT settings
+2. **Project-specific overrides**: Create `.env` in project root for project-specific settings  
+3. **System environment**: System variables have highest priority
+
+#### Shared Environment Example (`/path/to/parent/.env`):
+```bash
+# MQTT Broker Configuration (shared across projects)
+MQTT_BROKER_URL=your-broker.example.com
+MQTT_BROKER_PORT=8883
+MQTT_USERNAME=your_mqtt_username
+MQTT_PASSWORD=your_mqtt_password
+MQTT_USE_TLS=false
+
+# Google Gemini API (for AI event shortening)
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+#### Project-Specific Environment (`.env`):
+```bash
+# Project-specific MQTT client ID
+MQTT_CLIENT_ID=twickenham_events_client
+
+# Project-specific overrides (if needed)
+# MQTT_BROKER_URL=different-broker.example.com
+```
+
+### Configuration File
+
+1. **Copy the example configuration:**
+   ```bash
+   cp config/config.yaml.example config/config.yaml
    ```
-   
-   > **Note**: The `.env` file is already included in `.gitignore` and will not be committed to version control.
 
-## Usage
+2. **The configuration automatically uses environment variables:**
+   ```yaml
+   # MQTT Configuration with environment variable substitution
+   mqtt:
+     enabled: true
+     broker_url: "${MQTT_BROKER_URL}"
+     broker_port: 8883
+     client_id: "${MQTT_CLIENT_ID}"
+     security: "username"
+     
+     auth:
+       username: "${MQTT_USERNAME}"
+       password: "${MQTT_PASSWORD}"
+   ```
 
-Run the script:
+## 🚀 Usage
 
-```sh
+### Basic Usage
+```bash
 poetry run python -m core
 ```
 
-## Optional Features
+### With Dry Run (testing)
+```bash
+poetry run python -m core --dry-run
+```
 
-### AI Event Name Shortening
+### Example Output
+```
+2024-01-01 12:00:00 INFO - Starting Twickenham Events scraper
+2024-01-01 12:00:01 INFO - Found 3 upcoming events
+2024-01-01 12:00:02 INFO - Connected to MQTT broker
+2024-01-01 12:00:03 INFO - Published discovery configurations
+2024-01-01 12:00:04 INFO - Published event data to Home Assistant
+```
 
-Automatically creates shortened event names suitable for compact displays using Google's Gemini API. See [EVENT_SHORTENING.md](docs/EVENT_SHORTENING.md) for setup instructions.
+## 🏠 Home Assistant Integration
 
-Example:
+### Auto-Discovery Features
+- **📊 Event Sensors**: Next event, all upcoming events, daily summaries
+- **🔴 Status Sensor**: Online/offline status monitoring  
+- **📅 Event Attributes**: Full event details with metadata
+- **🏷️ Device Grouping**: All sensors grouped under "Twickenham Events" device
 
-- Original: "Women's Rugby World Cup Final"
-- Shortened: "W RWC Final"
+### Available Sensors
+| Sensor | Entity ID | Description |
+|--------|-----------|-------------|
+| Next Event | `sensor.twickenham_events_next` | Details of the next upcoming event |
+| All Upcoming | `sensor.twickenham_events_all_upcoming` | JSON list of all future events |
+| Next Day Summary | `sensor.twickenham_events_next_day_summary` | Summary for next event day |
+| Status | `binary_sensor.twickenham_events_status` | System online/offline status |
 
-## Home Assistant Cards
+### Sample Home Assistant Card
+```yaml
+type: markdown
+content: |
+  ## 🏉 Next Twickenham Event
+  **{{ states('sensor.twickenham_events_next') }}**
+  
+  📅 {{ state_attr('sensor.twickenham_events_next', 'date') }}
+  🕐 {{ state_attr('sensor.twickenham_events_next', 'time') }}
+  
+  Status: {{ states('binary_sensor.twickenham_events_status') }}
+```
 
-The `ha_card/` directory contains various dashboard card configurations for displaying event data in Home Assistant.
+## 🤖 AI Event Shortening (Optional)
 
-## License
+Automatically creates shortened event names using Google's Gemini API:
 
-This project is licensed under the MIT License.
+- **Original**: "Guinness Six Nations Championship - England vs Wales"  
+- **Shortened**: "6N: ENG vs WAL"
+
+### Setup:
+1. Get a [Google Gemini API key](https://aistudio.google.com/app/apikey)
+2. Add to your environment: `GEMINI_API_KEY=your_api_key`
+3. Enable in config: `ai_shortener.enabled: true`
+
+See [docs/EVENT_SHORTENING.md](docs/EVENT_SHORTENING.md) for detailed setup.
+
+## 🧪 Testing
+
+### Run Tests
+```bash
+poetry run pytest
+```
+
+### Run with Coverage
+```bash
+poetry run pytest --cov=core --cov-report=html
+```
+
+### Test Environment Connection
+```bash
+poetry run python -c "
+from core.config import Config
+from dotenv import load_dotenv
+load_dotenv(); load_dotenv('../.env')  # Load shared environment
+config = Config('config/config.yaml')
+print(f'MQTT: {config.get(\"mqtt.broker_url\")}:{config.get(\"mqtt.broker_port\")}')
+"
+```
+
+## 📂 Project Structure
+
+```
+twickenham_events/
+├── core/                    # Main application code
+│   ├── __main__.py         # Entry point with hierarchical env loading
+│   ├── config.py           # Configuration with ${VAR} substitution
+│   ├── twick_event.py      # Event data structures
+│   └── mqtt_publisher.py   # MQTT publishing logic
+├── config/                 # Configuration files
+│   ├── config.yaml.example # Template with environment variables
+│   └── ha_entities.yaml    # Home Assistant entity definitions
+├── tests/                  # Test suite
+├── docs/                   # Documentation
+├── ha_card/               # Home Assistant dashboard cards
+└── .env.example           # Environment template
+```
+
+## 🔧 Development
+
+### Code Quality
+```bash
+# Format code
+poetry run ruff format
+
+# Check linting
+poetry run ruff check
+
+# Type checking
+poetry run mypy core/
+```
+
+### Dependencies
+- **Core**: `requests`, `pyyaml`, `python-dotenv`
+- **MQTT**: Uses [`mqtt_publisher`](https://github.com/ronschaeffer/mqtt_publisher) as Git dependency
+- **AI (Optional)**: `google-generativeai`
+- **Testing**: `pytest`, `pytest-cov`
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Run tests: `poetry run pytest`
+4. Commit changes (`git commit -m 'Add amazing feature'`)
+5. Push to branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
+
+## 📞 Support
+
+For questions, issues, or contributions, please open an issue on GitHub.
+
+---
+
+**Built with ❤️ for rugby fans and Home Assistant enthusiasts**
