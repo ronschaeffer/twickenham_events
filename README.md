@@ -8,6 +8,7 @@ An event scraping and MQTT publishing system that fetches upcoming events for Tw
 - **MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
 - **Home Assistant Integration**: Auto-discovery support with status monitoring
 - **AI Event Shortening**: Optional AI-powered event name shortening for compact displays
+- **Country Flag Additions**: Optional AI-powered country flag emojis with event name shortening
 - **Testing Coverage**: Test coverage with pytest and error handling
 - **Secure Configuration**: Environment variable support with hierarchical loading
 - **Detailed Logging**: Logging with configurable levels
