@@ -1,16 +1,19 @@
-# 🏉 Twickenham Events
+# 🏉 Twick- **🧪 Testing Coverage**: Test coverage with pytest and error handling
 
-A robust event scraping and MQTT publishing system that fetches upcoming events from Twickenham Stadium and publishes them to Home Assistant via MQTT with auto-discovery support.
+- **🔒 Secure Configuration**: Environment variable support with hierarchical loading
+- **📊 Detailed Logging**: Logging with configurable levelsam Events
+
+An event scraping and MQTT publishing system that fetches upcoming events from Twickenham Stadium and publishes them to Home Assistant via MQTT with auto-discovery support.
 
 ## ✨ Features
 
-- **🕸️ Event Scraping**: Automatically fetches upcoming events from Twickenham Stadium website
+- **🕸️ Event Scraping**: Fetches upcoming events from Twickenham Stadium website
 - **📡 MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
-- **🏠 Home Assistant Integration**: Full auto-discovery support with status monitoring
+- **🏠 Home Assistant Integration**: Auto-discovery support with status monitoring
 - **🤖 AI Event Shortening**: Optional AI-powered event name shortening for compact displays
-- **🧪 Comprehensive Testing**: Full test coverage with pytest and error handling
+- **🧪 Testing Coverage**: Test coverage with pytest and error handling
 - **🔒 Secure Configuration**: Environment variable support with hierarchical loading
-- **📊 Professional Logging**: Detailed logging with configurable levels
+- **📊 Detailed Logging**: Logging with configurable levels
 
 ## 📦 Installation
 
@@ -41,37 +44,43 @@ A robust event scraping and MQTT publishing system that fetches upcoming events 
 
 ## ⚙️ Configuration
 
-### Environment Variables Setup
+### MQTT Configuration
 
-This project uses **hierarchical environment variable loading**:
+This project uses the [`mqtt_publisher`](https://github.com/ronschaeffer/mqtt_publisher) library for MQTT functionality.
 
-1. **Shared environment** (recommended): Create `/home/ron/projects/.env` with shared MQTT settings
-2. **Project-specific overrides**: Create `.env` in project root for project-specific settings
-3. **System environment**: System variables have highest priority
+📖 **For detailed MQTT configuration instructions**, see the [MQTT Publisher README](../mqtt_publisher/README.md#-configuration)
 
-#### Shared Environment Example (`/home/ron/projects/.env`):
+### Quick Setup
 
-```bash
-# MQTT Broker Configuration (shared across projects)
-MQTT_BROKER_URL=your-broker.example.com
-MQTT_BROKER_PORT=8883
-MQTT_USERNAME=your_mqtt_username
-MQTT_PASSWORD=your_mqtt_password
-MQTT_USE_TLS=false
+1. **Copy the configuration template:**
 
-# Google Gemini API (for AI event shortening)
-GEMINI_API_KEY=your_gemini_api_key_here
-```
+   ```bash
+   cp config/config.yaml.example config/config.yaml
+   ```
 
-#### Project-Specific Environment (`.env`):
+2. **Set your MQTT credentials** (choose one method):
 
-```bash
-# Project-specific MQTT client ID
-MQTT_CLIENT_ID=twickenham_events_client
+   **Option A: Environment Variables** (recommended)
 
-# Project-specific overrides (if needed)
-# MQTT_BROKER_URL=different-broker.example.com
-```
+   ```bash
+   # Create .env file in project root
+   MQTT_BROKER_URL=your-broker.example.com
+   MQTT_BROKER_PORT=8883
+   MQTT_CLIENT_ID=twickenham_events_client
+   MQTT_USERNAME=your_mqtt_username
+   MQTT_PASSWORD=your_mqtt_password
+
+   # Optional: Google Gemini API for AI event shortening
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+   **Option B: Direct Configuration**
+
+   ```bash
+   # Edit config/config.yaml directly with your values
+   ```
+
+3. **The configuration uses environment variable substitution:**
 
 ### Configuration File
 
@@ -82,12 +91,13 @@ MQTT_CLIENT_ID=twickenham_events_client
    ```
 
 2. **The configuration automatically uses environment variables:**
+
    ```yaml
    # MQTT Configuration with environment variable substitution
    mqtt:
      enabled: true
      broker_url: "${MQTT_BROKER_URL}"
-     broker_port: 8883
+     broker_port: "${MQTT_BROKER_PORT}"
      client_id: "${MQTT_CLIENT_ID}"
      security: "username"
 
@@ -126,7 +136,7 @@ poetry run python -m core --dry-run
 
 - **📊 Event Sensors**: Next event, all upcoming events, daily summaries
 - **🔴 Status Sensor**: Online/offline status monitoring
-- **📅 Event Attributes**: Full event details with metadata
+- **📅 Event Attributes**: Event details with metadata
 - **🏷️ Device Grouping**: All sensors grouped under "Twickenham Events" device
 
 ### Available Sensors
@@ -154,7 +164,7 @@ content: |
 
 ## 🤖 AI Event Shortening (Optional)
 
-Automatically creates shortened event names using Google's Gemini API:
+Creates shortened event names using Google's Gemini API:
 
 - **Original**: "Guinness Six Nations Championship - England vs Wales"
 - **Shortened**: "6N: ENG vs WAL"
@@ -187,7 +197,7 @@ poetry run pytest --cov=core --cov-report=html
 poetry run python -c "
 from core.config import Config
 from dotenv import load_dotenv
-load_dotenv(); load_dotenv('../.env')  # Load shared environment
+load_dotenv()  # Load environment variables
 config = Config('config/config.yaml')
 print(f'MQTT: {config.get(\"mqtt.broker_url\")}:{config.get(\"mqtt.broker_port\")}')
 "
@@ -198,7 +208,7 @@ print(f'MQTT: {config.get(\"mqtt.broker_url\")}:{config.get(\"mqtt.broker_port\"
 ```
 twickenham_events/
 ├── core/                    # Main application code
-│   ├── __main__.py         # Entry point with hierarchical env loading
+│   ├── __main__.py         # Entry point with optional env loading
 │   ├── config.py           # Configuration with ${VAR} substitution
 │   ├── twick_event.py      # Event data structures
 │   └── mqtt_publisher.py   # MQTT publishing logic
@@ -251,5 +261,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 For questions, issues, or contributions, please open an issue on GitHub.
 
 ---
-
-**Built with ❤️ for rugby fans and Home Assistant enthusiasts**
