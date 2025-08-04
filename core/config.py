@@ -48,6 +48,7 @@ class Config:
         Retrieve a value from the configuration using dot notation.
         If a key is not found, or its value is None, the default is returned.
         Supports environment variable substitution using ${VAR} syntax.
+        Automatically handles type conversion for common cases.
 
         Args:
             key (str): The key to retrieve, e.g., 'mqtt.broker.host'.
@@ -75,6 +76,13 @@ class Config:
                     # If environment variable is not set, return default or the original value
                     return default if default is not None else value
 
+            # Auto-convert port numbers to integers if the key suggests it's a port
+            if isinstance(value, str) and "port" in key.lower():
+                try:
+                    value = int(value)
+                except ValueError:
+                    pass  # Keep as string if conversion fails
+
             # Return the value only if it's not None, otherwise return default
             return value if value is not None else default
         except (KeyError, TypeError):
@@ -86,3 +94,24 @@ class Config:
         Returns the directory where the configuration file is located.
         """
         return self.config_dir
+
+    def get_mqtt_config(self) -> dict[str, Any]:
+        """
+        Build MQTT configuration dictionary following mqtt_publisher best practices.
+        Handles individual access for proper environment variable substitution.
+
+        Returns:
+            dict: MQTT configuration ready for MQTTPublisher initialization
+        """
+        return {
+            "broker_url": self.get("mqtt.broker_url"),
+            "broker_port": self.get("mqtt.broker_port", 1883),  # Auto-converts to int
+            "client_id": self.get("mqtt.client_id", "twickenham_event_publisher"),
+            "security": self.get("mqtt.security", "none"),
+            "auth": {
+                "username": self.get("mqtt.auth.username"),
+                "password": self.get("mqtt.auth.password"),
+            },
+            "tls": self.get("mqtt.tls"),
+            "max_retries": self.get("mqtt.max_retries", 3),
+        }

@@ -20,18 +20,32 @@ from core.twick_event import (
 sys.path.append(str(Path(__file__).parent.parent))
 
 
+def load_environment():
+    """
+    Load environment variables using hierarchical loading pattern.
+    Follows mqtt_publisher best practices for multi-project workspaces.
+    """
+    try:
+        # Load shared environment first (if exists)
+        parent_env = Path(__file__).parent.parent.parent / ".env"
+        if parent_env.exists():
+            load_dotenv(parent_env, verbose=False)
+
+        # Load project-specific environment second (overrides shared)
+        project_env = Path(__file__).parent.parent / ".env"
+        if project_env.exists():
+            load_dotenv(project_env, override=True, verbose=False)
+
+    except ImportError:
+        print("⚠️  python-dotenv not installed. Install with: poetry add python-dotenv")
+
+
 def main():
     """
     Main function to run the Twickenham event scraper and publisher.
     """
-    # Load environment variables - hierarchical loading:
-    # 1. Parent workspace .env (shared MQTT, API keys)
-    # 2. Project-specific .env (overrides)
-    parent_env = Path(__file__).parent.parent.parent / ".env"
-    if parent_env.exists():
-        load_dotenv(parent_env, verbose=False)  # Load shared settings first
-
-    load_dotenv()  # Load project-specific overrides second
+    # Load environment variables using best practices
+    load_environment()
 
     # --- Configuration ---
     config_path = Path(__file__).parent.parent / "config" / "config.yaml"
@@ -71,20 +85,10 @@ def main():
     # --- MQTT Publishing ---
     if config.get("mqtt.enabled"):
         try:
-            # Build auth dictionary with environment variable substitution
-            auth_config = {
-                "username": config.get("mqtt.auth.username"),
-                "password": config.get("mqtt.auth.password"),
-            }
+            # Get MQTT configuration using best practices from mqtt_publisher
+            mqtt_config = config.get_mqtt_config()
 
-            with MQTTPublisher(
-                broker_url=config.get("mqtt.broker_url"),
-                broker_port=int(config.get("mqtt.broker_port", 1883)),
-                client_id=config.get("mqtt.client_id", "twickenham_event_publisher"),
-                security=config.get("mqtt.security", "none"),
-                auth=auth_config,
-                tls=config.get("mqtt.tls"),
-            ) as publisher:
+            with MQTTPublisher(**mqtt_config) as publisher:
                 # Publish Home Assistant discovery configs
                 if config.get("home_assistant.enabled"):
                     publish_discovery_configs(config, publisher)
