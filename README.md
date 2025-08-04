@@ -1,7 +1,6 @@
-# 🏉 Twickenham Events
+# 🏉 Twickenha- **🇦🇺 Country Flag Additions**: Optional AI-powered country flag emojis with event name shortening Events
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img## 🤖 AI Event Shortening (Optional)
+[![Python 3.11+](https://img.shie## 🤖 AI Event Shortening (Optional)
 
 Creates shortened event names using Google's Gemini API:
 
@@ -20,8 +19,11 @@ Creates shortened event names using Google's Gemini API:
 - **Standard country flags** (like 🇦🇺 🇫🇯 🇳🇿 🇫🇷) render properly across all platforms
 - **Subdivision flags** (England 🏴󠁧󠁢󠁥󠁮󠁧󠁿, Wales 🏴󠁧󠁢󠁷󠁬󠁳󠁿, Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿) use complex Unicode subsequences that may not render properly in some browsers and platforms
 - **Home Assistant compatibility**: All flag types have been tested and render properly in the Home Assistant Android app
-- **Disable flags**: Set `ai_shortener.add_flags: false` in config to use shortened names without flag emojisadge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-  [![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+- **Disable flags**: Set `ai_shortener.add_flags: false` in config to use shortened names without flag emojis
+
+See [docs/EVENT_SHORTENING.md](docs/EVENT_SHORTENING.md) for detailed setup.thon-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 An event scraping and MQTT publishing system that fetches upcoming events for Twickenham Stadium from the Richmond Council website and publishes them to Home Assistant via MQTT with auto-discovery support.
 
