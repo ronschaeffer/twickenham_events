@@ -77,8 +77,6 @@ event_shortener:
 
 This will generate shortened names without flag emojis, ensuring maximum compatibility across all platforms.
 
-````
-
 ## How It Works
 
 ### Event Data Structure
