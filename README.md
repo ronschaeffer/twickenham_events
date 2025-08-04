@@ -248,10 +248,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For questions, issues, or contributions, please open an issue on GitHub.
 
----
-
-📝 **Documentation**: Follow the [README Style Guide](../README_STYLE_GUIDE.md) for consistent documentation.
-
 ```bash
 poetry run pytest
 ```
