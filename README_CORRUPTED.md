@@ -1,6 +1,27 @@
-# 🏉 Twickenham Events
+# 🏉 Twickenha- **🇦🇺 Country Flag Additions**: Optional AI-powered country flag emojis with event name shortening Events
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shie## 🤖 AI Event Shortening (Optional)
+
+Creates shortened event names using Google's Gemini API:
+
+- **Original**: "Rugby Championship - Australia vs Fiji"
+- **Shortened**: "RC: AUS vs FJI"
+- **With Country Flags**: "RC: 🇦🇺 vs 🇫🇯" (optional)
+
+### Setup:
+
+1. Get a [Google Gemini API key](https://aistudio.google.com/app/apikey)
+2. Add to your environment: `GEMINI_API_KEY=your_api_key`
+3. Enable in config: `ai_shortener.enabled: true`
+
+### Flag Compatibility Notes:
+
+- **Standard country flags** (like 🇦🇺 🇫🇯 🇳🇿 🇫🇷) render properly across all platforms
+- **Subdivision flags** (England 🏴󠁧󠁢󠁥󠁮󠁧󠁿, Wales 🏴󠁧󠁢󠁷󠁬󠁳󠁿, Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿) use complex Unicode subsequences that may not render properly in some browsers and platforms
+- **Home Assistant compatibility**: All flag types have been tested and render properly in the Home Assistant Android app
+- **Disable flags**: Set `ai_shortener.add_flags: false` in config to use shortened names without flag emojis
+
+See [docs/EVENT_SHORTENING.md](docs/EVENT_SHORTENING.md) for detailed setup.thon-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -12,8 +33,8 @@ An event scraping and MQTT publishing system that fetches upcoming events for Tw
 - **📡 MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
 - **🏠 Home Assistant Integration**: Auto-discovery support with status monitoring
 - **🤖 AI Event Shortening**: Optional AI-powered event name shortening for compact displays
-- **🇦🇺 Country Flag Additions**: Optional AI-powered country flag emojis with event name shortening
-- **📅 Extensive Date/Time Normalization**: Robust parsing of various date and time formats (DD/MM/YYYY, DD MMM YYYY, ordinals like "2nd November", time ranges like "3 & 5pm", etc.)
+- **�🇺 Country Flag Additions**: Optional AI-powered country flag emojis with event name shortening
+- **📅 Date/Time Normalization**: Parsing of various date and time formats from the council website
 - **🧪 Testing Coverage**: Test coverage with pytest and error handling
 - **🔒 Secure Configuration**: Environment variable support with hierarchical loading
 - **📝 Detailed Logging**: Logging with configurable levels
@@ -161,7 +182,7 @@ Creates shortened event names using Google's Gemini API:
 
 - **Original**: "Rugby Championship - Australia vs Fiji"
 - **Shortened**: "RC: AUS vs FJI"
-- **With Country Flags**: "RC: 🇦🇺 vs 🇫🇯" (optional)
+- **With Country Flags**: "RC: 🇦� vs 🇫�" (optional)
 
 ### Setup:
 
@@ -169,7 +190,7 @@ Creates shortened event names using Google's Gemini API:
 2. Add to your environment: `GEMINI_API_KEY=your_api_key`
 3. Enable in config: `ai_shortener.enabled: true`
 
-See [docs/EVENT_SHORTENING.md](docs/EVENT_SHORTENING.md) for detailed setup and flag compatibility information.
+See [docs/EVENT_SHORTENING.md](docs/EVENT_SHORTENING.md) for detailed setup.
 
 ## 🧪 Testing
 
@@ -253,3 +274,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For questions, issues, or contributions, please open an issue on GitHub.
+
+---

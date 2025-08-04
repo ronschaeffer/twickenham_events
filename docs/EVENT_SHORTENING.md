@@ -48,6 +48,34 @@ event_shortener:
     Now, shorten this event name:
     fixture: {event_name}
     fixture_short:
+
+### 4. Flag Compatibility
+
+The AI shortening feature can optionally add country flag emojis to event names. However, flag rendering compatibility varies across platforms:
+
+#### Standard Country Flags (Recommended)
+- **Examples**: 🇦🇺 🇫🇯 🇳🇿 🇫🇷 🇮🇪 🇮🇹 🇿🇦
+- **Compatibility**: Render properly across all platforms, browsers, and applications
+- **Usage**: Best choice for international events
+
+#### Subdivision Flags (Limited Compatibility) 
+- **Examples**: England 🏴󠁧󠁢󠁥󠁮󠁧󠁿, Wales 🏴󠁧󠁢󠁷󠁬󠁳󠁿, Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿
+- **Technical Details**: Use complex Unicode subsequences that may not render properly in some browsers and platforms
+- **Known Issues**: May appear as question marks or broken characters in Edge, older browsers, or some systems
+- **Home Assistant**: All flag types have been tested and render properly in the Home Assistant Android app
+
+#### Configuration Options
+
+To disable flag emojis entirely:
+
+```yaml
+event_shortener:
+  enabled: true
+  add_flags: false  # Set to false to disable flag emojis
+  # ... other settings
+```
+
+This will generate shortened names without flag emojis, ensuring maximum compatibility across all platforms.
 ```
 
 ## How It Works
