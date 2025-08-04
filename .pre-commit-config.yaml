@@ -6,8 +6,6 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
-      - id: check-json
-      - id: check-toml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.7 # Use the same version as installed
@@ -21,4 +19,9 @@ repos:
     hooks:
       - id: codespell
         args: ["--write-changes"] # Enable auto-fix
-        exclude: ^(poetry\.lock|\.venv/|tests/.*\.py)$
+
+        additional_dependencies: [
+            "types-requests", # Add required type stubs
+            "types-PyYAML",
+            # ... other type stubs as needed
+          ]

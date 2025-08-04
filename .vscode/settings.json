@@ -16,15 +16,20 @@
     "python.linting.enabled": false,
     "ruff.enable": true,
     "ruff.organizeImports": true,
+    "git.env": {
+        "LC_ALL": "C.UTF-8",
+        "LANG": "C.UTF-8",
+        "LANGUAGE": "C.UTF-8"
+    },
+    "terminal.integrated.env.linux": {
+        "LC_ALL": "C.UTF-8",
+        "LANG": "C.UTF-8",
+        "LANGUAGE": "C.UTF-8"
+    },
     "files.exclude": {
         "**/__pycache__": true,
         "**/*.pyc": true
     },
     "python.testing.unittestEnabled": false,
-    "terminal.integrated.cwd": "${workspaceFolder}",
-    "terminal.integrated.env.linux": {
-        "LC_ALL": "C.UTF-8",
-        "LANG": "C.UTF-8",
-        "LANGUAGE": "C.UTF-8"
-    }
+    "terminal.integrated.cwd": "${workspaceFolder}"
 }
