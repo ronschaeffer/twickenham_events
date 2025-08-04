@@ -155,6 +155,8 @@ content: |
   Status: {{ states('binary_sensor.twickenham_events_status') }}
 ```
 
+📋 **Additional card examples** are available in the [`ha_card/`](ha_card/) folder, including specialized layouts for upcoming events, daily summaries, and popup cards.
+
 ## 🤖 AI Event Shortening (Optional)
 
 Creates shortened event names using Google's Gemini API:
