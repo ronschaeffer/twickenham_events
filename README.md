@@ -4,7 +4,7 @@ A robust event scraping and MQTT publishing system that fetches upcoming events 
 
 ## ✨ Features
 
-- **🕸️ Event Scraping**: Automatically fetches upcoming events from Twickenham Stadium website
+- **🕸️ Event Scraping**: Automatically fetches upcoming events from Richmond Council website
 - **📡 MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
 - **🏠 Home Assistant Integration**: Full auto-discovery support with status monitoring
 - **🤖 AI Event Shortening**: Optional AI-powered event name shortening for compact displays
@@ -54,7 +54,7 @@ This project uses **hierarchical environment variable loading**:
 ```bash
 # MQTT Broker Configuration (shared across projects)
 MQTT_BROKER_URL=your-broker.example.com
-MQTT_BROKER_PORT=8883
+MQTT_BROKER_PORT=you-broke-port
 MQTT_USERNAME=your_mqtt_username
 MQTT_PASSWORD=your_mqtt_password
 MQTT_USE_TLS=false
@@ -87,7 +87,7 @@ MQTT_CLIENT_ID=twickenham_events_client
    mqtt:
      enabled: true
      broker_url: "${MQTT_BROKER_URL}"
-     broker_port: 8883
+     broker_port: "${MQTT_BROKER_PORT}"
      client_id: "${MQTT_CLIENT_ID}"
      security: "username"
 
