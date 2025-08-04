@@ -24,8 +24,14 @@ def main():
     """
     Main function to run the Twickenham event scraper and publisher.
     """
-    # Load environment variables from .env file
-    load_dotenv()
+    # Load environment variables - hierarchical loading:
+    # 1. Parent workspace .env (shared MQTT, API keys)
+    # 2. Project-specific .env (overrides)
+    parent_env = Path(__file__).parent.parent.parent / ".env"
+    if parent_env.exists():
+        load_dotenv(parent_env, verbose=False)  # Load shared settings first
+
+    load_dotenv()  # Load project-specific overrides second
 
     # --- Configuration ---
     config_path = Path(__file__).parent.parent / "config" / "config.yaml"
