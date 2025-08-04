@@ -21,5 +21,10 @@
         "**/*.pyc": true
     },
     "python.testing.unittestEnabled": false,
-    "terminal.integrated.cwd": "${workspaceFolder}"
+    "terminal.integrated.cwd": "${workspaceFolder}",
+    "terminal.integrated.env.linux": {
+        "LC_ALL": "C.UTF-8",
+        "LANG": "C.UTF-8",
+        "LANGUAGE": "C.UTF-8"
+    }
 }
