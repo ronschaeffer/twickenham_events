@@ -47,6 +47,7 @@ class Config:
         """
         Retrieve a value from the configuration using dot notation.
         If a key is not found, or its value is None, the default is returned.
+        Supports environment variable substitution using ${VAR} syntax.
 
         Args:
             key (str): The key to retrieve, e.g., 'mqtt.broker.host'.
@@ -59,6 +60,21 @@ class Config:
         try:
             # Traverse the nested dictionaries using the keys
             value = reduce(operator.getitem, keys, self.config)
+
+            # Handle environment variable substitution for string values
+            if (
+                isinstance(value, str)
+                and value.startswith("${")
+                and value.endswith("}")
+            ):
+                env_var = value[2:-1]  # Remove ${ and }
+                env_value = os.environ.get(env_var)
+                if env_value is not None:
+                    value = env_value
+                else:
+                    # If environment variable is not set, return default or the original value
+                    return default if default is not None else value
+
             # Return the value only if it's not None, otherwise return default
             return value if value is not None else default
         except (KeyError, TypeError):
