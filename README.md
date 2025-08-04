@@ -8,6 +8,8 @@ An event scraping and MQTT publishing system that fetches upcoming events for Tw
 
 ## ✨ Features
 
+<<<<<<< HEAD
+
 - **🌐 Event Scraping**: Automatically fetches upcoming events from Richmond Council website
 - **📡 MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
 - **🏠 Home Assistant Integration**: Auto-discovery support with status monitoring
@@ -15,7 +17,16 @@ An event scraping and MQTT publishing system that fetches upcoming events for Tw
 - **📅 Extensive Date/Time Normalization**: Robust parsing of various date and time formats (DD/MM/YYYY, DD MMM YYYY, ordinals like "2nd November", time ranges like "3 & 5pm", etc.)
 - **🧪 Testing Coverage**: Test coverage with pytest and error handling
 - **🔒 Secure Configuration**: Environment variable support with hierarchical loading
-- **📝 Detailed Logging**: Logging with configurable levels
+- # **📝 Detailed Logging**: Logging with configurable levels
+- **Event Scraping**: Automatically fetches upcoming events from Richmond Council website
+- **MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
+- **Home Assistant Integration**: Auto-discovery support with status monitoring
+- **AI Event Shortening**: Optional AI-powered event name shortening for compact displays
+- **Country Flag Additions**: Optional AI-powered country flag emojis with event name shortening
+- **Testing Coverage**: Test coverage with pytest and error handling
+- **Secure Configuration**: Environment variable support with hierarchical loading
+- **Detailed Logging**: Logging with configurable levels
+  > > > > > > > a39208937969049043be8891fe566b09a2a0edfc
 
 ## 📦 Installation
 
