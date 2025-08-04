@@ -1,4 +1,11 @@
-#!/bin/bash
+#!/bin/bash  
+# Format code for this project only
+
+# Set locale to avoid git warnings
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+# Colorsin/bash
 # Format code for this project only
 
 # Colors

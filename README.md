@@ -7,7 +7,11 @@ An event scraping and MQTT publishing system that fetches upcoming events from T
 
 ## ✨ Features
 
+<<<<<<< HEAD
 - **🕸️ Event Scraping**: Fetches upcoming events from Twickenham Stadium website
+=======
+- **🕸️ Event Scraping**: Automatically fetches upcoming events from Richmond Council website
+>>>>>>> f411fdeed1d4412e9b61551c04ad52cab7ad6216
 - **📡 MQTT Publishing**: Publishes structured event data to MQTT topics with retain flags
 - **🏠 Home Assistant Integration**: Auto-discovery support with status monitoring
 - **🤖 AI Event Shortening**: Optional AI-powered event name shortening for compact displays
@@ -52,7 +56,21 @@ This project uses the [`mqtt_publisher`](https://github.com/ronschaeffer/mqtt_pu
 
 ### Quick Setup
 
+<<<<<<< HEAD
 1. **Copy the configuration template:**
+=======
+```bash
+# MQTT Broker Configuration (shared across projects)
+MQTT_BROKER_URL=your-broker.example.com
+MQTT_BROKER_PORT=you-broke-port
+MQTT_USERNAME=your_mqtt_username
+MQTT_PASSWORD=your_mqtt_password
+MQTT_USE_TLS=false
+
+# Google Gemini API (for AI event shortening)
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+>>>>>>> f411fdeed1d4412e9b61551c04ad52cab7ad6216
 
    ```bash
    cp config/config.yaml.example config/config.yaml
