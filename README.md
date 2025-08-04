@@ -1,6 +1,6 @@
 # Twickenham Events
 
-An event scraping and MQTT publishing system that fetches upcoming events from Twickenham Stadium and publishes them to Home Assistant via MQTT with auto-discovery support.
+An event scraping and MQTT publishing system that fetches upcoming events for Twickenham Stadium from the Richmond Council website and publishes them to Home Assistant via MQTT with auto-discovery support.
 
 ## Features
 
