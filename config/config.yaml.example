@@ -33,6 +33,13 @@ mqtt:
     all_upcoming: "twickenham_events/events/all_upcoming"
     status: "twickenham_events/status"
 
+  # Last Will and Testament - Published when client disconnects unexpectedly
+  last_will:
+    topic: "twickenham_events/status"  # Same as status topic for consistency
+    payload: '{"status": "offline", "last_seen": "unexpected_disconnect", "event_count": 0, "error_count": 1, "errors": ["Client disconnected unexpectedly"]}'
+    qos: 1                             # Ensure delivery (0=fire&forget, 1=at_least_once, 2=exactly_once)
+    retain: true                       # Retain message so subscribers see offline status immediately
+
 # Home Assistant Integration
 home_assistant:
   enabled: true
