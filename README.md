@@ -141,6 +141,15 @@ poetry run python -m core --dry-run
 | Next Day Summary | `sensor.twickenham_events_next_day_summary` | Summary for next event day         |
 | Status           | `binary_sensor.twickenham_events_status`    | System online/offline status       |
 
+### 🔌 Offline Detection
+
+The system uses **MQTT Last Will and Testament (LWT)** for automatic offline detection:
+
+- **✅ Normal Operation**: Status sensor shows "online" with current event data
+- **⚠️ Network Issues**: If the scraper loses connection unexpectedly, the MQTT broker automatically publishes an "offline" status
+- **🏠 Home Assistant**: Immediately shows the system as offline without waiting for timeouts
+- **📊 Monitoring**: Use the status sensor in automations to alert when the scraper goes offline
+
 ### Sample Home Assistant Card
 
 ```yaml
