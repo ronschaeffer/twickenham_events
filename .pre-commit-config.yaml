@@ -19,9 +19,3 @@ repos:
     hooks:
       - id: codespell
         args: ["--write-changes"] # Enable auto-fix
-
-        additional_dependencies: [
-            "types-requests", # Add required type stubs
-            "types-PyYAML",
-            # ... other type stubs as needed
-          ]
