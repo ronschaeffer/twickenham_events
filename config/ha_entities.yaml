@@ -6,8 +6,8 @@ device:
   identifiers: ["twickenham_events_monitor"]
   name: "Twickenham Events Monitor"
   manufacturer: "Twickenham Events Project"
-  model: "v1.0"
-  sw_version: "1.0"
+  model: ""
+  sw_version: ""
 
 # This block defines the individual sensors that belong to the device above.
 sensors:
