@@ -23,7 +23,7 @@ poetry install --with ai
 
 Update your `config/config.yaml` file:
 
-```yaml
+````yaml
 event_shortener:
   enabled: true # Set to true to enable
   api_key: "YOUR_GEMINI_API_KEY" # Add your API key here
@@ -58,7 +58,7 @@ The AI shortening feature can optionally add country flag emojis to event names.
 - **Compatibility**: Render properly across all platforms, browsers, and applications
 - **Usage**: Best choice for international events
 
-#### Subdivision Flags (Limited Compatibility) 
+#### Subdivision Flags (Limited Compatibility)
 - **Examples**: England 🏴󠁧󠁢󠁥󠁮󠁧󠁿, Wales 🏴󠁧󠁢󠁷󠁬󠁳󠁿, Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿
 - **Technical Details**: Use complex Unicode subsequences that may not render properly in some browsers and platforms
 - **Known Issues**: May appear as question marks or broken characters in Edge, older browsers, or some systems
@@ -73,10 +73,11 @@ event_shortener:
   enabled: true
   add_flags: false  # Set to false to disable flag emojis
   # ... other settings
-```
+````
 
 This will generate shortened names without flag emojis, ensuring maximum compatibility across all platforms.
-```
+
+````
 
 ## How It Works
 
@@ -91,7 +92,7 @@ When enabled, events will include both the original and shortened names:
   "start_time": "15:00",
   "crowd": "80,000"
 }
-```
+````
 
 ### Usage in Home Assistant Cards
 
