@@ -63,19 +63,29 @@ def mock_config():
 def test_fetch_events_success(mock_get, mock_response_success):
     """Test successful event fetching and parsing."""
     mock_get.return_value = mock_response_success
-    events = fetch_events("http://fakeurl.com")
+    events, stats = fetch_events("http://fakeurl.com")
     assert len(events) == 3
     assert events[0]["title"] == "Past Event"
     assert events[1]["title"] == "Future Event 1"
     assert events[2]["time"] == "TBC"
+    
+    # Test the new stats functionality
+    assert stats["data_source"] == "live"
+    assert stats["raw_events_count"] == 3
+    assert stats["retry_attempts"] == 1
+    assert "fetch_duration" in stats
 
 
 @patch("requests.get")
 def test_fetch_events_no_table(mock_get, mock_response_no_table):
     """Test fetching when no event table is present."""
     mock_get.return_value = mock_response_no_table
-    events = fetch_events("http://fakeurl.com")
+    events, stats = fetch_events("http://fakeurl.com")
     assert len(events) == 0
+    
+    # Test stats for empty response
+    assert stats["data_source"] == "live"
+    assert stats["raw_events_count"] == 0
 
 
 def test_summarise_events_filters_past_events(mock_config):
