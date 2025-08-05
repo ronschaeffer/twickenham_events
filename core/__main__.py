@@ -34,14 +34,14 @@ def publish_error_status(config: Config, timestamp: str) -> None:
     """Publish error status when website is unavailable."""
     if not config.get("mqtt.enabled"):
         return
-        
+
     try:
         mqtt_config = config.get_mqtt_config()
         with MQTTPublisher(**mqtt_config) as publisher:
             # Publish Home Assistant discovery configs first
             if config.get("home_assistant.enabled"):
                 publish_discovery_configs(config, publisher)
-            
+
             # Publish error status
             status_payload = {
                 "status": "error",
@@ -49,22 +49,28 @@ def publish_error_status(config: Config, timestamp: str) -> None:
                 "event_count": 0,
                 "error_count": len(error_log),
                 "errors": error_log,
-                "website_status": "unavailable"
+                "website_status": "unavailable",
             }
-            
+
             # Publish empty events to clear old data
             empty_events_payload = {"last_updated": timestamp, "events": []}
-            publisher.publish(config.get("mqtt.topics.all_upcoming"), empty_events_payload, retain=True)
             publisher.publish(
-                config.get("mqtt.topics.next"), 
-                {"last_updated": timestamp, "event": None, "date": None}, 
-                retain=True
+                config.get("mqtt.topics.all_upcoming"),
+                empty_events_payload,
+                retain=True,
             )
-            
+            publisher.publish(
+                config.get("mqtt.topics.next"),
+                {"last_updated": timestamp, "event": None, "date": None},
+                retain=True,
+            )
+
             # Publish status
-            publisher.publish(config.get("mqtt.topics.status"), status_payload, retain=True)
+            publisher.publish(
+                config.get("mqtt.topics.status"), status_payload, retain=True
+            )
             print("✅ Published error status to MQTT")
-            
+
     except Exception as e:
         print(f"❌ Failed to publish error status: {e}")
 
@@ -118,26 +124,36 @@ def main():
 
     if not raw_events:
         print("❌ No events found or failed to fetch events.")
-        
+
         # Try to load previous data as fallback
         previous_events = load_previous_events(output_dir)
         if previous_events:
-            print(f"📁 Using {len(previous_events)} events from previous successful run")
+            print(
+                f"📁 Using {len(previous_events)} events from previous successful run"
+            )
             summarized_events = previous_events
-            
+
             # Update JSON with previous data but new timestamp
             upcoming_events_path = output_dir / "upcoming_events.json"
             with open(upcoming_events_path, "w") as f:
-                json.dump({"last_updated": timestamp, "events": summarized_events, "data_source": "previous_run"}, f, indent=4)
+                json.dump(
+                    {
+                        "last_updated": timestamp,
+                        "events": summarized_events,
+                        "data_source": "previous_run",
+                    },
+                    f,
+                    indent=4,
+                )
             print(f"📝 Updated timestamp for {len(summarized_events)} previous events")
-            
+
         else:
             print("📁 No previous data available")
             summarized_events = []
-        
+
         # Always publish status to MQTT, even on failure
         publish_error_status(config, timestamp)
-        
+
         # If no data at all, exit early
         if not summarized_events:
             return
@@ -151,7 +167,9 @@ def main():
     if raw_events:  # Only write if we have fresh data
         upcoming_events_path = output_dir / "upcoming_events.json"
         with open(upcoming_events_path, "w") as f:
-            json.dump({"last_updated": timestamp, "events": summarized_events}, f, indent=4)
+            json.dump(
+                {"last_updated": timestamp, "events": summarized_events}, f, indent=4
+            )
         print(
             f"📝 Successfully wrote {len(summarized_events)} upcoming event days to {upcoming_events_path}"
         )
