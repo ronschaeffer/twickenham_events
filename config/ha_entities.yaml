@@ -5,9 +5,9 @@
 device:
   identifiers: ["twickenham_events_monitor"]
   name: "Twickenham Events Monitor"
-  manufacturer: "Twickenham Events Project"
-  model: ""
-  sw_version: ""
+  manufacturer: "ronschaeffer"
+  model: "Event Monitor"
+  sw_version: "0.1.0-6ec3888-dirty" # Dynamic version from Git
 
 # This block defines the individual sensors that belong to the device above.
 sensors:

@@ -6,7 +6,6 @@ import json
 import os
 import re
 import sys
-import time as time_module
 from typing import Dict, List, Optional, Tuple  # noqa: UP035
 
 from bs4 import BeautifulSoup
@@ -225,7 +224,7 @@ def fetch_events_single_attempt(url: str, timeout: int = 10) -> List[Dict[str, s
 
 def fetch_events_with_retry(
     url: str, max_retries: int = 3, delay: int = 5, timeout: int = 10
-) -> List[Dict[str, str]]:  # noqa: UP006
+) -> tuple[List[Dict[str, str]], dict]:  # noqa: UP006
     """
     Fetch events with retry logic for temporary outages.
 
@@ -236,19 +235,33 @@ def fetch_events_with_retry(
         timeout (int): Request timeout in seconds
 
     Returns:
-        List[Dict[str, str]]: A list of raw event data dictionaries.
+        tuple: (events_list, stats_dict) where stats contains retry and timing info
     """
+    import time as time_module
+
+    start_time = time_module.time()
+
     for attempt in range(max_retries):
         try:
             print(f"Fetching events (attempt {attempt + 1}/{max_retries})...")
             events = fetch_events_single_attempt(url, timeout)
+
+            # Calculate stats
+            fetch_duration = time_module.time() - start_time
+            stats = {
+                "raw_events_count": len(events) if events else 0,
+                "fetch_duration": round(fetch_duration, 2),
+                "retry_attempts": attempt + 1,
+                "data_source": "live",
+            }
+
             if events:  # Success with data
                 print(f"Successfully fetched {len(events)} events")
-                return events
+                return events, stats
             else:
                 print("No events found in response")
                 # Even if no events, don't retry - this might be normal
-                return events
+                return events, stats
 
         except requests.RequestException as e:
             error_msg = f"Attempt {attempt + 1} failed: {e}"
@@ -261,12 +274,20 @@ def fetch_events_with_retry(
             else:
                 print("All retry attempts failed")
 
-    return []  # All attempts failed
+    # All attempts failed
+    fetch_duration = time_module.time() - start_time
+    failed_stats = {
+        "raw_events_count": 0,
+        "fetch_duration": round(fetch_duration, 2),
+        "retry_attempts": max_retries,
+        "data_source": "failed",
+    }
+    return [], failed_stats
 
 
 def fetch_events(
     url: Optional[str], config: Optional["Config"] = None
-) -> List[Dict[str, str]]:  # noqa: UP006
+) -> tuple[List[Dict[str, str]], dict]:  # noqa: UP006
     """
     Fetches events from the Twickenham Stadium website with configurable retry logic.
 
@@ -275,13 +296,18 @@ def fetch_events(
         config (Config): Configuration object for retry settings.
 
     Returns:
-        List[Dict[str, str]]: A list of raw event data dictionaries.
+        tuple: (events_list, stats_dict) with processing statistics
     """
     if not url:
         error_log.append(
             "Configuration error: 'scraping.url' is not set in the config file."
         )
-        return []
+        return [], {
+            "raw_events_count": 0,
+            "fetch_duration": 0,
+            "retry_attempts": 0,
+            "data_source": "config_error",
+        }
 
     # Get retry settings from config with sensible defaults
     if config:
@@ -480,12 +506,18 @@ def find_next_event_and_summary(
 
 
 def process_and_publish_events(
-    summarized_events: list, publisher: MQTTPublisher, config: Config
+    summarized_events: list,
+    publisher: MQTTPublisher,
+    config: Config,
+    processing_stats: dict | None = None,
 ):
     """
     Processes summarized event data and publishes it to relevant MQTT topics.
-    Also publishes status information.
+    Also publishes enhanced status information with metrics.
     """
+    from pathlib import Path
+    import sys
+
     next_event, next_day_summary = find_next_event_and_summary(
         summarized_events, config
     )
@@ -508,7 +540,7 @@ def process_and_publish_events(
         retain=True,
     )
 
-    # Publish to status topic
+    # Enhanced status payload with processing metrics
     errors = error_log
     status_payload = {
         "status": "ok" if not errors else "error",
@@ -518,8 +550,29 @@ def process_and_publish_events(
         "errors": errors,
     }
 
-    status_topic = config.get("mqtt.topics.status")
+    # Add processing metrics if available
+    if processing_stats:
+        status_payload["metrics"] = {
+            "raw_events_found": processing_stats.get("raw_events_count", 0),
+            "processed_events": len(summarized_events),
+            "events_filtered": processing_stats.get("raw_events_count", 0)
+            - len(summarized_events),
+            "fetch_duration_seconds": processing_stats.get("fetch_duration", 0),
+            "retry_attempts_used": processing_stats.get("retry_attempts", 0),
+            "data_source": processing_stats.get(
+                "data_source", "live"
+            ),  # live, previous_run, fallback
+        }
 
+    # Add system info for transparency
+    config_path = getattr(config, "config_path", None)
+    status_payload["system_info"] = {
+        "app_version": "0.1.0",  # Could read from pyproject.toml
+        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        "config_source": str(Path(config_path).name) if config_path else "unknown",
+    }
+
+    status_topic = config.get("mqtt.topics.status")
     publisher.publish(status_topic, status_payload, retain=True)
 
 
@@ -549,11 +602,16 @@ def main():
         auth=config.get("mqtt.security.auth"),
         tls=config.get("mqtt.security.tls"),
     )
-    raw_events = fetch_events(config.get("scraping.url"))
+    raw_events, processing_stats = fetch_events(config.get("scraping.url"), config)
 
     if raw_events:
         summarized_events = summarise_events(raw_events, config)
-        process_and_publish_events(summarized_events, publisher, config)
+        process_and_publish_events(
+            summarized_events, publisher, config, processing_stats
+        )
+    else:
+        # Publish error status even if no events fetched
+        process_and_publish_events([], publisher, config, processing_stats)
 
     # Save errors to a file
     if error_log:

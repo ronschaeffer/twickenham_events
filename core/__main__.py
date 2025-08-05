@@ -20,6 +20,36 @@ from core.twick_event import (
 sys.path.append(str(Path(__file__).parent.parent))
 
 
+def update_dynamic_version():
+    """Update ha_entities.yaml with current Git-based version."""
+    try:
+        import re
+
+        from core.version import get_dynamic_version
+
+        ha_entities_path = Path(__file__).parent.parent / "config" / "ha_entities.yaml"
+
+        if ha_entities_path.exists():
+            current_version = get_dynamic_version()
+
+            with open(ha_entities_path) as f:
+                content = f.read()
+
+            # Update sw_version line
+            updated_content = re.sub(
+                r'(\s*sw_version:\s*)["\']?[^"\'\n]*["\']?',
+                rf'\1"{current_version}"',
+                content,
+            )
+
+            with open(ha_entities_path, "w") as f:
+                f.write(updated_content)
+
+            print(f"📝 Updated device version to: {current_version}")
+    except Exception as e:
+        print(f"⚠️ Could not update dynamic version: {e}")
+
+
 def load_previous_events(output_dir: Path) -> list:
     """Load previously successful event data as fallback."""
     try:
@@ -30,7 +60,9 @@ def load_previous_events(output_dir: Path) -> list:
         return []
 
 
-def publish_error_status(config: Config, timestamp: str) -> None:
+def publish_error_status(
+    config: Config, timestamp: str, processing_stats: dict | None = None
+) -> None:
     """Publish error status when website is unavailable."""
     if not config.get("mqtt.enabled"):
         return
@@ -42,7 +74,7 @@ def publish_error_status(config: Config, timestamp: str) -> None:
             if config.get("home_assistant.enabled"):
                 publish_discovery_configs(config, publisher)
 
-            # Publish error status
+            # Publish error status with enhanced metrics
             status_payload = {
                 "status": "error",
                 "last_updated": timestamp,
@@ -51,6 +83,17 @@ def publish_error_status(config: Config, timestamp: str) -> None:
                 "errors": error_log,
                 "website_status": "unavailable",
             }
+
+            # Add processing metrics if available
+            if processing_stats:
+                status_payload["metrics"] = {
+                    "raw_events_found": processing_stats.get("raw_events_count", 0),
+                    "processed_events": 0,
+                    "events_filtered": 0,
+                    "fetch_duration_seconds": processing_stats.get("fetch_duration", 0),
+                    "retry_attempts_used": processing_stats.get("retry_attempts", 0),
+                    "data_source": processing_stats.get("data_source", "error"),
+                }
 
             # Publish empty events to clear old data
             empty_events_payload = {"last_updated": timestamp, "events": []}
@@ -112,7 +155,7 @@ def main():
     timestamp = datetime.now().isoformat()
 
     # --- Fetch and Process Events ---
-    raw_events = fetch_events(config.get("scraping.url"), config)
+    raw_events, processing_stats = fetch_events(config.get("scraping.url"), config)
 
     # Write parsing errors to JSON file immediately after fetch
     errors_path = output_dir / "event_processing_errors.json"
@@ -133,6 +176,9 @@ def main():
             )
             summarized_events = previous_events
 
+            # Update processing stats for fallback data
+            processing_stats["data_source"] = "previous_run"
+
             # Update JSON with previous data but new timestamp
             upcoming_events_path = output_dir / "upcoming_events.json"
             with open(upcoming_events_path, "w") as f:
@@ -150,9 +196,10 @@ def main():
         else:
             print("📁 No previous data available")
             summarized_events = []
+            processing_stats["data_source"] = "no_data"
 
         # Always publish status to MQTT, even on failure
-        publish_error_status(config, timestamp)
+        publish_error_status(config, timestamp, processing_stats)
 
         # If no data at all, exit early
         if not summarized_events:
@@ -181,12 +228,18 @@ def main():
             mqtt_config = config.get_mqtt_config()
 
             with MQTTPublisher(**mqtt_config) as publisher:
+                # Update device version with Git-based versioning
+                if config.get("home_assistant.enabled"):
+                    update_dynamic_version()
+
                 # Publish Home Assistant discovery configs
                 if config.get("home_assistant.enabled"):
                     publish_discovery_configs(config, publisher)
 
-                # Publish event data
-                process_and_publish_events(summarized_events, publisher, config)
+                # Publish event data with processing stats
+                process_and_publish_events(
+                    summarized_events, publisher, config, processing_stats
+                )
                 print("Successfully published events to MQTT.")
 
         except ValueError as e:
