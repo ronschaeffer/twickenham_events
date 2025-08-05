@@ -1,6 +1,9 @@
 # Event source
 scraping:
   url: "https://www.richmond.gov.uk/services/parking/cpz/twickenham_events"
+  max_retries: 3        # Number of retry attempts on failure
+  retry_delay: 5        # Seconds to wait between retry attempts
+  timeout: 10           # Request timeout in seconds
 
 # Rules for determining when an event is over
 event_rules:

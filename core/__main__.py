@@ -106,7 +106,7 @@ def main():
     timestamp = datetime.now().isoformat()
 
     # --- Fetch and Process Events ---
-    raw_events = fetch_events(config.get("scraping.url"))
+    raw_events = fetch_events(config.get("scraping.url"), config)
 
     # Write parsing errors to JSON file immediately after fetch
     errors_path = output_dir / "event_processing_errors.json"
