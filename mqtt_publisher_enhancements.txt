@@ -1,0 +1,105 @@
+# Twickenham Events: Website Unavailability Handling Improvements
+
+## Current Behavior
+When the Richmond Council website is unavailable:
+- ✅ Network errors are caught and logged
+- ✅ Application exits gracefully without crashing
+- ✅ Error details saved to JSON file
+- ⚠️ MQTT status not published (app exits early)
+- ⚠️ No fallback to previous data
+
+## Suggested Improvements
+
+### 1. Always Publish Status (Even on Failure)
+```python
+def main():
+    # ... existing code ...
+    
+    raw_events = fetch_events(config.get("scraping.url"))
+    
+    # Write errors regardless of success/failure
+    errors_path = output_dir / "event_processing_errors.json"
+    with open(errors_path, "w") as f:
+        json.dump({"last_updated": timestamp, "errors": error_log}, f, indent=4)
+    
+    if not raw_events:
+        print("No events found or failed to fetch events.")
+        # IMPROVEMENT: Still publish error status to MQTT
+        if config.get("mqtt.enabled"):
+            publish_error_status(config, timestamp)
+        return
+```
+
+### 2. Data Retention Strategy
+```python
+def load_previous_events(output_dir):
+    """Load previously successful event data as fallback."""
+    try:
+        with open(output_dir / "upcoming_events.json") as f:
+            previous_data = json.load(f)
+            return previous_data.get("events", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+def main():
+    # ... existing code ...
+    
+    if not raw_events:
+        print("Website unavailable - checking for previous data...")
+        previous_events = load_previous_events(output_dir)
+        if previous_events:
+            print(f"Using {len(previous_events)} events from previous run")
+            # Publish with stale data indicator
+        else:
+            print("No previous data available")
+```
+
+### 3. Enhanced Error Status
+```python
+def publish_error_status(config, timestamp):
+    """Publish error status when website is unavailable."""
+    try:
+        mqtt_config = config.get_mqtt_config()
+        with MQTTPublisher(**mqtt_config) as publisher:
+            status_payload = {
+                "status": "error",
+                "last_updated": timestamp,
+                "event_count": 0,
+                "error_count": len(error_log),
+                "errors": error_log,
+                "website_status": "unavailable"
+            }
+            publisher.publish(config.get("mqtt.topics.status"), status_payload, retain=True)
+            print("Published error status to MQTT")
+    except Exception as e:
+        print(f"Failed to publish error status: {e}")
+```
+
+### 4. Retry Logic
+```python
+def fetch_events_with_retry(url, max_retries=3, delay=5):
+    """Fetch events with retry logic for temporary outages."""
+    for attempt in range(max_retries):
+        try:
+            events = fetch_events(url)
+            if events:  # Success
+                return events
+        except Exception as e:
+            error_log.append(f"Attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+    return []
+```
+
+## Benefits of These Improvements
+
+1. **Better Monitoring**: Home Assistant always receives status updates
+2. **Graceful Degradation**: Previous data can be used when website is down
+3. **Transparency**: Clear indication of website availability status
+4. **Resilience**: Temporary outages don't cause complete data loss
+
+## Implementation Priority
+
+1. **High**: Always publish MQTT status (even on errors)
+2. **Medium**: Data retention for fallback
+3. **Low**: Retry logic (may not be needed for scheduled runs)
