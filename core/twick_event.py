@@ -184,14 +184,14 @@ def validate_crowd_size(crowd_str: Optional[str]) -> Optional[str]:
 def fetch_events_single_attempt(url: str, timeout: int = 10) -> List[Dict[str, str]]:  # noqa: UP006
     """
     Single attempt to fetch events from the website.
-    
+
     Args:
         url (str): The URL to scrape for events.
         timeout (int): Request timeout in seconds.
-        
+
     Returns:
         List[Dict[str, str]]: A list of raw event data dictionaries.
-        
+
     Raises:
         requests.RequestException: If network request fails
     """
@@ -223,16 +223,18 @@ def fetch_events_single_attempt(url: str, timeout: int = 10) -> List[Dict[str, s
     return raw_events
 
 
-def fetch_events_with_retry(url: str, max_retries: int = 3, delay: int = 5, timeout: int = 10) -> List[Dict[str, str]]:  # noqa: UP006
+def fetch_events_with_retry(
+    url: str, max_retries: int = 3, delay: int = 5, timeout: int = 10
+) -> List[Dict[str, str]]:  # noqa: UP006
     """
     Fetch events with retry logic for temporary outages.
-    
+
     Args:
         url (str): The URL to scrape for events.
         max_retries (int): Maximum number of retry attempts
         delay (int): Delay in seconds between retries
         timeout (int): Request timeout in seconds
-        
+
     Returns:
         List[Dict[str, str]]: A list of raw event data dictionaries.
     """
@@ -247,22 +249,24 @@ def fetch_events_with_retry(url: str, max_retries: int = 3, delay: int = 5, time
                 print("No events found in response")
                 # Even if no events, don't retry - this might be normal
                 return events
-                
+
         except requests.RequestException as e:
             error_msg = f"Attempt {attempt + 1} failed: {e}"
             error_log.append(error_msg)
             print(f"⚠️  {error_msg}")
-            
+
             if attempt < max_retries - 1:  # Not the last attempt
                 print(f"Retrying in {delay} seconds...")
                 time_module.sleep(delay)
             else:
                 print("All retry attempts failed")
-                
+
     return []  # All attempts failed
 
 
-def fetch_events(url: Optional[str], config: Optional['Config'] = None) -> List[Dict[str, str]]:  # noqa: UP006
+def fetch_events(
+    url: Optional[str], config: Optional["Config"] = None
+) -> List[Dict[str, str]]:  # noqa: UP006
     """
     Fetches events from the Twickenham Stadium website with configurable retry logic.
 
@@ -278,7 +282,7 @@ def fetch_events(url: Optional[str], config: Optional['Config'] = None) -> List[
             "Configuration error: 'scraping.url' is not set in the config file."
         )
         return []
-    
+
     # Get retry settings from config with sensible defaults
     if config:
         max_retries = config.get("scraping.max_retries", 3)
@@ -286,7 +290,7 @@ def fetch_events(url: Optional[str], config: Optional['Config'] = None) -> List[
         timeout = config.get("scraping.timeout", 10)
     else:
         max_retries, retry_delay, timeout = 3, 5, 10
-    
+
     # Use retry logic for better reliability
     return fetch_events_with_retry(url, max_retries, retry_delay, timeout)
 
