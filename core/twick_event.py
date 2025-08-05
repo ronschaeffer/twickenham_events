@@ -6,7 +6,7 @@ import json
 import os
 import re
 import sys
-from typing import Dict, List, Optional, Tuple  # noqa: UP035
+from typing import Any, Dict, List, Optional, Tuple  # noqa: UP035
 
 from bs4 import BeautifulSoup
 from mqtt_publisher.publisher import MQTTPublisher
@@ -324,7 +324,7 @@ def fetch_events(
 def summarise_events(
     raw_events: List[Dict[str, str]],  # noqa: UP006
     config: Config,
-) -> List[Dict[str, str]]:  # noqa: UP006
+) -> List[Dict[str, Any]]:  # noqa: UP006
     """
     Summarises and filters a list of raw event data.
     - Normalizes date and time formats.
