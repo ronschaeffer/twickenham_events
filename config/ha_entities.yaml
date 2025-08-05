@@ -7,7 +7,7 @@ device:
   name: "Twickenham Events Monitor"
   manufacturer: "ronschaeffer"
   model: "Event Monitor"
-  sw_version: "0.1.0-793598c-dirty" # Dynamic version from Git
+  sw_version: "0.1.0" # Dynamic version from Git
 
 # This block defines the individual sensors that belong to the device above.
 sensors:

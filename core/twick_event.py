@@ -204,12 +204,12 @@ def fetch_events_single_attempt(url: str, timeout: int = 10) -> List[Dict[str, s
     raw_events = []
 
     for table in event_tables:
-        caption = table.find("caption")
-        if not caption or "events at twickenham stadium" not in caption.text.lower():
+        caption = table.find("caption")  # type: ignore
+        if not caption or "events at twickenham stadium" not in caption.text.lower():  # type: ignore
             continue
 
-        for row in table.find_all("tr")[1:]:  # Skip header row
-            cols = row.find_all("td")
+        for row in table.find_all("tr")[1:]:  # Skip header row  # type: ignore
+            cols = row.find_all("td")  # type: ignore
             if len(cols) >= 3:
                 raw_events.append(
                     {

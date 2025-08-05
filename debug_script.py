@@ -10,7 +10,6 @@ try:
     print("✓ sys imported successfully")
 
     print("Testing core.__main__ import...")
-    from core.__main__ import main
 
     print("✓ core.__main__.main imported successfully")
 

@@ -35,12 +35,12 @@ def detect_significant_changes(new_events, previous_events):
     return changes
 
 
-# Usage in main():
-if previous_events:
-    changes = detect_significant_changes(summarized_events, previous_events)
-    if changes["significant"]:
-        # Publish alert to special MQTT topic
-        publisher.publish(
-            "twickenham_events/alerts",
-            {"type": "data_change", "changes": changes, "timestamp": timestamp},
-        )
+# Example usage in main():
+# if previous_events:
+#     changes = detect_significant_changes(summarized_events, previous_events)
+#     if changes["significant"]:
+#         # Publish alert to special MQTT topic
+#         publisher.publish(
+#             "twickenham_events/alerts",
+#             {"type": "data_change", "changes": changes, "timestamp": timestamp},
+#         )

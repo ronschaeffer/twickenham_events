@@ -46,9 +46,6 @@ if processing_stats:
     }
 
 # Add system info
-from pathlib import Path
-import sys
-
 config_path = getattr(config, "config_path", None)
 status_payload["system_info"] = {
     "app_version": "0.1.0",
