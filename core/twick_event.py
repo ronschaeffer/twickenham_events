@@ -181,12 +181,13 @@ def validate_crowd_size(crowd_str: Optional[str]) -> Optional[str]:
         return None
 
 
-def fetch_events_single_attempt(url: str) -> List[Dict[str, str]]:  # noqa: UP006
+def fetch_events_single_attempt(url: str, timeout: int = 10) -> List[Dict[str, str]]:  # noqa: UP006
     """
     Single attempt to fetch events from the website.
     
     Args:
         url (str): The URL to scrape for events.
+        timeout (int): Request timeout in seconds.
         
     Returns:
         List[Dict[str, str]]: A list of raw event data dictionaries.
@@ -194,7 +195,7 @@ def fetch_events_single_attempt(url: str) -> List[Dict[str, str]]:  # noqa: UP00
     Raises:
         requests.RequestException: If network request fails
     """
-    response = requests.get(url, timeout=10)
+    response = requests.get(url, timeout=timeout)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.content, "html.parser")
@@ -222,14 +223,15 @@ def fetch_events_single_attempt(url: str) -> List[Dict[str, str]]:  # noqa: UP00
     return raw_events
 
 
-def fetch_events_with_retry(url: str, max_retries: int = 3, delay: int = 5) -> List[Dict[str, str]]:  # noqa: UP006
+def fetch_events_with_retry(url: str, max_retries: int = 3, delay: int = 5, timeout: int = 10) -> List[Dict[str, str]]:  # noqa: UP006
     """
     Fetch events with retry logic for temporary outages.
     
     Args:
         url (str): The URL to scrape for events.
-        max_retries (int): Maximum number of retry attempts (default: 3)
-        delay (int): Delay in seconds between retries (default: 5)
+        max_retries (int): Maximum number of retry attempts
+        delay (int): Delay in seconds between retries
+        timeout (int): Request timeout in seconds
         
     Returns:
         List[Dict[str, str]]: A list of raw event data dictionaries.
@@ -237,7 +239,7 @@ def fetch_events_with_retry(url: str, max_retries: int = 3, delay: int = 5) -> L
     for attempt in range(max_retries):
         try:
             print(f"Fetching events (attempt {attempt + 1}/{max_retries})...")
-            events = fetch_events_single_attempt(url)
+            events = fetch_events_single_attempt(url, timeout)
             if events:  # Success with data
                 print(f"Successfully fetched {len(events)} events")
                 return events
@@ -260,12 +262,13 @@ def fetch_events_with_retry(url: str, max_retries: int = 3, delay: int = 5) -> L
     return []  # All attempts failed
 
 
-def fetch_events(url: Optional[str]) -> List[Dict[str, str]]:  # noqa: UP006
+def fetch_events(url: Optional[str], config: Optional['Config'] = None) -> List[Dict[str, str]]:  # noqa: UP006
     """
-    Fetches events from the Twickenham Stadium website with retry logic.
+    Fetches events from the Twickenham Stadium website with configurable retry logic.
 
     Args:
         url (str): The URL to scrape for events.
+        config (Config): Configuration object for retry settings.
 
     Returns:
         List[Dict[str, str]]: A list of raw event data dictionaries.
@@ -276,8 +279,16 @@ def fetch_events(url: Optional[str]) -> List[Dict[str, str]]:  # noqa: UP006
         )
         return []
     
+    # Get retry settings from config with sensible defaults
+    if config:
+        max_retries = config.get("scraping.max_retries", 3)
+        retry_delay = config.get("scraping.retry_delay", 5)
+        timeout = config.get("scraping.timeout", 10)
+    else:
+        max_retries, retry_delay, timeout = 3, 5, 10
+    
     # Use retry logic for better reliability
-    return fetch_events_with_retry(url, max_retries=3, delay=5)
+    return fetch_events_with_retry(url, max_retries, retry_delay, timeout)
 
 
 def summarise_events(
