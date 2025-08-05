@@ -85,6 +85,10 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
     Verifies that when there are events and no errors, the script publishes
     the correct payloads to all the event-related MQTT topics.
     """
+    # Clear error log from any previous tests
+    from core.twick_event import error_log
+    error_log.clear()
+    
     # Arrange
     mock_publisher_instance = MagicMock()
     mock_mqtt_publisher.return_value.__enter__.return_value = mock_publisher_instance
@@ -183,6 +187,10 @@ def test_process_and_publish_events_no_upcoming_events(
     Verifies that when there are no upcoming events, the correct payloads
     are published, indicating no events are scheduled.
     """
+    # Clear error log from any previous tests
+    from core.twick_event import error_log
+    error_log.clear()
+    
     # Arrange
     mock_publisher_instance = MagicMock()
     mock_mqtt_publisher.return_value.__enter__.return_value = mock_publisher_instance
@@ -215,3 +223,49 @@ def test_process_and_publish_events_no_upcoming_events(
     assert status_payload["errors"] == []
     assert "last_updated" in status_payload
     assert isinstance(status_payload["last_updated"], str)
+
+
+@patch("core.twick_event.MQTTPublisher")
+def test_process_and_publish_events_with_processing_stats(mock_mqtt_publisher, mock_config):
+    """
+    Test that process_and_publish_events includes processing stats in status payload.
+    """
+    # Arrange
+    mock_publisher_instance = MagicMock()
+    mock_mqtt_publisher.return_value.__enter__.return_value = mock_publisher_instance
+    
+    processing_stats = {
+        "raw_events_count": 5,
+        "fetch_duration": 1.23,
+        "retry_attempts": 2,
+        "data_source": "live"
+    }
+
+    # Act
+    process_and_publish_events(
+        SAMPLE_SUMMARIZED_EVENTS, mock_publisher_instance, mock_config, processing_stats
+    )
+
+    # Assert - Find the status payload
+    status_calls = [call for call in mock_publisher_instance.publish.call_args_list
+                   if "status" in str(call.args[0])]
+    assert len(status_calls) == 1
+    
+    status_payload = status_calls[0].args[1]
+    
+    # Verify enhanced status includes metrics
+    assert "metrics" in status_payload
+    metrics = status_payload["metrics"]
+    assert metrics["raw_events_found"] == 5
+    assert metrics["processed_events"] == len(SAMPLE_SUMMARIZED_EVENTS)
+    assert metrics["events_filtered"] == 5 - len(SAMPLE_SUMMARIZED_EVENTS)
+    assert metrics["fetch_duration_seconds"] == 1.23
+    assert metrics["retry_attempts_used"] == 2
+    assert metrics["data_source"] == "live"
+    
+    # Verify system info is included
+    assert "system_info" in status_payload
+    system_info = status_payload["system_info"]
+    assert "app_version" in system_info
+    assert "python_version" in system_info
+    assert "config_source" in system_info

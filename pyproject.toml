@@ -26,7 +26,6 @@ ronschaeffer-mqtt-publisher = {path = "../mqtt_publisher"}
 
 [tool.poetry.scripts]
 twick-events = "core.__main__:main"
-twick-health = "core.health_check:check_health"
 
 [tool.poetry.group.ai.dependencies]
 google-generativeai = "^0.8.0"
