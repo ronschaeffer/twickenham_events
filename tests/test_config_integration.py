@@ -100,7 +100,10 @@ class TestMainIntegration:
         """Test that load_environment is called in main."""
         with patch("core.__main__.load_environment") as mock_load_env:
             with patch("core.__main__.Config") as mock_config:
-                with patch("core.__main__.fetch_events", return_value=([], {"raw_events_count": 0, "data_source": "test"})):
+                with patch(
+                    "core.__main__.fetch_events",
+                    return_value=([], {"raw_events_count": 0, "data_source": "test"}),
+                ):
                     mock_config_instance = MagicMock()
                     mock_config_instance.get.return_value = "test_value"
                     mock_config.return_value = mock_config_instance
@@ -127,7 +130,11 @@ class TestMainIntegration:
         with patch("core.__main__.load_environment"):
             with patch("core.__main__.Config") as mock_config:
                 with patch(
-                    "core.__main__.fetch_events", return_value=([{"test": "event"}], {"raw_events_count": 1, "data_source": "test"})
+                    "core.__main__.fetch_events",
+                    return_value=(
+                        [{"test": "event"}],
+                        {"raw_events_count": 1, "data_source": "test"},
+                    ),
                 ):
                     with patch("core.__main__.summarise_events", return_value=[]):
                         with patch("core.__main__.MQTTPublisher") as mock_publisher:

@@ -1,0 +1,153 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      create_release:
+        description: 'Create GitHub release'
+        required: false
+        default: true
+        type: boolean
+      publish_pypi:
+        description: 'Publish to PyPI (for libraries)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Get current version
+        id: current_version
+        run: |
+          echo "version=$(poetry version --short)" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        run: |
+          poetry version ${{ github.event.inputs.bump_type }}
+          echo "NEW_VERSION=$(poetry version --short)" >> $GITHUB_ENV
+
+      - name: Synchronize versions
+        run: |
+          # Copy universal sync script if it doesn't exist
+          if [ ! -f scripts/sync_versions.py ]; then
+            mkdir -p scripts
+            cp ../.workspace/scripts/sync_versions.py scripts/
+          fi
+          python scripts/sync_versions.py
+
+      - name: Update CHANGELOG
+        run: |
+          # Create changelog entry
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "All notable changes to this project will be documented in this file." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)," >> CHANGELOG.md
+            echo "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)." >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          
+          # Add new version entry at the top
+          temp_file=$(mktemp)
+          {
+            head -n 7 CHANGELOG.md
+            echo "## [$NEW_VERSION] - $(date +%Y-%m-%d)"
+            echo ""
+            echo "### Changed"
+            echo "- Version bump to $NEW_VERSION"
+            echo ""
+            tail -n +8 CHANGELOG.md
+          } > "$temp_file"
+          mv "$temp_file" CHANGELOG.md
+
+      - name: Run tests
+        run: |
+          if [ -f pyproject.toml ] && grep -q "pytest" pyproject.toml; then
+            poetry install --with dev
+            poetry run pytest
+          else
+            echo "No tests found, skipping..."
+          fi
+
+      - name: Build package (if library)
+        if: ${{ github.event.inputs.publish_pypi == 'true' }}
+        run: poetry build
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git commit -m "chore: bump version to $NEW_VERSION
+
+          - Updated pyproject.toml to $NEW_VERSION
+          - Synchronized all version references
+          - Updated CHANGELOG.md
+          
+          [skip ci]"
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin main
+          git push origin "v$NEW_VERSION"
+
+      - name: Create GitHub Release
+        if: ${{ github.event.inputs.create_release == 'true' }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          name: Release v${{ env.NEW_VERSION }}
+          body: |
+            ## Changes in v${{ env.NEW_VERSION }}
+            
+            Version bump from ${{ steps.current_version.outputs.version }} to ${{ env.NEW_VERSION }}.
+            
+            ### What's Changed
+            - Version synchronization across all project files
+            - Updated Home Assistant device versions
+            - See [CHANGELOG.md](./CHANGELOG.md) for detailed changes
+            
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.current_version.outputs.version }}...v${{ env.NEW_VERSION }}
+          files: |
+            dist/*
+          generate_release_notes: true
+
+      - name: Publish to PyPI
+        if: ${{ github.event.inputs.publish_pypi == 'true' }}
+        uses: pypa/gh-action-pypi-publish@release/v1

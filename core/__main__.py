@@ -15,6 +15,7 @@ from core.twick_event import (
     process_and_publish_events,
     summarise_events,
 )
+from core.version import get_dynamic_version
 
 # Add project root to the Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -142,6 +143,11 @@ def main():
     """
     Main function to run the Twickenham event scraper and publisher.
     """
+    # Simple version check without argparse to avoid Poetry script issues
+    if len(sys.argv) > 1 and sys.argv[1] == "--version":
+        print(get_dynamic_version())
+        return 0
+
     # Load environment variables using best practices
     load_environment()
 
