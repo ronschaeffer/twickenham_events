@@ -16,7 +16,7 @@ def main():
         parser.add_argument("--version", action="version", version="test-version")
         print("✓ ArgumentParser created successfully")
 
-        args = parser.parse_args()
+        parser.parse_args()
         print("✓ Arguments parsed successfully")
 
     except Exception as e:

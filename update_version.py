@@ -25,12 +25,12 @@ def update_ha_entities_version():
     print(f"🔄 Updating sw_version to: {current_version}")
 
     # Read the file
-    with open(ha_entities_path, "r") as f:
+    with open(ha_entities_path) as f:
         content = f.read()
 
     # Update sw_version line
     updated_content = re.sub(
-        r'(\s*sw_version:"0.1.0-f275ea2-dirty"\']?[^"\'\n]*["\']?', rf'\1"{current_version}"', content
+        r'(\s*sw_version:"0.1.0"\']?[^"\'\n]*["\']?', rf'\1"{current_version}"', content
     )
 
     # Write back to file

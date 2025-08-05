@@ -42,7 +42,9 @@ class VersionSync:
             return match.group(1)
 
         # Try PEP 621 format: version = "x.y.z"
-        match = re.search(r'^\[project\].*?^version = "([^"]+)"', content, re.MULTILINE | re.DOTALL)
+        match = re.search(
+            r'^\[project\].*?^version = "([^"]+)"', content, re.MULTILINE | re.DOTALL
+        )
         if match:
             return match.group(1)
 
@@ -52,11 +54,15 @@ class VersionSync:
         """Get git-based version for development builds."""
         try:
             # Get short commit hash
-            git_hash = subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=self.project_root,
-                stderr=subprocess.DEVNULL,
-            ).decode().strip()
+            git_hash = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    cwd=self.project_root,
+                    stderr=subprocess.DEVNULL,
+                )
+                .decode()
+                .strip()
+            )
 
             # Check if dirty (uncommitted changes)
             try:
@@ -89,7 +95,11 @@ class VersionSync:
 
         # Look in direct package directories (legacy layout)
         for path in self.project_root.iterdir():
-            if path.is_dir() and not path.name.startswith('.') and path.name not in ['src', 'tests', 'docs']:
+            if (
+                path.is_dir()
+                and not path.name.startswith(".")
+                and path.name not in ["src", "tests", "docs"]
+            ):
                 init_file = path / "__init__.py"
                 if init_file.exists():
                     init_files.append(init_file)
@@ -110,16 +120,19 @@ class VersionSync:
         for pattern in patterns:
             for file_path in self.project_root.glob(pattern):
                 # Skip files in .venv, .git, __pycache__ etc
-                if not any(part.startswith('.') for part in file_path.parts):
+                if not any(part.startswith(".") for part in file_path.parts):
                     ha_files.extend([file_path])
 
         # Also look for Python files with device definitions
         for py_file in self.project_root.rglob("*.py"):
-            # Skip sync_versions.py to prevent self-modification
-            if py_file.name == "sync_versions.py":
-                continue
-            if not any(part.startswith('.') for part in py_file.parts):
-                if any(keyword in py_file.read_text() for keyword in ["sw_version", "device_version"]):
+            if not any(part.startswith(".") for part in py_file.parts):
+                # Skip the version sync script itself to prevent self-modification
+                if py_file.name == "sync_versions.py":
+                    continue
+                if any(
+                    keyword in py_file.read_text()
+                    for keyword in ["sw_version", "device_version"]
+                ):
                     ha_files.append(py_file)
 
         return list(set(ha_files))  # Remove duplicates
@@ -127,10 +140,6 @@ class VersionSync:
     def update_init_file(self, init_path: Path, check_only: bool = False) -> bool:
         """Update version in __init__.py file."""
         if not init_path.exists():
-            return False
-
-        # Skip sync_versions.py to prevent self-modification
-        if init_path.name == "sync_versions.py":
             return False
 
         content = init_path.read_text()
@@ -146,15 +155,19 @@ class VersionSync:
             version_pattern,
             f'__version__ = "{self.version}"',
             content,
-            flags=re.MULTILINE
+            flags=re.MULTILINE,
         )
 
         if content != new_content:
             if not check_only:
                 init_path.write_text(new_content)
-                print(f"✅ Updated {init_path.relative_to(self.project_root)}: {self.version}")
+                print(
+                    f"✅ Updated {init_path.relative_to(self.project_root)}: {self.version}"
+                )
             else:
-                print(f"⚠️  Version mismatch in {init_path.relative_to(self.project_root)}")
+                print(
+                    f"⚠️  Version mismatch in {init_path.relative_to(self.project_root)}"
+                )
             return True
 
         return False
@@ -173,7 +186,7 @@ class VersionSync:
         # Pattern to match sw_version: "x.y.z" or sw_version="x.y.z"
         sw_version_patterns = [
             r'(\s*sw_version:\s*)["\']?[^"\'\n]*["\']?',  # YAML format
-            r'(sw_version\s*=\s*)["\'][^"\']*["\']',      # Python format
+            r'(sw_version\s*=\s*)["\'][^"\']*["\']',  # Python format
         ]
 
         updated = False
@@ -181,10 +194,11 @@ class VersionSync:
 
         for pattern in sw_version_patterns:
             if re.search(pattern, content):
-                if ha_path.suffix in ['.yaml', '.yml']:
+                if ha_path.suffix in [".yaml", ".yml"]:
                     replacement = rf'\1"{self.version}"'
                 else:
                     replacement = rf'\1"{self.version}"'
+
                 new_content = re.sub(pattern, replacement, new_content)
                 updated = True
                 break
@@ -192,22 +206,24 @@ class VersionSync:
         if updated and content != new_content:
             if not check_only:
                 ha_path.write_text(new_content)
-                print(f"✅ Updated {ha_path.relative_to(self.project_root)}: {self.git_version}")
+                print(
+                    f"✅ Updated {ha_path.relative_to(self.project_root)}: {self.version}"
+                )
             else:
-                print(f"⚠️  HA version mismatch in {ha_path.relative_to(self.project_root)}")
+                print(
+                    f"⚠️  HA version mismatch in {ha_path.relative_to(self.project_root)}"
+                )
             return True
 
         return False
 
     def sync_all(self, check_only: bool = False) -> dict[str, int]:
         """Synchronize versions in all relevant files."""
-        results = {
-            'init_files': 0,
-            'ha_files': 0,
-            'errors': 0
-        }
+        results = {"init_files": 0, "ha_files": 0, "errors": 0}
 
-        print(f"🔄 {'Checking' if check_only else 'Syncing'} versions from pyproject.toml: {self.version}")
+        print(
+            f"🔄 {'Checking' if check_only else 'Syncing'} versions from pyproject.toml: {self.version}"
+        )
         print(f"🔄 Git version: {self.git_version}")
         print()
 
@@ -215,27 +231,31 @@ class VersionSync:
         for init_file in self.find_init_files():
             try:
                 if self.update_init_file(init_file, check_only):
-                    results['init_files'] += 1
+                    results["init_files"] += 1
             except Exception as e:
                 print(f"❌ Error updating {init_file}: {e}")
-                results['errors'] += 1
+                results["errors"] += 1
 
         # Update HA config files
         for ha_file in self.find_ha_config_files():
             try:
                 if self.update_ha_config_file(ha_file, check_only):
-                    results['ha_files'] += 1
+                    results["ha_files"] += 1
             except Exception as e:
                 print(f"❌ Error updating {ha_file}: {e}")
-                results['errors'] += 1
+                results["errors"] += 1
 
         return results
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Sync versions across project files')
-    parser.add_argument('--check', action='store_true', help='Check only, do not update')
-    parser.add_argument('--project-root', type=Path, default=Path.cwd(), help='Project root directory')
+    parser = argparse.ArgumentParser(description="Sync versions across project files")
+    parser.add_argument(
+        "--check", action="store_true", help="Check only, do not update"
+    )
+    parser.add_argument(
+        "--project-root", type=Path, default=Path.cwd(), help="Project root directory"
+    )
 
     args = parser.parse_args()
 
@@ -245,17 +265,19 @@ def main():
 
         print()
         if args.check:
-            if results['init_files'] + results['ha_files'] + results['errors'] == 0:
+            if results["init_files"] + results["ha_files"] + results["errors"] == 0:
                 print("✅ All versions are synchronized!")
             else:
-                print(f"⚠️  Found {results['init_files'] + results['ha_files']} version mismatches")
-                if results['errors'] > 0:
+                print(
+                    f"⚠️  Found {results['init_files'] + results['ha_files']} version mismatches"
+                )
+                if results["errors"] > 0:
                     print(f"❌ {results['errors']} errors occurred")
                 sys.exit(1)
         else:
             print(f"✅ Updated {results['init_files']} __init__.py files")
             print(f"✅ Updated {results['ha_files']} HA config files")
-            if results['errors'] > 0:
+            if results["errors"] > 0:
                 print(f"❌ {results['errors']} errors occurred")
                 sys.exit(1)
             print("🎉 Version synchronization complete!")

@@ -19,7 +19,7 @@ print(json.dumps(processing_stats, indent=2))
 
 if raw_events:
     summarized_events = summarise_events(raw_events, config)
-    print(f"\n📊 Events Summary:")
+    print("\n📊 Events Summary:")
     print(f"  Raw events found: {processing_stats.get('raw_events_count', 0)}")
     print(f"  Processed events: {len(summarized_events)}")
     print(

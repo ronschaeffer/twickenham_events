@@ -1,6 +1,5 @@
 """Tests for version functionality."""
 
-from pathlib import Path
 import subprocess
 from unittest.mock import patch
 
@@ -23,7 +22,7 @@ def test_get_git_version_success():
         # Should be in format: 0.1.0-<hash> or 0.1.0-<hash>-dirty
         assert git_version.startswith("0.1.0-")
         assert len(git_version.split("-")) >= 2
-    except:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         # If Git is not available, should fallback
         pytest.skip("Git not available in test environment")
 
