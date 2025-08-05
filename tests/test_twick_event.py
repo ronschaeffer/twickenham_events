@@ -68,7 +68,7 @@ def test_fetch_events_success(mock_get, mock_response_success):
     assert events[0]["title"] == "Past Event"
     assert events[1]["title"] == "Future Event 1"
     assert events[2]["time"] == "TBC"
-    
+
     # Test the new stats functionality
     assert stats["data_source"] == "live"
     assert stats["raw_events_count"] == 3
@@ -82,7 +82,7 @@ def test_fetch_events_no_table(mock_get, mock_response_no_table):
     mock_get.return_value = mock_response_no_table
     events, stats = fetch_events("http://fakeurl.com")
     assert len(events) == 0
-    
+
     # Test stats for empty response
     assert stats["data_source"] == "live"
     assert stats["raw_events_count"] == 0

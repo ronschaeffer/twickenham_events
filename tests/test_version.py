@@ -1,7 +1,7 @@
 """Tests for version functionality."""
 
-import subprocess
 from pathlib import Path
+import subprocess
 from unittest.mock import patch
 
 import pytest
@@ -28,14 +28,14 @@ def test_get_git_version_success():
         pytest.skip("Git not available in test environment")
 
 
-@patch('subprocess.check_output', side_effect=FileNotFoundError("git not found"))
+@patch("subprocess.check_output", side_effect=FileNotFoundError("git not found"))
 def test_get_git_version_no_git(mock_subprocess):
     """Test Git version fallback when Git is not available."""
     git_version = get_git_version()
     assert git_version == "0.1.0-dev"
 
 
-@patch('subprocess.check_output', side_effect=subprocess.CalledProcessError(1, "git"))
+@patch("subprocess.check_output", side_effect=subprocess.CalledProcessError(1, "git"))
 def test_get_git_version_git_error(mock_subprocess):
     """Test Git version fallback when Git command fails."""
     git_version = get_git_version()
@@ -47,9 +47,9 @@ def test_get_dynamic_version():
     version = get_dynamic_version()
     # Should be either Git-based or project version
     assert version.startswith("0.1.0")
-    
-    
-@patch('subprocess.check_output', side_effect=FileNotFoundError("git not found"))
+
+
+@patch("subprocess.check_output", side_effect=FileNotFoundError("git not found"))
 def test_get_dynamic_version_fallback(mock_subprocess):
     """Test dynamic version falls back to project version when Git fails."""
     version = get_dynamic_version()
@@ -59,13 +59,13 @@ def test_get_dynamic_version_fallback(mock_subprocess):
 def test_get_dynamic_version_format():
     """Test that dynamic version has expected format."""
     version = get_dynamic_version()
-    
+
     # Should be one of these formats:
     # - 0.1.0 (project version)
     # - 0.1.0-dev (git unavailable)
     # - 0.1.0-<hash> (clean git)
     # - 0.1.0-<hash>-dirty (dirty git)
-    
+
     assert version.startswith("0.1.0")
     if "-" in version:
         parts = version.split("-")

@@ -30,7 +30,7 @@ def update_ha_entities_version():
 
     # Update sw_version line
     updated_content = re.sub(
-        r'(\s*sw_version:\s*)["\']?[^"\'\n]*["\']?', rf'\1"{current_version}"', content
+        r'(\s*sw_version:"0.1.0-f275ea2-dirty"\']?[^"\'\n]*["\']?', rf'\1"{current_version}"', content
     )
 
     # Write back to file

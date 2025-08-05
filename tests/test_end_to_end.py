@@ -87,8 +87,9 @@ def test_process_and_publish_events_successful(mock_mqtt_publisher, mock_config)
     """
     # Clear error log from any previous tests
     from core.twick_event import error_log
+
     error_log.clear()
-    
+
     # Arrange
     mock_publisher_instance = MagicMock()
     mock_mqtt_publisher.return_value.__enter__.return_value = mock_publisher_instance
@@ -189,8 +190,9 @@ def test_process_and_publish_events_no_upcoming_events(
     """
     # Clear error log from any previous tests
     from core.twick_event import error_log
+
     error_log.clear()
-    
+
     # Arrange
     mock_publisher_instance = MagicMock()
     mock_mqtt_publisher.return_value.__enter__.return_value = mock_publisher_instance
@@ -226,19 +228,21 @@ def test_process_and_publish_events_no_upcoming_events(
 
 
 @patch("core.twick_event.MQTTPublisher")
-def test_process_and_publish_events_with_processing_stats(mock_mqtt_publisher, mock_config):
+def test_process_and_publish_events_with_processing_stats(
+    mock_mqtt_publisher, mock_config
+):
     """
     Test that process_and_publish_events includes processing stats in status payload.
     """
     # Arrange
     mock_publisher_instance = MagicMock()
     mock_mqtt_publisher.return_value.__enter__.return_value = mock_publisher_instance
-    
+
     processing_stats = {
         "raw_events_count": 5,
         "fetch_duration": 1.23,
         "retry_attempts": 2,
-        "data_source": "live"
+        "data_source": "live",
     }
 
     # Act
@@ -247,12 +251,15 @@ def test_process_and_publish_events_with_processing_stats(mock_mqtt_publisher, m
     )
 
     # Assert - Find the status payload
-    status_calls = [call for call in mock_publisher_instance.publish.call_args_list
-                   if "status" in str(call.args[0])]
+    status_calls = [
+        call
+        for call in mock_publisher_instance.publish.call_args_list
+        if "status" in str(call.args[0])
+    ]
     assert len(status_calls) == 1
-    
+
     status_payload = status_calls[0].args[1]
-    
+
     # Verify enhanced status includes metrics
     assert "metrics" in status_payload
     metrics = status_payload["metrics"]
@@ -262,7 +269,7 @@ def test_process_and_publish_events_with_processing_stats(mock_mqtt_publisher, m
     assert metrics["fetch_duration_seconds"] == 1.23
     assert metrics["retry_attempts_used"] == 2
     assert metrics["data_source"] == "live"
-    
+
     # Verify system info is included
     assert "system_info" in status_payload
     system_info = status_payload["system_info"]
