@@ -19,9 +19,10 @@ package-mode = true
 python = "^3.9"
 requests = "^2.31.0"
 beautifulsoup4 = "^4.12.0"
-paho-mqtt = "^1.6.1"
+paho-mqtt = "^2.1.0"
 pyyaml = "^6.0.1"
 python-dotenv = "^1.1.1"
+ronschaeffer-mqtt-publisher = {path = "../mqtt_publisher"}
 
 [tool.poetry.group.ai.dependencies]
 google-generativeai = "^0.8.0"
