@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+# codespell:ignore nd
 
 from datetime import date, datetime, time, timedelta
 import json
 import os
 import re
 import sys
+from typing import Dict, List, Optional  # noqa: UP035
 
 from bs4 import BeautifulSoup
 from mqtt_publisher.publisher import MQTTPublisher
@@ -25,7 +27,7 @@ error_log = []
 # --- Data Parsing and Normalization Functions ---
 
 
-def normalize_time(time_str: str | None) -> list[str] | None:
+def normalize_time(time_str: Optional[str]) -> Optional[List[str]]:  # noqa: UP006
     """Normalize time format, returning a list of sorted times."""
     if not time_str or time_str.lower() == "tbc":
         return None
@@ -90,7 +92,7 @@ def normalize_time(time_str: str | None) -> list[str] | None:
     return sorted(converted_times) if converted_times else None
 
 
-def normalize_date_range(date_str: str | None) -> str | None:
+def normalize_date_range(date_str: Optional[str]) -> Optional[str]:
     """Normalizes a variety of date string formats to 'YYYY-MM-DD'.
 
     Handles date ranges by taking the start date.
@@ -107,11 +109,17 @@ def normalize_date_range(date_str: str | None) -> str | None:
         "",
         cleaned_str,
     ).strip()
-    cleaned_str = re.sub(r"(\d+)(st|nd|rd|th)", r"\1", cleaned_str)
+    cleaned_str = re.sub(
+        r"(\d+)(st|nd|rd|th)",  # codespell:ignore nd
+        r"\1",
+        cleaned_str,
+    )
 
     # Handle date ranges like '16/17 May 2025' by taking the first day part
     cleaned_str = re.sub(
-        r"(\d{1,2})\s*/\s*\d{1,2}(\s+[a-zA-Z]+\s+\d{2,4})", r"\1\2", cleaned_str
+        r"(\d{1,2})\s*/\s*\d{1,2}(\s+[a-zA-Z]+\s+\d{2,4})",  # codespell:ignore nd
+        r"\1\2",
+        cleaned_str,
     )
 
     # Normalize separators to a single space
@@ -140,7 +148,7 @@ def normalize_date_range(date_str: str | None) -> str | None:
     return None
 
 
-def validate_crowd_size(crowd_str: str | None) -> str | None:
+def validate_crowd_size(crowd_str: Optional[str]) -> Optional[str]:
     """Validates and formats the crowd size string."""
     if not crowd_str or not isinstance(crowd_str, str):
         return None
@@ -172,7 +180,7 @@ def validate_crowd_size(crowd_str: str | None) -> str | None:
         return None
 
 
-def fetch_events(url: str | None) -> list[dict]:
+def fetch_events(url: Optional[str]) -> List[Dict[str, str]]:  # noqa: UP006
     """
     Fetches events from the Twickenham Stadium website.
 
@@ -180,7 +188,7 @@ def fetch_events(url: str | None) -> list[dict]:
         url (str): The URL to scrape for events.
 
     Returns:
-        list[dict]: A list of raw event data dictionaries.
+        List[Dict[str, str]]: A list of raw event data dictionaries.
     """
     if not url:
         error_log.append(
@@ -219,7 +227,10 @@ def fetch_events(url: str | None) -> list[dict]:
     return raw_events
 
 
-def summarise_events(raw_events: list[dict], config: Config) -> list[dict]:
+def summarise_events(
+    raw_events: List[Dict[str, str]],  # noqa: UP006
+    config: Config,
+) -> List[Dict[str, str]]:  # noqa: UP006
     """
     Summarises and filters a list of raw event data.
     - Normalizes date and time formats.

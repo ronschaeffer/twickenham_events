@@ -1,7 +1,7 @@
 from functools import reduce
 import operator
 import os
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -11,7 +11,9 @@ class Config:
     Handles loading and accessing configuration from a YAML file.
     """
 
-    def __init__(self, config_path: str | None = None, config_data: dict | None = None):
+    def __init__(
+        self, config_path: Optional[str] = None, config_data: Optional[dict] = None
+    ):
         """
         Initializes the Config object.
 
