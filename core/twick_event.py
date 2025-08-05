@@ -6,7 +6,7 @@ import json
 import os
 import re
 import sys
-from typing import Dict, List, Optional  # noqa: UP035
+from typing import Dict, List, Optional, Tuple  # noqa: UP035
 
 from bs4 import BeautifulSoup
 from mqtt_publisher.publisher import MQTTPublisher
@@ -321,7 +321,7 @@ def summarise_events(
 
 def find_next_event_and_summary(
     summarized_events: list, config: Config
-) -> tuple[dict | None, dict | None]:
+) -> Tuple[Optional[dict], Optional[dict]]:  # noqa: UP006
     """
     Finds the current or next upcoming event and a summary for that day.
     An event is considered "over" based on rules in the config.
