@@ -20,17 +20,6 @@ dependencies = [
 [project.scripts]
 twick-events = "core.__main__:main"
 
-[project.optional-dependencies]
-ai = [
-    "google-generativeai>=0.8.0",
-]
-dev = [
-    "pytest>=8.0.0",
-    "pytest-cov>=4.0",
-    "pre-commit>=4.2.0",
-    "ruff>=0.12.1",
-]
-
 [tool.poetry]
 packages = [
     { include = "core" },
