@@ -154,7 +154,7 @@ def test_find_next_event_and_summary(mock_config):
 
 
 @pytest.mark.parametrize(
-    "input_date, expected",
+    ("input_date", "expected"),
     [
         ("16 May 2025", "2025-05-16"),
         ("16/17 May 2025", "2025-05-16"),
@@ -222,7 +222,7 @@ def test_normalize_date_range(input_date, expected):
 
 
 @pytest.mark.parametrize(
-    "input_time, expected",
+    ("input_time", "expected"),
     [
         ("3pm", ["15:00"]),
         ("3:30pm", ["15:30"]),
@@ -255,7 +255,7 @@ def test_normalize_time(input_time, expected):
 
 
 @pytest.mark.parametrize(
-    "input_crowd, expected",
+    ("input_crowd", "expected"),
     [
         ("10,000", "10,000"),
         ("10000", "10,000"),

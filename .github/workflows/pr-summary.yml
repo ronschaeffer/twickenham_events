@@ -1,0 +1,113 @@
+name: PR Status Summary
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  summary:
+    name: PR Quality Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-3.11-${{ hashFiles('**/poetry.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --with dev
+
+      - name: Generate code quality report
+        run: |
+          echo "## 📊 Code Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🔍 Linting Results" >> $GITHUB_STEP_SUMMARY
+          if poetry run ruff check . --quiet; then
+            echo "✅ All linting checks passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Linting issues found. Run \`make fix\` locally." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🎨 Formatting Results" >> $GITHUB_STEP_SUMMARY
+          if poetry run ruff format --check .; then
+            echo "✅ Code is properly formatted!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Code formatting issues found. Run \`make fix\` locally." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 📈 Code Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          poetry run ruff check . --statistics || true
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 🛠️ Developer Commands" >> $GITHUB_STEP_SUMMARY
+          echo "Run these commands locally to fix issues:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`make fix\` - Auto-fix all linting and formatting issues" >> $GITHUB_STEP_SUMMARY
+          echo "- \`make ci-check\` - Run the same checks as CI" >> $GITHUB_STEP_SUMMARY
+          echo "- \`make clean\` - Clean cache files if needed" >> $GITHUB_STEP_SUMMARY
+
+  lint:
+    name: Quick Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Install dependencies
+        run: poetry install --with dev
+      - name: Run linting
+        run: poetry run ruff check .
+
+  test:
+    name: Quick Test Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Install dependencies
+        run: poetry install --with dev
+      - name: Run tests
+        run: poetry run pytest --tb=short

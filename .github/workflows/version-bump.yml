@@ -30,7 +30,7 @@ permissions:
 jobs:
   bump-version:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
             echo "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)." >> CHANGELOG.md
             echo "" >> CHANGELOG.md
           fi
-          
+
           # Add new version entry at the top
           temp_file=$(mktemp)
           {
@@ -118,7 +118,7 @@ jobs:
           - Updated pyproject.toml to $NEW_VERSION
           - Synchronized all version references
           - Updated CHANGELOG.md
-          
+
           [skip ci]"
 
       - name: Create and push tag
@@ -135,14 +135,14 @@ jobs:
           name: Release v${{ env.NEW_VERSION }}
           body: |
             ## Changes in v${{ env.NEW_VERSION }}
-            
+
             Version bump from ${{ steps.current_version.outputs.version }} to ${{ env.NEW_VERSION }}.
-            
+
             ### What's Changed
             - Version synchronization across all project files
             - Updated Home Assistant device versions
             - See [CHANGELOG.md](./CHANGELOG.md) for detailed changes
-            
+
             **Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ steps.current_version.outputs.version }}...v${{ env.NEW_VERSION }}
           files: |
             dist/*

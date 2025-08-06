@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# codespell:ignore nd
+# codespell:ignore nd,st,rd,th
 
 from datetime import date, datetime, time, timedelta
 import json
@@ -243,7 +243,9 @@ def fetch_events_with_retry(
 
     for attempt in range(max_retries):
         try:
-            print(f"🌐 Fetching events (attempt \033[33m{attempt + 1}\033[0m/\033[33m{max_retries}\033[0m)...")
+            print(
+                f"🌐 Fetching events (attempt \033[33m{attempt + 1}\033[0m/\033[33m{max_retries}\033[0m)..."
+            )
             events = fetch_events_single_attempt(url, timeout)
 
             # Calculate stats
@@ -257,7 +259,9 @@ def fetch_events_with_retry(
 
             if events:  # Success with data
                 print(f"   \033[32m🎯 Successfully fetched {len(events)} events\033[0m")
-                print(f"   \033[36m⏱️  Fetch completed in {stats['fetch_duration']}s\033[0m")
+                print(
+                    f"   \033[36m⏱️  Fetch completed in {stats['fetch_duration']}s\033[0m"
+                )
                 return events, stats
             else:
                 print("   \033[33m📭 No events found in response\033[0m")
@@ -484,16 +488,14 @@ def find_next_event_and_summary(
                 # Check if the event is over
                 is_over = False
                 # Rule 1: Is there a subsequent event on the same day?
-                if j + 1 < len(sorted_events_today):
-                    # Event is over if current time is past its start time + delay
-                    if (
-                        now.time()
-                        >= (
-                            datetime.combine(date.today(), start_time)
-                            + timedelta(hours=delay_hours)
-                        ).time()
-                    ):
-                        is_over = True
+                if j + 1 < len(sorted_events_today) and (
+                    now.time()
+                    >= (
+                        datetime.combine(date.today(), start_time)
+                        + timedelta(hours=delay_hours)
+                    ).time()
+                ):
+                    is_over = True
 
                 # If not over by the delay rule, it's our current/next event
                 if not is_over:
