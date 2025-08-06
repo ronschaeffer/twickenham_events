@@ -92,11 +92,18 @@ select = [
 ]
 
 ignore = [
+    "C901",     # complex-structure (too strict for this project)
     "E501",     # line too long (handled by formatter)
     "PLR0911",  # Too many return statements (too strict for this project)
     "PLR0912",  # Too many branches (too strict for this project)
     "PLR0913",  # Too many arguments to function call (too strict for this project)
     "PLR0915",  # Too many statements (too strict for this project)
+    "PLR2004",  # Magic value used in comparison (common in data processing)
+    "S101",     # Use of assert (normal in tests)
+    "S104",     # hardcoded-bind-all-interfaces (needed for web services)
+    "S105",     # hardcoded-password-string (test passwords are OK)
+    "S110",     # try-except-pass (sometimes appropriate for non-critical errors)
+    "S607",     # start-process-with-partial-path (git commands are expected)
     "PT009",    # pytest-unittest-assertion (not using unittest style)
     "PT011",    # pytest.raises({exception}) is too broad (too strict)
     "PT017",    # pytest-assert-in-except (sometimes necessary)
