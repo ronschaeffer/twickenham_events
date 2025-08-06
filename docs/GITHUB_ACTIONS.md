@@ -5,6 +5,7 @@ This document explains the GitHub Actions workflows and their consistency with l
 ## 📋 Workflow Overview
 
 ### 1. **ci.yml** - Main CI Pipeline
+
 - **Purpose**: Core continuous integration checks
 - **Triggers**: Push to main/develop, Pull requests
 - **Jobs**:
@@ -12,6 +13,7 @@ This document explains the GitHub Actions workflows and their consistency with l
   - `test`: Full test suite across Python 3.9-3.12
 
 ### 2. **code-quality.yml** - Comprehensive Quality Checks
+
 - **Purpose**: Detailed code analysis and pre-commit validation
 - **Triggers**: Push to main/develop, Pull requests
 - **Jobs**:
@@ -19,6 +21,7 @@ This document explains the GitHub Actions workflows and their consistency with l
   - `ruff-detailed`: Advanced Ruff analysis with statistics and security checks
 
 ### 3. **local-consistency.yml** - Development Environment Validation
+
 - **Purpose**: Ensures CI matches local `make` commands exactly
 - **Triggers**: Pull requests only
 - **Jobs**:
@@ -26,6 +29,7 @@ This document explains the GitHub Actions workflows and their consistency with l
   - Verifies `make fix` produces no changes (enforces pre-commit formatting)
 
 ### 4. **pr-summary.yml** - Pull Request Status Dashboard
+
 - **Purpose**: Provides clear PR status and developer guidance
 - **Triggers**: Pull requests only
 - **Features**:
@@ -37,14 +41,15 @@ This document explains the GitHub Actions workflows and their consistency with l
 
 ### Exact Command Matching
 
-| Local Command | CI Equivalent | GitHub Workflow |
-|---------------|---------------|-----------------|
-| `make check` | `poetry run ruff check . && poetry run ruff format --check .` | `ci.yml` lint job |
-| `make ci-check` | Full lint + test suite | `ci.yml` both jobs |
-| `make fix` | Auto-fix validation | `local-consistency.yml` |
-| `pre-commit run --all-files` | Pre-commit validation | `code-quality.yml` |
+| Local Command                | CI Equivalent                                                 | GitHub Workflow         |
+| ---------------------------- | ------------------------------------------------------------- | ----------------------- |
+| `make check`                 | `poetry run ruff check . && poetry run ruff format --check .` | `ci.yml` lint job       |
+| `make ci-check`              | Full lint + test suite                                        | `ci.yml` both jobs      |
+| `make fix`                   | Auto-fix validation                                           | `local-consistency.yml` |
+| `pre-commit run --all-files` | Pre-commit validation                                         | `code-quality.yml`      |
 
 ### Version Consistency
+
 - **Ruff**: Pinned to `^0.12.1` in `pyproject.toml`
 - **Python**: Primary version 3.11 for consistency checks
 - **Poetry**: Latest version across all workflows
@@ -52,12 +57,14 @@ This document explains the GitHub Actions workflows and their consistency with l
 ## 🛠️ Developer Workflow
 
 ### Before Pushing Changes:
+
 ```bash
 make fix        # Auto-fix all issues
 make ci-check   # Run exact CI checks locally
 ```
 
 ### If CI Fails:
+
 1. Check the **PR Summary** workflow for detailed feedback
 2. Run `make fix` locally to auto-resolve most issues
 3. For complex issues, check specific workflow logs:
@@ -66,6 +73,7 @@ make ci-check   # Run exact CI checks locally
    - **Pre-commit issues**: Check `code-quality.yml`
 
 ### Status Checks Required for Merge:
+
 - ✅ **CI / Lint & Format Check**
 - ✅ **CI / Test Suite** (Python 3.11)
 - ✅ **Code Quality / Pre-commit Checks**
@@ -83,20 +91,24 @@ All workflows use the **Home Assistant-compatible Ruff configuration**:
 ## 🚨 Troubleshooting
 
 ### "Files were modified by make fix"
+
 - **Cause**: Code not properly formatted before commit
 - **Solution**: Run `make fix` locally and commit changes
 
 ### "Ruff version mismatch"
+
 - **Cause**: Local ruff version differs from CI
 - **Solution**: Run `poetry install --with dev` to sync versions
 
 ### "Pre-commit hook failures"
+
 - **Cause**: Pre-commit hooks not installed or bypassed
 - **Solution**: Run `make install-hooks` and ensure hooks run
 
 ## 📊 Quality Metrics
 
 The CI tracks these quality indicators:
+
 - **Linting errors**: Zero tolerance policy
 - **Code formatting**: Consistent with Black/Ruff standards
 - **Test coverage**: Tracked via pytest-cov

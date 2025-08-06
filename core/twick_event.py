@@ -32,7 +32,17 @@ def normalize_time(time_str: Optional[str]) -> Optional[List[str]]:  # noqa: UP0
     if not time_str or time_str.lower() == "tbc":
         return None
 
-    time_str = time_str.lower().replace("noon", "12:00pm")
+    time_str = time_str.lower()
+    # Handle specific noon patterns first to avoid duplicates
+    time_str = re.sub(r"\b12\s*noon\b", "12:00pm", time_str)
+    time_str = re.sub(r"\bnoon\s*12\b", "12:00pm", time_str)
+    # Then handle standalone noon
+    time_str = time_str.replace("noon", "12:00pm")
+    # Handle specific midnight patterns first to avoid duplicates
+    time_str = re.sub(r"\b12\s*midnight\b", "12:00am", time_str)
+    time_str = re.sub(r"\bmidnight\s*12\b", "12:00am", time_str)
+    # Then handle standalone midnight
+    time_str = time_str.replace("midnight", "12:00am")
     time_str = re.sub(r"\s*\(tbc\)", "", time_str, flags=re.IGNORECASE)
     time_str = time_str.replace(".", ":")
     time_str = time_str.replace(" and ", " & ")
