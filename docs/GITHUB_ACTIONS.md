@@ -50,7 +50,7 @@ This document explains the GitHub Actions workflows and their consistency with l
 
 ### Version Consistency
 
-- **Ruff**: Pinned to `^0.12.1` in `pyproject.toml`
+- **Ruff**: Pinned to `^0.12.0` in `pyproject.toml` (compatible with system 0.12.7)
 - **Python**: Primary version 3.11 for consistency checks
 - **Poetry**: Latest version across all workflows
 
