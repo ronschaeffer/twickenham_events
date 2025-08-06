@@ -215,6 +215,13 @@ def test_find_next_event_and_summary(mock_config):
         ("Saturday 28th December 2024", "2024-12-28"),
         ("Saturday 8th February 2025", "2025-02-08"),
         ("Saturday 21st June 2025", "2025-06-21"),
+        # Enhanced US date formats from ICS Utils
+        ("Dec 20, 2024", "2024-12-20"),
+        ("December 20, 2024", "2024-12-20"),
+        ("Jan 15, 2025", "2025-01-15"),
+        ("February 28, 2025", "2025-02-28"),
+        ("Mar 5, 2024", "2024-03-05"),
+        ("November 30, 2023", "2023-11-30"),
     ],
 )
 def test_normalize_date_range(input_date, expected):

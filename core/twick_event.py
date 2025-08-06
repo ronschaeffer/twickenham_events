@@ -33,16 +33,19 @@ def normalize_time(time_str: Optional[str]) -> Optional[List[str]]:  # noqa: UP0
         return None
 
     time_str = time_str.lower()
-    # Handle specific noon patterns first to avoid duplicates
-    time_str = re.sub(r"\b12\s*noon\b", "12:00pm", time_str)
-    time_str = re.sub(r"\bnoon\s*12\b", "12:00pm", time_str)
-    # Then handle standalone noon
-    time_str = time_str.replace("noon", "12:00pm")
+
     # Handle specific midnight patterns first to avoid duplicates
     time_str = re.sub(r"\b12\s*midnight\b", "12:00am", time_str)
     time_str = re.sub(r"\bmidnight\s*12\b", "12:00am", time_str)
     # Then handle standalone midnight
     time_str = time_str.replace("midnight", "12:00am")
+
+    # Handle specific noon patterns first to avoid duplicates
+    time_str = re.sub(r"\b12\s*noon\b", "12:00pm", time_str)
+    time_str = re.sub(r"\bnoon\s*12\b", "12:00pm", time_str)
+    # Then handle standalone noon
+    time_str = time_str.replace("noon", "12:00pm")
+
     time_str = re.sub(r"\s*\(tbc\)", "", time_str, flags=re.IGNORECASE)
     time_str = time_str.replace(".", ":")
     time_str = time_str.replace(" and ", " & ")
@@ -54,51 +57,60 @@ def normalize_time(time_str: Optional[str]) -> Optional[List[str]]:  # noqa: UP0
         error_log.append(f"No valid time patterns found in: '{time_str}'")
         return None
 
-    def is_valid_time(hour, minute):
+    def is_valid_time(hour: int, minute: int) -> bool:
         return 0 <= hour <= 23 and 0 <= minute <= 59
 
-    def parse_single_time(time, shared_meridian=None):
-        time = time.strip().lower()
+    def parse_single_time(
+        time_part: str, shared_meridian: Optional[str] = None
+    ) -> tuple[Optional[str], Optional[str]]:
+        time_part = time_part.strip().lower()
         meridian = shared_meridian
-        if "pm" in time:
+
+        if "pm" in time_part:
             meridian = "pm"
-            time = time.replace("pm", "").strip()
-        elif "am" in time:
+            time_part = time_part.replace("pm", "").strip()
+        elif "am" in time_part:
             meridian = "am"
-            time = time.replace("am", "").strip()
+            time_part = time_part.replace("am", "").strip()
 
         try:
-            hour, minute = map(int, time.split(":")) if ":" in time else (int(time), 0)
-            if hour > 12 and meridian:
-                return None, None
-            if hour > 23:
-                return None, None
-            if meridian == "pm" and hour < 12:
+            if ":" in time_part:
+                hour_str, minute_str = time_part.split(":")
+                hour, minute = int(hour_str), int(minute_str)
+            else:
+                hour, minute = int(time_part), 0
+
+            # Enhanced validation logic from ICS Utils
+            # Convert to 24-hour format
+            if meridian == "pm" and hour != 12:
                 hour += 12
             elif meridian == "am" and hour == 12:
                 hour = 0
-            return (
-                (f"{hour:02d}:{minute:02d}", meridian)
-                if is_valid_time(hour, minute)
-                else (None, None)
-            )
+
+            if not is_valid_time(hour, minute):
+                return None, None
+
+            return f"{hour:02d}:{minute:02d}", meridian
         except (ValueError, AttributeError):
-            error_log.append(f"Failed to parse time component: '{time}'")
+            error_log.append(f"Failed to parse time component: '{time_part}'")
             return None, None
 
-    last_meridian = next(
-        (
-            m
-            for t in reversed(time_patterns)
-            if (m := ("am" if "am" in t else "pm" if "pm" in t else None))
-        ),
-        None,
-    )
-    converted_times = [
-        parsed_time
-        for time in time_patterns
-        if (parsed_time := parse_single_time(time, last_meridian)[0])
-    ]
+    # Find the last meridian indicator to use as default (enhanced logic)
+    last_meridian = None
+    for t in reversed(time_patterns):
+        if "am" in t:
+            last_meridian = "am"
+            break
+        elif "pm" in t:
+            last_meridian = "pm"
+            break
+
+    converted_times = []
+    for time_pattern in time_patterns:
+        parsed_time, _ = parse_single_time(time_pattern, last_meridian)
+        if parsed_time:
+            converted_times.append(parsed_time)
+
     return sorted(converted_times) if converted_times else None
 
 
@@ -113,45 +125,57 @@ def normalize_date_range(date_str: Optional[str]) -> Optional[str]:
 
     # Pre-process the string to handle various formats
     cleaned_str = date_str.lower()
+
     # Remove day names, ordinals, and 'weekend' markers
     cleaned_str = re.sub(
         r"\b(mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|wknd)\b",
         "",
         cleaned_str,
     ).strip()
-    cleaned_str = re.sub(
-        r"(\d+)(st|nd|rd|th)",  # codespell:ignore nd
-        r"\1",
-        cleaned_str,
-    )
+
+    cleaned_str = re.sub(r"(\d+)(st|nd|rd|th)", r"\1", cleaned_str)
 
     # Handle date ranges like '16/17 May 2025' by taking the first day part
     cleaned_str = re.sub(
-        r"(\d{1,2})\s*/\s*\d{1,2}(\s+[a-zA-Z]+\s+\d{2,4})",  # codespell:ignore nd
+        r"(\d{1,2})\s*/\s*\d{1,2}(\s+[a-zA-Z]+\s+\d{2,4})",
         r"\1\2",
         cleaned_str,
     )
 
-    # Normalize separators to a single space
+    # Normalize separators to a single space, but keep commas for certain patterns
+    # First handle dates like "Dec 20, 2024" by converting to "20 Dec 2024"
+    comma_match = re.match(r"([a-z]+)\s+(\d{1,2}),\s+(\d{4})", cleaned_str)
+    if comma_match:
+        month, day, year = comma_match.groups()
+        cleaned_str = f"{day} {month} {year}"
+    else:
+        cleaned_str = cleaned_str.replace(",", "")
+
     cleaned_str = cleaned_str.replace("-", " ").replace("/", " ").replace(".", " ")
-    # Remove extra whitespace
     cleaned_str = re.sub(r"\s+", " ", cleaned_str).strip()
 
-    # List of possible date formats (now with spaces as separator)
+    # Enhanced list of possible date formats from ICS Utils
     patterns = [
-        "%d %B %Y",  # e.g., 16 may 2025
-        "%d %b %Y",  # e.g., 16 aug 2025
+        "%Y-%m-%d",  # ISO format: 2024-12-20
+        "%d %B %Y",  # e.g., 16 may 2025, 20 December 2024
+        "%d %b %Y",  # e.g., 16 aug 2025, 20 Dec 2024
         "%d %B %y",  # e.g., 16 may 23
         "%d %b %y",  # e.g., 16 aug 23
-        "%d %m %Y",  # e.g., 16 05 2025
+        "%d %m %Y",  # e.g., 16 05 2025, 20 12 2024
         "%d %m %y",  # e.g., 16 05 23
-        "%Y %m %d",  # ISO format
+        "%Y %m %d",  # ISO format with spaces
+        "%b %d %Y",  # e.g., Dec 20, 2024
+        "%B %d %Y",  # e.g., December 20, 2024
+        "%m %d %Y",  # e.g., 12 20 2024
     ]
 
-    # Try parsing the cleaned string with the defined patterns
     for fmt in patterns:
         try:
-            return datetime.strptime(cleaned_str, fmt).strftime("%Y-%m-%d")
+            parsed_date = datetime.strptime(cleaned_str, fmt).date()
+            # Handle 2-digit years
+            if parsed_date.year < 2000:
+                parsed_date = parsed_date.replace(year=parsed_date.year + 2000)
+            return parsed_date.strftime("%Y-%m-%d")
         except ValueError:
             continue
 
