@@ -5,11 +5,13 @@ This guide helps you avoid CI linting errors by setting up your development envi
 ## 🚀 Quick Setup
 
 1. **Install dependencies:**
+
    ```bash
    poetry install --with dev
    ```
 
 2. **Install pre-commit hooks:**
+
    ```bash
    make install-hooks
    ```
@@ -23,23 +25,25 @@ This guide helps you avoid CI linting errors by setting up your development envi
 
 Use these commands to maintain code quality:
 
-| Command | Description | CI Equivalent |
-|---------|-------------|---------------|
-| `make check` | Run linting checks without fixing | GitHub Actions lint job |
-| `make fix` | Auto-fix all linting issues | - |
-| `make format` | Format code only | - |
-| `make ci-check` | Run the same checks as CI | Full GitHub Actions pipeline |
-| `make clean` | Clean cache files | - |
+| Command         | Description                       | CI Equivalent                |
+| --------------- | --------------------------------- | ---------------------------- |
+| `make check`    | Run linting checks without fixing | GitHub Actions lint job      |
+| `make fix`      | Auto-fix all linting issues       | -                            |
+| `make format`   | Format code only                  | -                            |
+| `make ci-check` | Run the same checks as CI         | Full GitHub Actions pipeline |
+| `make clean`    | Clean cache files                 | -                            |
 
 ## 📝 Pre-Commit Workflow
 
 ### Before Every Commit:
+
 ```bash
 make fix  # Auto-fix any issues
 make check  # Verify everything is clean
 ```
 
 ### Or use the automated script:
+
 ```bash
 ./scripts/pre-commit-check.sh
 ```
@@ -47,6 +51,7 @@ make check  # Verify everything is clean
 ## 🐛 Troubleshooting CI Failures
 
 ### "3 files would be reformatted" Error
+
 This means your local formatting doesn't match CI. Fix it:
 
 ```bash
@@ -58,6 +63,7 @@ poetry run ruff format --check .
 ```
 
 ### "Found X errors" Error
+
 Run linting fixes:
 
 ```bash
@@ -69,6 +75,7 @@ poetry run ruff check .
 ```
 
 ### Running the Exact Same Checks as CI
+
 ```bash
 make ci-check
 ```
@@ -78,13 +85,17 @@ This runs the identical commands that CI uses.
 ## 🛠️ Editor Setup
 
 ### VS Code
+
 Your `.vscode/settings.json` is already configured for:
+
 - Auto-formatting on save
 - Ruff linting and formatting
 - Consistent line endings
 
 ### Other Editors
+
 Make sure your editor:
+
 - Uses Ruff for Python formatting and linting
 - Trims trailing whitespace
 - Adds final newlines

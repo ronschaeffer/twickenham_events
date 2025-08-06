@@ -248,6 +248,23 @@ def test_normalize_date_range(input_date, expected):
         ("5.40pm", ["17:40"]),
         ("4.10pm", ["16:10"]),
         ("4.45pm", ["16:45"]),
+        # Midnight handling test cases
+        ("midnight", ["00:00"]),
+        ("Midnight", ["00:00"]),
+        ("12 midnight", ["00:00"]),
+        ("midnight 12", ["00:00"]),
+        ("Event at midnight", ["00:00"]),
+        # Noon handling test cases
+        ("noon", ["12:00"]),
+        ("Noon", ["12:00"]),
+        ("12 noon", ["12:00"]),
+        ("12noon", ["12:00"]),  # No space version
+        ("noon 12", ["12:00"]),
+        ("Event at noon", ["12:00"]),
+        # Midnight handling test cases (including no space)
+        ("12midnight", ["00:00"]),  # No space version
+        # Mixed noon and midnight
+        ("noon and midnight", ["00:00", "12:00"]),
     ],
 )
 def test_normalize_time(input_time, expected):
