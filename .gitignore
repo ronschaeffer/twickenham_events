@@ -121,7 +121,6 @@ dmypy.json
 .pyre/
 
 # Poetry
-poetry.lock
 .pdm.toml
 __pypackages__/
 
