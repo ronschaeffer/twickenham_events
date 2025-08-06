@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import sys
-from typing import Dict, List  # noqa: UP035
+from typing import Any, Dict, List, Optional  # noqa: UP035
 
 from dotenv import load_dotenv
 from mqtt_publisher.publisher import MQTTPublisher
@@ -63,7 +63,9 @@ def load_previous_events(output_dir: Path) -> List[Dict[str, str]]:  # noqa: UP0
 
 
 def publish_error_status(
-    config: Config, timestamp: str, processing_stats: dict | None = None
+    config: Config,
+    timestamp: str,
+    processing_stats: Optional[Dict[str, Any]] = None,  # noqa: UP006
 ) -> None:
     """Publish error status when website is unavailable."""
     if not config.get("mqtt.enabled"):
