@@ -22,31 +22,31 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 
 def update_dynamic_version():
-    """Update ha_entities.yaml with current Git-based version."""
+    """Update ha_entities.yaml with current semantic version from pyproject.toml."""
     try:
         import re
 
-        from core.version import get_dynamic_version
+        from core.version import get_project_version
 
         ha_entities_path = Path(__file__).parent.parent / "config" / "ha_entities.yaml"
 
         if ha_entities_path.exists():
-            current_version = get_dynamic_version()
+            current_version = get_project_version()
 
             with open(ha_entities_path) as f:
                 content = f.read()
 
             # Update sw_version line
             updated_content = re.sub(
-                r'(\s*sw_version:"0.1.0"\']?[^"\'\n]*["\']?',
-                rf'\1"{current_version}"',
+                r'(\s*sw_version:\s*")[^"]*(")',
+                rf'\g<1>{current_version}\g<2>',
                 content,
             )
 
             with open(ha_entities_path, "w") as f:
                 f.write(updated_content)
 
-            print(f"📝 Updated device version to: {current_version}")
+            print(f"� Updated device version to: \033[32m{current_version}\033[0m")
     except Exception as e:
         print(f"⚠️ Could not update dynamic version: {e}")
 
@@ -161,6 +161,9 @@ def main():
     timestamp = datetime.now().isoformat()
 
     # --- Fetch and Process Events ---
+    print(f"\n\033[93m🌐 EVENT FETCHING & PROCESSING\033[0m")
+    print("\033[93m" + "─" * 30 + "\033[0m")
+    
     raw_events, processing_stats = fetch_events(config.get("scraping.url"), config)
 
     # Write parsing errors to JSON file immediately after fetch
@@ -169,16 +172,16 @@ def main():
         json.dump({"last_updated": timestamp, "errors": error_log}, f, indent=4)
 
     if error_log:
-        print(f"Found {len(error_log)} parsing errors. Details in {errors_path}")
+        print(f"\033[33m⚠️  Found {len(error_log)} parsing errors. Details in \033[36m{errors_path}\033[0m")
 
     if not raw_events:
-        print("❌ No events found or failed to fetch events.")
+        print(f"\033[31m❌ No events found or failed to fetch events.\033[0m")
 
         # Try to load previous data as fallback
         previous_events = load_previous_events(output_dir)
         if previous_events:
             print(
-                f"📁 Using {len(previous_events)} events from previous successful run"
+                f"📁 Using \033[33m{len(previous_events)}\033[0m events from previous successful run"
             )
             summarized_events = previous_events
 
@@ -197,7 +200,7 @@ def main():
                     f,
                     indent=4,
                 )
-            print(f"📝 Updated timestamp for {len(summarized_events)} previous events")
+            print(f"📝 Updated timestamp for \033[33m{len(summarized_events)}\033[0m previous events")
 
         else:
             print("📁 No previous data available")
@@ -212,10 +215,13 @@ def main():
             return
     else:
         # Successfully fetched fresh events
-        print(f"✅ Successfully fetched {len(raw_events)} raw events")
+        print(f"✅ Successfully fetched \033[32m{len(raw_events)}\033[0m raw events")
         summarized_events = summarise_events(raw_events, config)
 
     # --- Output ---
+    print(f"\n\033[95m💾 FILE OUTPUT\033[0m")
+    print("\033[95m" + "─" * 15 + "\033[0m")
+    
     # Write upcoming events to JSON file (only if we have new data)
     if raw_events:  # Only write if we have fresh data
         upcoming_events_path = output_dir / "upcoming_events.json"
@@ -224,62 +230,63 @@ def main():
                 {"last_updated": timestamp, "events": summarized_events}, f, indent=4
             )
         print(
-            f"📝 Successfully wrote {len(summarized_events)} upcoming event days to {upcoming_events_path}"
+            f"📝 Successfully wrote \033[36m{len(summarized_events)}\033[0m upcoming event days to \033[33m{upcoming_events_path}\033[0m"
         )
 
     # --- MQTT Publishing ---
     if config.get("mqtt.enabled"):
+        print(f"\n\033[94m📡 MQTT PUBLISHING\033[0m")
+        print("\033[94m" + "─" * 20 + "\033[0m")
+        
         try:
             # Get MQTT configuration using best practices from mqtt_publisher
             mqtt_config = config.get_mqtt_config()
 
             with MQTTPublisher(**mqtt_config) as publisher:
-                # Update device version with Git-based versioning
+                # Update device version with semantic versioning
                 if config.get("home_assistant.enabled"):
                     update_dynamic_version()
 
                 # Publish Home Assistant discovery configs
                 if config.get("home_assistant.enabled"):
+                    print("🏠 Publishing Home Assistant discovery configs...")
                     publish_discovery_configs(config, publisher)
+                    print("   \033[32m✅ Discovery configs published\033[0m")
 
                 # Publish event data with processing stats
+                print("📤 Publishing event data to MQTT topics...")
                 process_and_publish_events(
                     summarized_events, publisher, config, processing_stats
                 )
-                print("Successfully published events to MQTT.")
+                print("   \033[32m✅ Event data published successfully\033[0m")
+                
+            print("\033[32m🎉 MQTT publishing completed successfully!\033[0m")
 
         except ValueError as e:
             # Configuration validation errors
-            print(f"MQTT Configuration Error: {e}")
-            print("Check your config.yaml and environment variables.")
+            print(f"\033[31m❌ MQTT Configuration Error:\033[0m {e}")
+            print("💡 Check your config.yaml and environment variables.")
 
         except ConnectionError as e:
             # Connection-specific errors with helpful hints
+            print(f"\033[31m🔌 MQTT Connection Failed:\033[0m {e}")
             try:
                 mqtt_config = config.get_mqtt_config()
                 port = mqtt_config.get("broker_port", 1883)
                 tls_enabled = bool(mqtt_config.get("tls"))
 
-                print(f"MQTT Connection Failed: {e}")
-
                 # Provide specific guidance based on configuration
                 if tls_enabled and port == 1883:
-                    print(
-                        "💡 Hint: TLS is enabled but using port 1883. Try port 8883 for TLS."
-                    )
+                    print("💡 \033[33mHint:\033[0m TLS is enabled but using port 1883. Try port 8883 for TLS.")
                 elif not tls_enabled and port == 8883:
-                    print(
-                        "💡 Hint: Port 8883 is typically for TLS. Try port 1883 or enable TLS."
-                    )
+                    print("💡 \033[33mHint:\033[0m Port 8883 is typically for TLS. Try port 1883 or enable TLS.")
                 else:
-                    print(
-                        f"💡 Check: Broker URL, port {port}, and network connectivity."
-                    )
+                    print(f"💡 \033[33mCheck:\033[0m Broker URL, port {port}, and network connectivity.")
             except Exception:
-                print(f"MQTT Connection Failed: {e}")
+                pass
 
         except Exception as e:
-            print(f"Failed to publish to MQTT: {e}")
+            print(f"\033[31m❌ Failed to publish to MQTT:\033[0m {e}")
 
     # --- Console Output ---
     # Find the next event and summary
@@ -287,31 +294,31 @@ def main():
         summarized_events, config
     )
 
-    print("\n" + "=" * 30)
-    print("    UPCOMING EVENT SUMMARY")
-    print("=" * 30 + "\n")
+    print("\n" + "\033[36m" + "=" * 50)
+    print("    🏟️  UPCOMING EVENT SUMMARY  🏟️")
+    print("=" * 50 + "\033[0m\n")
 
-    print("--- Next Event ---")
+    print("\033[33m--- Next Event ---\033[0m")
     if next_event and next_day_summary:
-        print(f"  Date:         {next_day_summary.get('date')}")
-        print(f"  Fixture:      {next_event.get('fixture')}")
-        print(f"  Start Time:   {next_event.get('start_time', 'TBC')}")
-        print(f"  Crowd:        {next_event.get('crowd', 'TBC')}")
+        print(f"  \033[37mDate:\033[0m         \033[32m{next_day_summary.get('date')}\033[0m")
+        print(f"  \033[37mFixture:\033[0m      \033[1m{next_event.get('fixture')}\033[0m")
+        print(f"  \033[37mStart Time:\033[0m   \033[35m{next_event.get('start_time', 'TBC')}\033[0m")
+        print(f"  \033[37mCrowd:\033[0m        \033[34m{next_event.get('crowd', 'TBC')}\033[0m")
     else:
-        print("  No upcoming events found.")
+        print("  \033[31mNo upcoming events found.\033[0m")
 
-    print("\n--- All Upcoming Events ---")
+    print(f"\n\033[33m--- All Upcoming Events ---\033[0m")
     if summarized_events:
         for day in summarized_events:
-            print(f"\n  Date: {day['date']}")
+            print(f"\n  \033[36m📅 Date: {day['date']}\033[0m")
             for event in day["events"]:
                 # Type: ignore to suppress false positive type checking errors
-                print(f"    - Fixture:      {event['fixture']}")  # type: ignore
-                print(f"      Start Time:   {event.get('start_time', 'TBC')}")  # type: ignore
-                print(f"      Crowd:        {event.get('crowd', 'TBC')}")  # type: ignore
+                print(f"    \033[37m-\033[0m \033[1mFixture:\033[0m      {event['fixture']}")  # type: ignore
+                print(f"      \033[37mStart Time:\033[0m   \033[35m{event.get('start_time', 'TBC')}\033[0m")  # type: ignore
+                print(f"      \033[37mCrowd:\033[0m        \033[34m{event.get('crowd', 'TBC')}\033[0m")  # type: ignore
     else:
-        print("  No upcoming events found.")
-    print("\n" + "=" * 30)
+        print("  \033[31mNo upcoming events found.\033[0m")
+    print("\n" + "\033[36m" + "=" * 50 + "\033[0m")
 
 
 if __name__ == "__main__":
