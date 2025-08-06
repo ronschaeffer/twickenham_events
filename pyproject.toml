@@ -22,7 +22,7 @@ beautifulsoup4 = "^4.12.0"
 paho-mqtt = "^2.1.0"
 pyyaml = "^6.0.1"
 python-dotenv = "^1.1.1"
-ronschaeffer-mqtt-publisher = {path = "../mqtt_publisher"}
+ronschaeffer-mqtt-publisher = "^0.1.3"
 
 [tool.poetry.scripts]
 twick-events = "core.__main__:main"
