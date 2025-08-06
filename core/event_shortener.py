@@ -271,21 +271,18 @@ def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
                         error_msg = f"Generated name '{shortened_name}' exceeds visual width limit ({visual_width} > {char_limit}) or is empty"
                         logging.warning(error_msg)
                         return original_name, True, error_msg
+                # Empty response - likely safety filter
+                elif attempt < max_attempts - 1:
+                    logging.warning(
+                        "Empty response for '%s' (attempt %d), retrying with alternative phrasing...",
+                        original_name,
+                        attempt + 1,
+                    )
+                    continue
                 else:
-                    # Empty response - likely safety filter
-                    if attempt < max_attempts - 1:
-                        logging.warning(
-                            "Empty response for '%s' (attempt %d), retrying with alternative phrasing...",
-                            original_name,
-                            attempt + 1,
-                        )
-                        continue
-                    else:
-                        error_msg = (
-                            "Empty response received from Gemini API after retries"
-                        )
-                        logging.error(error_msg)
-                        return original_name, True, error_msg
+                    error_msg = "Empty response received from Gemini API after retries"
+                    logging.error(error_msg)
+                    return original_name, True, error_msg
 
             except Exception as e:
                 error_str = str(e)

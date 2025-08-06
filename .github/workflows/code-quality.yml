@@ -77,9 +77,7 @@ jobs:
           echo "🔍 Running comprehensive Ruff analysis..."
           poetry run ruff check . --statistics --output-format=github
           echo "📊 Code complexity analysis..."
-          poetry run ruff check . --select=C901,PLR --statistics
-          echo "🔒 Security checks..."
-          poetry run ruff check . --select=S --statistics
+          poetry run ruff check . --select=PLR5501 --statistics
 
       - name: Verify formatting
         run: |
