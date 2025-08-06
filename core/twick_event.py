@@ -522,7 +522,7 @@ def process_and_publish_events(
     summarized_events: list,
     publisher: MQTTPublisher,
     config: Config,
-    processing_stats: dict | None = None,
+    processing_stats: Optional[Dict[str, Any]] = None,  # noqa: UP006
 ):
     """
     Processes summarized event data and publishes it to relevant MQTT topics.
