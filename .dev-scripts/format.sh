@@ -1,4 +1,4 @@
-#!/bin/bash  
+#!/bin/bash
 # Format code for this project only
 
 # Set locale to avoid git warnings

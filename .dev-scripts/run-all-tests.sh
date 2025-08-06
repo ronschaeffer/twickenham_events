@@ -16,10 +16,10 @@ NC='\033[0m' # No Color
 run_tests() {
     local project_name=$1
     local project_path=$2
-    
+
     echo -e "\n${BLUE}📋 Testing: $project_name${NC}"
     echo "----------------------------------------"
-    
+
     if [ -d "$project_path" ]; then
         cd "$project_path"
         if [ -f ".venv/bin/python" ]; then

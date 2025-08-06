@@ -18,7 +18,7 @@ secondary: |
     {% set event_date = strptime(event_date_str, '%Y-%m-%d') %}
     {% set today = now().date() %}
     {% set days_diff = (event_date.date() - today).days %}
-    
+
     {% if days_diff == 0 %}
       {% set day_text = next_event.start_time if next_event.start_time else 'TBC' %}
     {% elif days_diff <= 5 %}
@@ -30,7 +30,7 @@ secondary: |
     {% else %}
       {% set day_text = event_date.strftime('%d %b') %}
     {% endif %}
-    
+
     {% if next_event.event_count > 1 %}
       {{ day_text }} • {{ next_event.event_index }}/{{ next_event.event_count }}
     {% else %}
@@ -50,7 +50,7 @@ icon_color: |
     {% set event_date = strptime(event_date_str, '%Y-%m-%d') %}
     {% set today = now().date() %}
     {% set days_diff = (event_date.date() - today).days %}
-    
+
     {% if days_diff == 0 %}
       green
     {% elif days_diff == 1 %}

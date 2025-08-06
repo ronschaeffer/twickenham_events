@@ -38,7 +38,7 @@ def load_cache() -> dict[str, dict[str, str]]:
             with open(cache_path) as f:
                 return json.load(f)
         except (OSError, json.JSONDecodeError) as e:
-            logging.warning(f"Failed to load cache: {e}")
+            logging.warning("Failed to load cache: %s", e)
     return {}
 
 
@@ -50,7 +50,7 @@ def save_cache(cache: dict[str, dict[str, str]]) -> None:
         with open(cache_path, "w") as f:
             json.dump(cache, f, indent=2)
     except OSError as e:
-        logging.error(f"Failed to save cache: {e}")
+        logging.error("Failed to save cache: %s", e)
 
 
 def standardize_flag_spacing(text: str) -> str:
@@ -161,7 +161,7 @@ def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
     # Check if dependencies are available
     if not GENAI_AVAILABLE:
         error_msg = "google.generativeai library not available - install with 'poetry install --with ai'"
-        logging.warning(f"Event shortening requested but {error_msg}")
+        logging.warning("Event shortening requested but %s", error_msg)
         return original_name, True, error_msg
 
     try:
@@ -240,7 +240,9 @@ def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
                 # For retry attempts, try alternative phrasing
                 if attempt > 0:
                     # Replace potentially problematic words
-                    safe_event_name = original_name.replace(" vs ", " v ").replace(" VS ", " V ")
+                    safe_event_name = original_name.replace(" vs ", " v ").replace(
+                        " VS ", " V "
+                    )
                     safe_prompt = final_prompt.replace(original_name, safe_event_name)
                     response = model.generate_content(safe_prompt)
                 else:
@@ -272,19 +274,31 @@ def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
                 else:
                     # Empty response - likely safety filter
                     if attempt < max_attempts - 1:
-                        logging.warning(f"Empty response for '{original_name}' (attempt {attempt + 1}), retrying with alternative phrasing...")
+                        logging.warning(
+                            "Empty response for '%s' (attempt %d), retrying with alternative phrasing...",
+                            original_name,
+                            attempt + 1,
+                        )
                         continue
                     else:
-                        error_msg = "Empty response received from Gemini API after retries"
+                        error_msg = (
+                            "Empty response received from Gemini API after retries"
+                        )
                         logging.error(error_msg)
                         return original_name, True, error_msg
 
             except Exception as e:
                 error_str = str(e)
                 # Check if it's a safety filter issue
-                if "finish_reason" in error_str and ("1" in error_str or "SAFETY" in error_str.upper()):
+                if "finish_reason" in error_str and (
+                    "1" in error_str or "SAFETY" in error_str.upper()
+                ):
                     if attempt < max_attempts - 1:
-                        logging.warning(f"Safety filter triggered for '{original_name}' (attempt {attempt + 1}), retrying with alternative phrasing...")
+                        logging.warning(
+                            "Safety filter triggered for '%s' (attempt %d), retrying with alternative phrasing...",
+                            original_name,
+                            attempt + 1,
+                        )
                         continue
                     else:
                         error_msg = f"Content safety filter triggered for '{original_name}' after retries"

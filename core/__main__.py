@@ -39,7 +39,7 @@ def update_dynamic_version():
             # Update sw_version line
             updated_content = re.sub(
                 r'(\s*sw_version:\s*")[^"]*(")',
-                rf'\g<1>{current_version}\g<2>',
+                rf"\g<1>{current_version}\g<2>",
                 content,
             )
 
@@ -172,7 +172,9 @@ def main():
         json.dump({"last_updated": timestamp, "errors": error_log}, f, indent=4)
 
     if error_log:
-        print(f"\033[33m⚠️  Found {len(error_log)} parsing errors. Details in \033[36m{errors_path}\033[0m")
+        print(
+            f"\033[33m⚠️  Found {len(error_log)} parsing errors. Details in \033[36m{errors_path}\033[0m"
+        )
 
     if not raw_events:
         print("\033[31m❌ No events found or failed to fetch events.\033[0m")
@@ -200,7 +202,9 @@ def main():
                     f,
                     indent=4,
                 )
-            print(f"📝 Updated timestamp for \033[33m{len(summarized_events)}\033[0m previous events")
+            print(
+                f"📝 Updated timestamp for \033[33m{len(summarized_events)}\033[0m previous events"
+            )
 
         else:
             print("📁 No previous data available")
@@ -277,11 +281,17 @@ def main():
 
                 # Provide specific guidance based on configuration
                 if tls_enabled and port == 1883:
-                    print("💡 \033[33mHint:\033[0m TLS is enabled but using port 1883. Try port 8883 for TLS.")
+                    print(
+                        "💡 \033[33mHint:\033[0m TLS is enabled but using port 1883. Try port 8883 for TLS."
+                    )
                 elif not tls_enabled and port == 8883:
-                    print("💡 \033[33mHint:\033[0m Port 8883 is typically for TLS. Try port 1883 or enable TLS.")
+                    print(
+                        "💡 \033[33mHint:\033[0m Port 8883 is typically for TLS. Try port 1883 or enable TLS."
+                    )
                 else:
-                    print(f"💡 \033[33mCheck:\033[0m Broker URL, port {port}, and network connectivity.")
+                    print(
+                        f"💡 \033[33mCheck:\033[0m Broker URL, port {port}, and network connectivity."
+                    )
             except Exception:
                 pass
 
@@ -300,10 +310,18 @@ def main():
 
     print("\033[33m--- Next Event ---\033[0m")
     if next_event and next_day_summary:
-        print(f"  \033[37mDate:\033[0m         \033[32m{next_day_summary.get('date')}\033[0m")
-        print(f"  \033[37mFixture:\033[0m      \033[1m{next_event.get('fixture')}\033[0m")
-        print(f"  \033[37mStart Time:\033[0m   \033[35m{next_event.get('start_time', 'TBC')}\033[0m")
-        print(f"  \033[37mCrowd:\033[0m        \033[34m{next_event.get('crowd', 'TBC')}\033[0m")
+        print(
+            f"  \033[37mDate:\033[0m         \033[32m{next_day_summary.get('date')}\033[0m"
+        )
+        print(
+            f"  \033[37mFixture:\033[0m      \033[1m{next_event.get('fixture')}\033[0m"
+        )
+        print(
+            f"  \033[37mStart Time:\033[0m   \033[35m{next_event.get('start_time', 'TBC')}\033[0m"
+        )
+        print(
+            f"  \033[37mCrowd:\033[0m        \033[34m{next_event.get('crowd', 'TBC')}\033[0m"
+        )
     else:
         print("  \033[31mNo upcoming events found.\033[0m")
 
@@ -313,9 +331,15 @@ def main():
             print(f"\n  \033[36m📅 Date: {day['date']}\033[0m")
             for event in day["events"]:
                 # Type: ignore to suppress false positive type checking errors
-                print(f"    \033[37m-\033[0m \033[1mFixture:\033[0m      {event['fixture']}")  # type: ignore
-                print(f"      \033[37mStart Time:\033[0m   \033[35m{event.get('start_time', 'TBC')}\033[0m")  # type: ignore
-                print(f"      \033[37mCrowd:\033[0m        \033[34m{event.get('crowd', 'TBC')}\033[0m")  # type: ignore
+                print(
+                    f"    \033[37m-\033[0m \033[1mFixture:\033[0m      {event['fixture']}"
+                )  # type: ignore
+                print(
+                    f"      \033[37mStart Time:\033[0m   \033[35m{event.get('start_time', 'TBC')}\033[0m"
+                )  # type: ignore
+                print(
+                    f"      \033[37mCrowd:\033[0m        \033[34m{event.get('crowd', 'TBC')}\033[0m"
+                )  # type: ignore
     else:
         print("  \033[31mNo upcoming events found.\033[0m")
     print("\n" + "\033[36m" + "=" * 50 + "\033[0m")

@@ -37,7 +37,7 @@ MOCK_SUMMARIZED_EVENTS = [
 
 
 @pytest.mark.parametrize(
-    "current_time_str, expected_fixture",
+    ("current_time_str", "expected_fixture"),
     [
         # --- Scenarios for August 1, 2025 ---
         # Before any events have started

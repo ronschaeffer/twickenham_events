@@ -14,14 +14,14 @@ When the Richmond Council website is unavailable:
 ```python
 def main():
     # ... existing code ...
-    
+
     raw_events = fetch_events(config.get("scraping.url"))
-    
+
     # Write errors regardless of success/failure
     errors_path = output_dir / "event_processing_errors.json"
     with open(errors_path, "w") as f:
         json.dump({"last_updated": timestamp, "errors": error_log}, f, indent=4)
-    
+
     if not raw_events:
         print("No events found or failed to fetch events.")
         # IMPROVEMENT: Still publish error status to MQTT
@@ -43,7 +43,7 @@ def load_previous_events(output_dir):
 
 def main():
     # ... existing code ...
-    
+
     if not raw_events:
         print("Website unavailable - checking for previous data...")
         previous_events = load_previous_events(output_dir)

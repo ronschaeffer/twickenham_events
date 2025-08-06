@@ -34,33 +34,79 @@ google-generativeai = "^0.8.0"
 pytest = "^8.0.0"
 pytest-cov = "^4.0"
 pre-commit = "^4.2.0"
+ruff = "^0.12.1"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-# Ruff configuration
+# Ruff configuration - Home Assistant compatible but project-appropriate
 [tool.ruff]
 target-version = "py39"
 line-length = 88
+required-version = ">=0.12.1"
 
 [tool.ruff.lint]
-# Enable the same rules as Home Assistant
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # pyflakes
-    "I",      # isort
-    "B",      # flake8-bugbear
+    "A001",   # Variable {name} is shadowing a Python builtin
+    "B002",   # Python does not support the unary prefix increment
+    "B005",   # Using .strip() with multi-character strings is misleading
+    "B007",   # Loop control variable {name} not used within loop body
+    "B009",   # Do not call getattr with a constant attribute value
+    "B014",   # Exception handler with duplicate exception
+    "B015",   # Pointless comparison. Did you mean to assign a value?
+    "B017",   # pytest.raises(BaseException) should be considered evil
+    "B018",   # Found useless attribute access
+    "B023",   # Function definition does not bind loop variable {name}
+    "B026",   # Star-arg unpacking after a keyword argument is strongly discouraged
+    "B032",   # Possible unintentional type annotation (using :)
+    "B904",   # Use raise from to specify exception cause
+    "B905",   # zip() without an explicit strict= parameter
     "C4",     # flake8-comprehensions
-    "UP",     # pyupgrade
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "F541",   # f-string without any placeholders
+    "G004",   # logging-f-string (no f-strings in logging)
+    "I",      # isort
+    "N804",   # First argument of a class method should be named cls
+    "N805",   # First argument of a method should be named self
+    "N815",   # Variable {name} in class scope should not be mixedCase
+    "PLR0911", # Too many return statements (warn but don't enforce)
+    "PLR0912", # Too many branches (warn but don't enforce)
+    "PLR0913", # Too many arguments to function call (warn but don't enforce)
+    "PLR0915", # Too many statements (warn but don't enforce)
+    "PT",     # flake8-pytest-style
     "RUF",    # ruff-specific rules
+    "S102",   # Use of exec detected
+    "S103",   # bad-file-permissions
+    "S307",   # suspicious-eval-usage
+    "SIM102", # Use a single if statement instead of nested if statements
+    "SIM103", # Return the condition directly
+    "SIM108", # Use ternary operator instead of if-else-block
+    "SIM117", # multiple-with-statements
+    "TRY300", # try-consider-else
+    "UP",     # pyupgrade
+    "UP031",  # Use format specifiers instead of percent format
+    "UP032",  # Use f-string instead of `format` call
+    "W",      # pycodestyle warnings
 ]
 
 ignore = [
-    "E501",   # line too long (handled by formatter)
-    "UP007",  # Use X | Y for union types (Python 3.10+)
-    "UP038",  # Use X | Y for isinstance checks (Python 3.10+)
+    "E501",     # line too long (handled by formatter)
+    "PLR0911",  # Too many return statements (too strict for this project)
+    "PLR0912",  # Too many branches (too strict for this project)
+    "PLR0913",  # Too many arguments to function call (too strict for this project)
+    "PLR0915",  # Too many statements (too strict for this project)
+    "PT009",    # pytest-unittest-assertion (not using unittest style)
+    "PT011",    # pytest.raises({exception}) is too broad (too strict)
+    "PT017",    # pytest-assert-in-except (sometimes necessary)
+    "PT018",    # Assertion should be broken down into multiple parts (too strict)
+    "SIM117",   # multiple-with-statements (can be clearer sometimes)
+    "TRY003",   # Avoid specifying long messages outside the exception class
+    "TRY300",   # try-consider-else (sometimes less clear)
+    "TRY400",   # Use logging.exception instead of logging.error (context dependent)
+    "UP007",    # Use X | Y for union types (Python 3.10+)
+    "UP038",    # Use X | Y for isinstance checks (Python 3.10+)
 ]
 
 [tool.ruff.lint.isort]
@@ -71,3 +117,7 @@ combine-as-imports = true
 quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
+
+[tool.codespell]
+ignore-words-list = "nd,st,rd,th,wknd"
+skip = "*.json,*.pyc,__pycache__,*.git"
