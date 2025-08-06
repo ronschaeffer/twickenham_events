@@ -161,9 +161,9 @@ def main():
     timestamp = datetime.now().isoformat()
 
     # --- Fetch and Process Events ---
-    print(f"\n\033[93m🌐 EVENT FETCHING & PROCESSING\033[0m")
+    print("\n\033[93m🌐 EVENT FETCHING & PROCESSING\033[0m")
     print("\033[93m" + "─" * 30 + "\033[0m")
-    
+
     raw_events, processing_stats = fetch_events(config.get("scraping.url"), config)
 
     # Write parsing errors to JSON file immediately after fetch
@@ -175,7 +175,7 @@ def main():
         print(f"\033[33m⚠️  Found {len(error_log)} parsing errors. Details in \033[36m{errors_path}\033[0m")
 
     if not raw_events:
-        print(f"\033[31m❌ No events found or failed to fetch events.\033[0m")
+        print("\033[31m❌ No events found or failed to fetch events.\033[0m")
 
         # Try to load previous data as fallback
         previous_events = load_previous_events(output_dir)
@@ -219,9 +219,9 @@ def main():
         summarized_events = summarise_events(raw_events, config)
 
     # --- Output ---
-    print(f"\n\033[95m💾 FILE OUTPUT\033[0m")
+    print("\n\033[95m💾 FILE OUTPUT\033[0m")
     print("\033[95m" + "─" * 15 + "\033[0m")
-    
+
     # Write upcoming events to JSON file (only if we have new data)
     if raw_events:  # Only write if we have fresh data
         upcoming_events_path = output_dir / "upcoming_events.json"
@@ -235,9 +235,9 @@ def main():
 
     # --- MQTT Publishing ---
     if config.get("mqtt.enabled"):
-        print(f"\n\033[94m📡 MQTT PUBLISHING\033[0m")
+        print("\n\033[94m📡 MQTT PUBLISHING\033[0m")
         print("\033[94m" + "─" * 20 + "\033[0m")
-        
+
         try:
             # Get MQTT configuration using best practices from mqtt_publisher
             mqtt_config = config.get_mqtt_config()
@@ -259,7 +259,7 @@ def main():
                     summarized_events, publisher, config, processing_stats
                 )
                 print("   \033[32m✅ Event data published successfully\033[0m")
-                
+
             print("\033[32m🎉 MQTT publishing completed successfully!\033[0m")
 
         except ValueError as e:
@@ -307,7 +307,7 @@ def main():
     else:
         print("  \033[31mNo upcoming events found.\033[0m")
 
-    print(f"\n\033[33m--- All Upcoming Events ---\033[0m")
+    print("\n\033[33m--- All Upcoming Events ---\033[0m")
     if summarized_events:
         for day in summarized_events:
             print(f"\n  \033[36m📅 Date: {day['date']}\033[0m")
