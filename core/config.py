@@ -1,7 +1,7 @@
 from functools import reduce
 import operator
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional  # noqa: UP035
 
 import yaml
 
@@ -97,7 +97,7 @@ class Config:
         """
         return self.config_dir
 
-    def get_mqtt_config(self) -> dict[str, Any]:
+    def get_mqtt_config(self) -> Dict[str, Any]:  # noqa: UP006
         """
         Build MQTT configuration dictionary with enhanced validation and type conversion.
         Handles individual access for proper environment variable substitution.
