@@ -222,45 +222,86 @@ def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
             flag_examples=flag_examples,
         )
 
-        # Make the API call with rate limiting
+        # Make the API call with rate limiting and retry for safety filters
         import time
 
         model = genai.GenerativeModel(model_name)  # type: ignore
 
-        # Add delay to prevent rate limiting (especially important for batch processing)
-        time.sleep(2)  # 2 second delay between API calls
+        # Try the request, with retry for safety filter issues
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                # Add delay to prevent rate limiting
+                if attempt > 0:
+                    time.sleep(3)  # Longer delay for retries
+                else:
+                    time.sleep(2)  # Normal delay
 
-        response = model.generate_content(final_prompt)
+                # For retry attempts, try alternative phrasing
+                if attempt > 0:
+                    # Replace potentially problematic words
+                    safe_event_name = original_name.replace(" vs ", " v ").replace(" VS ", " V ")
+                    safe_prompt = final_prompt.replace(original_name, safe_event_name)
+                    response = model.generate_content(safe_prompt)
+                else:
+                    response = model.generate_content(final_prompt)
 
-        if response.text:
-            shortened_name = response.text.strip()
+                if response.text:
+                    shortened_name = response.text.strip()
 
-            # Apply flag spacing standardization if enabled
-            if flags_enabled and standardize_spacing:
-                shortened_name = standardize_flag_spacing(shortened_name)
+                    # Apply flag spacing standardization if enabled
+                    if flags_enabled and standardize_spacing:
+                        shortened_name = standardize_flag_spacing(shortened_name)
 
-            # Visual width validation - count flags as 2 units, characters as 1 unit
-            visual_width = calculate_visual_width(shortened_name)
-            if visual_width <= char_limit and shortened_name:
-                # Save successful result to cache if caching is enabled
-                if cache_enabled:
-                    cache[original_name] = {
-                        "short": shortened_name,
-                        "created": datetime.now().isoformat(),
-                        "original": original_name,
-                    }
-                    save_cache(cache)
-                return shortened_name, False, ""
-            else:
-                error_msg = f"Generated name '{shortened_name}' exceeds visual width limit ({visual_width} > {char_limit}) or is empty"
-                logging.warning(error_msg)
-                return original_name, True, error_msg
-        else:
-            error_msg = "Empty response received from Gemini API"
-            logging.error(error_msg)
-            return original_name, True, error_msg
+                    # Visual width validation - count flags as 2 units, characters as 1 unit
+                    visual_width = calculate_visual_width(shortened_name)
+                    if visual_width <= char_limit and shortened_name:
+                        # Save successful result to cache if caching is enabled
+                        if cache_enabled:
+                            cache[original_name] = {
+                                "short": shortened_name,
+                                "created": datetime.now().isoformat(),
+                                "original": original_name,
+                            }
+                            save_cache(cache)
+                        return shortened_name, False, ""
+                    else:
+                        error_msg = f"Generated name '{shortened_name}' exceeds visual width limit ({visual_width} > {char_limit}) or is empty"
+                        logging.warning(error_msg)
+                        return original_name, True, error_msg
+                else:
+                    # Empty response - likely safety filter
+                    if attempt < max_attempts - 1:
+                        logging.warning(f"Empty response for '{original_name}' (attempt {attempt + 1}), retrying with alternative phrasing...")
+                        continue
+                    else:
+                        error_msg = "Empty response received from Gemini API after retries"
+                        logging.error(error_msg)
+                        return original_name, True, error_msg
+
+            except Exception as e:
+                error_str = str(e)
+                # Check if it's a safety filter issue
+                if "finish_reason" in error_str and ("1" in error_str or "SAFETY" in error_str.upper()):
+                    if attempt < max_attempts - 1:
+                        logging.warning(f"Safety filter triggered for '{original_name}' (attempt {attempt + 1}), retrying with alternative phrasing...")
+                        continue
+                    else:
+                        error_msg = f"Content safety filter triggered for '{original_name}' after retries"
+                        logging.warning(error_msg)
+                        return original_name, True, error_msg
+                else:
+                    # Different error, don't retry
+                    error_msg = f"API error while shortening '{original_name}': {e!s}"
+                    logging.error(error_msg)
+                    return original_name, True, error_msg
+
+        # If we get here, all attempts failed
+        error_msg = f"All attempts failed for '{original_name}'"
+        logging.error(error_msg)
+        return original_name, True, error_msg
 
     except Exception as e:
-        error_msg = f"API error while shortening '{original_name}': {e!s}"
+        error_msg = f"Unexpected error while shortening '{original_name}': {e!s}"
         logging.error(error_msg)
         return original_name, True, error_msg
