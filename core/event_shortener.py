@@ -11,6 +11,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Dict, Tuple  # noqa: UP035
 
 try:
     import google.generativeai as genai
@@ -30,7 +31,7 @@ def get_cache_path() -> Path:
     return Path(__file__).parent.parent / "output" / "event_name_cache.json"
 
 
-def load_cache() -> dict[str, dict[str, str]]:
+def load_cache() -> Dict[str, Dict[str, str]]:  # noqa: UP006
     """Load the event name cache from file."""
     cache_path = get_cache_path()
     if cache_path.exists():
@@ -42,7 +43,7 @@ def load_cache() -> dict[str, dict[str, str]]:
     return {}
 
 
-def save_cache(cache: dict[str, dict[str, str]]) -> None:
+def save_cache(cache: Dict[str, Dict[str, str]]) -> None:  # noqa: UP006
     """Save the event name cache to file."""
     cache_path = get_cache_path()
     cache_path.parent.mkdir(exist_ok=True)
@@ -113,7 +114,7 @@ def calculate_visual_width(text: str) -> int:
     return char_count + (flag_count * 2)
 
 
-def get_cached_short_name(original_name: str, cache: dict) -> tuple[str, bool]:
+def get_cached_short_name(original_name: str, cache: dict) -> Tuple[str, bool]:  # noqa: UP006
     """
     Get shortened name from cache if available.
 
@@ -128,7 +129,7 @@ def get_cached_short_name(original_name: str, cache: dict) -> tuple[str, bool]:
     return original_name, False
 
 
-def get_short_name(original_name: str, config) -> tuple[str, bool, str]:
+def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:  # noqa: UP006
     """
     Get a shortened version of an event name using Google Gemini API.
     Uses caching to avoid repeated API calls for the same event names.

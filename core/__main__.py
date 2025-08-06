@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import sys
+from typing import Dict, List  # noqa: UP035
 
 from dotenv import load_dotenv
 from mqtt_publisher.publisher import MQTTPublisher
@@ -51,7 +52,7 @@ def update_dynamic_version():
         print(f"⚠️ Could not update dynamic version: {e}")
 
 
-def load_previous_events(output_dir: Path) -> list[dict[str, str]]:
+def load_previous_events(output_dir: Path) -> List[Dict[str, str]]:  # noqa: UP006
     """Load previously successful event data as fallback."""
     try:
         with open(output_dir / "upcoming_events.json") as f:
