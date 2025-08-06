@@ -243,7 +243,7 @@ def fetch_events_with_retry(
 
     for attempt in range(max_retries):
         try:
-            print(f"Fetching events (attempt {attempt + 1}/{max_retries})...")
+            print(f"🌐 Fetching events (attempt \033[33m{attempt + 1}\033[0m/\033[33m{max_retries}\033[0m)...")
             events = fetch_events_single_attempt(url, timeout)
 
             # Calculate stats
@@ -256,23 +256,24 @@ def fetch_events_with_retry(
             }
 
             if events:  # Success with data
-                print(f"Successfully fetched {len(events)} events")
+                print(f"   \033[32m🎯 Successfully fetched {len(events)} events\033[0m")
+                print(f"   \033[36m⏱️  Fetch completed in {stats['fetch_duration']}s\033[0m")
                 return events, stats
             else:
-                print("No events found in response")
+                print("   \033[33m📭 No events found in response\033[0m")
                 # Even if no events, don't retry - this might be normal
                 return events, stats
 
         except requests.RequestException as e:
             error_msg = f"Attempt {attempt + 1} failed: {e}"
             error_log.append(error_msg)
-            print(f"⚠️  {error_msg}")
+            print(f"   \033[31m❌ {error_msg}\033[0m")
 
             if attempt < max_retries - 1:  # Not the last attempt
-                print(f"Retrying in {delay} seconds...")
+                print(f"   \033[33m⏳ Retrying in {delay} seconds...\033[0m")
                 time_module.sleep(delay)
             else:
-                print("All retry attempts failed")
+                print("   \033[31m🚫 All retry attempts failed\033[0m")
 
     # All attempts failed
     fetch_duration = time_module.time() - start_time

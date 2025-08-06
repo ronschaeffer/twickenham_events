@@ -9,7 +9,7 @@ from mqtt_publisher.ha_discovery import (
 from mqtt_publisher.publisher import MQTTPublisher
 
 from core.config import Config
-from core.version import get_dynamic_version
+from core.version import get_project_version
 
 
 def publish_discovery_configs_for_twickenham(config: Config, publisher: MQTTPublisher):
@@ -22,14 +22,14 @@ def publish_discovery_configs_for_twickenham(config: Config, publisher: MQTTPubl
     # Create a single device instance to be shared by all entities
     device = Device(config)
 
-    # Override the software version with dynamic Git-based version
+    # Override the software version with semantic version from pyproject.toml
     if hasattr(device, "sw_version"):
-        device.sw_version = get_dynamic_version()
+        device.sw_version = get_project_version()
     elif hasattr(device, "_sw_version"):
-        device._sw_version = get_dynamic_version()
+        device._sw_version = get_project_version()
     # If the device has a dict-based info structure, update it
     elif hasattr(device, "device_info") and isinstance(device.device_info, dict):
-        device.device_info["sw_version"] = get_dynamic_version()
+        device.device_info["sw_version"] = get_project_version()
 
     # Define all entities that need to be discovered
     entities = []
