@@ -523,6 +523,7 @@ def process_and_publish_events(
     publisher: MQTTPublisher,
     config: Config,
     processing_stats: Optional[Dict[str, Any]] = None,  # noqa: UP006
+    calendar_url: Optional[str] = None,
 ):
     """
     Processes summarized event data and publishes it to relevant MQTT topics.
@@ -585,11 +586,15 @@ def process_and_publish_events(
         "config_source": str(Path(config_path).name) if config_path else "unknown",
     }
 
+    # Add calendar URL if available
+    if calendar_url:
+        status_payload["calendar_url"] = calendar_url
+
     status_topic = config.get("mqtt.topics.status")
     publisher.publish(status_topic, status_payload, retain=True)
 
 
-def main():
+def legacy_main():
     """
     Main function to run the event scraper and publisher.
     """
@@ -640,4 +645,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # This was the old main function - now use core.__main__ instead
+    print("⚠️  Please use 'python -m core' instead of running this file directly")
+    print("   Available commands: scrape, mqtt, calendar, all, status, cache")
+    import sys
+
+    sys.exit(1)
