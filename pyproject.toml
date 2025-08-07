@@ -19,11 +19,11 @@ dependencies = [
 ]
 
 [project.scripts]
-twick-events = "core.__main__:main"
+twick-events = "twickenham_events.__main__:main"
 
 [tool.poetry]
 packages = [
-    { include = "core" },
+    { include = "twickenham_events", from = "src" },
     { include = "tests", format = "sdist" }
 ]
 package-mode = true
