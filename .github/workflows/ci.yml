@@ -35,7 +35,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --extras dev
+        run: poetry install --with dev
 
       - name: Run linting checks
         run: |
@@ -76,7 +76,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --extras dev
+        run: poetry install --with dev
 
       - name: Run tests
         run: |
