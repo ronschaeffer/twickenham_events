@@ -663,8 +663,6 @@ def cmd_calendar(args):
 
 def cmd_all(args) -> int:
     """Run all integrations (scrape + MQTT + calendar)."""
-    from pathlib import Path
-
     from .config import Config
 
     print("\n\033[96m🎯 ALL INTEGRATIONS\033[0m")
@@ -672,11 +670,6 @@ def cmd_all(args) -> int:
 
     # Load configuration
     config = Config.from_file(args.config)
-    output_dir = (
-        Path(args.output)
-        if hasattr(args, "output") and args.output
-        else Path.cwd() / "output"
-    )
 
     if args.dry_run:
         print("🧪 \033[33mDRY RUN MODE\033[0m - Testing all integrations")

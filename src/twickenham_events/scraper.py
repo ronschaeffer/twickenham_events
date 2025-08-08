@@ -6,7 +6,7 @@ Handles sophisticated date/time normalization, event grouping, and processing.
 from datetime import date, datetime, time as time_obj, timedelta
 import re
 import time
-from typing import Any, List, Optional, Tuple
+from typing import Any, Optional
 
 from bs4 import BeautifulSoup
 import requests
@@ -129,7 +129,7 @@ class EventScraper:
 
         return raw_events
 
-    def normalize_time(self, time_str: Optional[str]) -> Optional[List[str]]:
+    def normalize_time(self, time_str: Optional[str]) -> Optional[list[str]]:
         """Normalize time format, returning a list of sorted times - full legacy implementation."""
         if not time_str or time_str.lower() == "tbc":
             return None
@@ -394,7 +394,7 @@ class EventScraper:
 
     def find_next_event_and_summary(
         self, summarized_events: list[dict[str, Any]]
-    ) -> Tuple[Optional[dict], Optional[dict]]:
+    ) -> tuple[Optional[dict], Optional[dict]]:
         """
         Finds the current or next upcoming event and a summary for that day.
         An event is considered "over" based on rules in the config.
