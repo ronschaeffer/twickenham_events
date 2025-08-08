@@ -13,8 +13,9 @@ from mqtt_publisher.publisher import MQTTPublisher
 import requests
 
 from core.config import Config
+from core.discovery import publish_twickenham_discovery
+from core.event_icons import get_event_emoji_and_icon
 from core.event_shortener import get_short_name
-from core.ha_mqtt_discovery import publish_discovery_configs_for_twickenham
 
 # Add project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -385,12 +386,17 @@ def summarise_events(
                 f"AI shortening failed for '{fixture_name}': {error_message}"
             )
 
+        # Get emoji and icon for the fixture
+        emoji, icon = get_event_emoji_and_icon(fixture_name)
+
         if start_times:
             for time in start_times:
                 event_data = {
                     "fixture": fixture_name,
                     "start_time": time,
                     "crowd": crowd_size,
+                    "emoji": emoji,
+                    "icon": icon,
                 }
                 # Add short name if different from original
                 if short_name != fixture_name:
@@ -402,6 +408,8 @@ def summarise_events(
                 "fixture": fixture_name,
                 "start_time": None,
                 "crowd": crowd_size,
+                "emoji": emoji,
+                "icon": icon,
             }
             # Add short name if different from original
             if short_name != fixture_name:
@@ -608,7 +616,7 @@ def legacy_main():
         auth=config.get("mqtt.security.auth"),
         tls=config.get("mqtt.security.tls"),
     )
-    publish_discovery_configs_for_twickenham(config, ha_discovery_publisher)
+    publish_twickenham_discovery(config, ha_discovery_publisher)
     ha_discovery_publisher.disconnect()
 
     # Main publisher for event data

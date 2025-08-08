@@ -63,7 +63,7 @@ cards:
 
       {% for event in dg.events %}
 
-      - **{{ ed.strftime('%d') }}**: {{ event.fixture }}{% if event.start_time
+      - **{{ ed.strftime('%d') }}**: {% if event.emoji %}{{ event.emoji }} {% elif event.icon %}{{ event.icon }} {% endif %}{{ event.fixture }}{% if event.start_time
       %} *({{ event.start_time }})*{% endif %}
 
       {% endfor %}

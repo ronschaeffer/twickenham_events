@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from mqtt_publisher.publisher import MQTTPublisher
 
 from core.config import Config
-from core.ha_mqtt_discovery import publish_discovery_configs
+from core.discovery import publish_twickenham_discovery
 from core.twick_event import (
     error_log,
     fetch_events,
@@ -76,7 +76,7 @@ def publish_error_status(
         with MQTTPublisher(**mqtt_config) as publisher:
             # Publish Home Assistant discovery configs first
             if config.get("home_assistant.enabled"):
-                publish_discovery_configs(config, publisher)
+                publish_twickenham_discovery(config, publisher)
 
             # Publish error status with enhanced metrics
             status_payload = {
@@ -257,7 +257,7 @@ def main():
                 # Publish Home Assistant discovery configs
                 if config.get("home_assistant.enabled"):
                     print("🏠 Publishing Home Assistant discovery configs...")
-                    publish_discovery_configs(config, publisher)
+                    publish_twickenham_discovery(config, publisher)
                     print("   \033[32m✅ Discovery configs published\033[0m")
 
                 # Publish event data with processing stats

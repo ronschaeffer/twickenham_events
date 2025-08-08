@@ -21,24 +21,24 @@ class TestEventShortener(unittest.TestCase):
         """Set up test fixtures."""
         self.test_config_enabled = Mock()
         self.test_config_enabled.get.side_effect = lambda key, default=None: {
-            "ai_shortener.enabled": True,
-            "ai_shortener.api_key": "test_api_key",
-            "ai_shortener.model": "gemini-2.5-pro",
-            "ai_shortener.max_length": 16,
-            "ai_shortener.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
-            "ai_shortener.flags_enabled": False,
-            "ai_shortener.standardize_spacing": True,
+            "ai_processor.shortening.enabled": True,
+            "ai_processor.api_key": "test_api_key",
+            "ai_processor.shortening.model": "gemini-2.5-pro",
+            "ai_processor.shortening.max_length": 16,
+            "ai_processor.shortening.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
+            "ai_processor.shortening.flags_enabled": False,
+            "ai_processor.shortening.standardize_spacing": True,
         }.get(key, default)
 
         self.test_config_disabled = Mock()
         self.test_config_disabled.get.side_effect = lambda key, default=None: {
-            "ai_shortener.enabled": False,
-            "ai_shortener.api_key": "test_api_key",
-            "ai_shortener.model": "gemini-2.5-pro",
-            "ai_shortener.max_length": 16,
-            "ai_shortener.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
-            "ai_shortener.flags_enabled": False,
-            "ai_shortener.standardize_spacing": True,
+            "ai_processor.shortening.enabled": False,
+            "ai_processor.api_key": "test_api_key",
+            "ai_processor.shortening.model": "gemini-2.5-pro",
+            "ai_processor.shortening.max_length": 16,
+            "ai_processor.shortening.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
+            "ai_processor.shortening.flags_enabled": False,
+            "ai_processor.shortening.standardize_spacing": True,
         }.get(key, default)
 
     def test_disabled_feature_returns_original_name(self):
@@ -155,13 +155,13 @@ class TestEventShortener(unittest.TestCase):
 
         config_no_key = Mock()
         config_no_key.get.side_effect = lambda key, default=None: {
-            "ai_shortener.enabled": True,
-            "ai_shortener.api_key": "",  # Empty API key
-            "ai_shortener.model": "gemini-2.5-pro",
-            "ai_shortener.max_length": 16,
-            "ai_shortener.prompt_template": "Test template",
-            "ai_shortener.flags_enabled": False,
-            "ai_shortener.standardize_spacing": True,
+            "ai_processor.shortening.enabled": True,
+            "ai_processor.api_key": "",  # Empty API key
+            "ai_processor.shortening.model": "gemini-2.5-pro",
+            "ai_processor.shortening.max_length": 16,
+            "ai_processor.shortening.prompt_template": "Test template",
+            "ai_processor.shortening.flags_enabled": False,
+            "ai_processor.shortening.standardize_spacing": True,
         }.get(key, default)
 
         original_name = "Test Event"
@@ -179,13 +179,13 @@ class TestEventShortener(unittest.TestCase):
 
         config_no_template = Mock()
         config_no_template.get.side_effect = lambda key, default=None: {
-            "ai_shortener.enabled": True,
-            "ai_shortener.api_key": "test_key",
-            "ai_shortener.model": "gemini-2.5-pro",
-            "ai_shortener.max_length": 16,
-            "ai_shortener.prompt_template": "",  # Empty template
-            "ai_shortener.flags_enabled": False,
-            "ai_shortener.standardize_spacing": True,
+            "ai_processor.shortening.enabled": True,
+            "ai_processor.api_key": "test_key",
+            "ai_processor.shortening.model": "gemini-2.5-pro",
+            "ai_processor.shortening.max_length": 16,
+            "ai_processor.shortening.prompt_template": "",  # Empty template
+            "ai_processor.shortening.flags_enabled": False,
+            "ai_processor.shortening.standardize_spacing": True,
         }.get(key, default)
 
         original_name = "Test Event"

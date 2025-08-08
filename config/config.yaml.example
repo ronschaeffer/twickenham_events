@@ -5,6 +5,14 @@ scraping:
   retry_delay: 5 # Seconds to wait between retry attempts
   timeout: 10 # Request timeout in seconds
 
+# Application identity for Home Assistant device discovery
+app:
+  unique_id_prefix: "twickenham_events"
+  name: "Twickenham Events"
+  manufacturer: "Ron Schaeffer"
+  model: "Event Scraper v1.0"
+  sw_version: "0.1.0"
+
 # Rules for determining when an event is over
 event_rules:
   end_of_day_cutoff: "23:00" # Time to consider all events for the day over
@@ -47,46 +55,62 @@ mqtt:
 home_assistant:
   enabled: true
   discovery_prefix: "homeassistant" # Default Home Assistant discovery topic
+  discovery_config: "config/ha_discovery.yaml" # Path to HA discovery configuration
 
-# Event Name Shortening (AI-powered)
-ai_shortener:
+# ICS Calendar Export
+calendar:
   enabled: true
-  api_key: ${GEMINI_API_KEY}
-  model: gemini-2.5-pro
-  max_length: 25
-  flags_enabled: true
-  standardize_spacing: true
-  cache_enabled: true
-  cache_dir: "output/cache"
-  prompt_template: >
-    You are an expert editor. Your task is to shorten event names
-    to fit within {char_limit} display units while keeping them recognizable.
-    Count regular characters as 1 unit each, and flag emojis as 2 units each.
-    The events are usually rugby matches, but can also be concerts.
-    Use standard abbreviations. IMPORTANT: Always capitalize country abbreviations
-    (ENG, AUS, NZ, ARG, RSA, FRA, ITA, WAL, SCO, IRE, FIJ, etc.).
-    {flag_instructions}
+  filename: "twickenham_events.ics"
+  output_format: "ics" # Options: "ics", "json", "both"
+  scope:
+    include_past_days: 30 # Include events from last 30 days
+    include_future_days: 365 # Include events for next year
+  duration_estimation:
+    default_hours: 2.5 # Duration for all events
+  # Optional: Override URL for external access (handles Docker/proxy issues)
+  calendar_url_override: "${CALENDAR_URL_OVERRIDE}"
 
-    Examples:
-    fixture: Women's Rugby World Cup Final
-    fixture_short: W RWC Final
+# Event Name Processing (AI-powered)
+ai_processor:
+  api_key: "${GEMINI_API_KEY}" # Environment variable
 
-    {flag_examples}
+  # Event Type Detection (for icons and categorization)
+  type_detection:
+    enabled: false # Set to true to use AI for event type detection
+    cache_enabled: true
+    model: "gemini-2.5-pro"
+    cache_dir: "output/cache"
 
-    fixture: Taylor Swift | The Eras Tour
-    fixture_short: Taylor Swift
+  # Event Name Shortening
+  shortening:
+    enabled: true
+    cache_enabled: true
+    model: "gemini-2.5-pro"
+    max_length: 25
+    flags_enabled: true
+    standardize_spacing: true
+    cache_dir: "output/cache"
+    prompt_template: >
+      You are an expert editor. Your task is to shorten event names
+      to fit within {char_limit} display units while keeping them recognizable.
+      Count regular characters as 1 unit each, and flag emojis as 2 units each.
+      The events are usually rugby matches, but can also be concerts.
+      Use standard abbreviations. IMPORTANT: Always capitalize country abbreviations
+      (ENG, AUS, NZ, ARG, RSA, FRA, ITA, WAL, SCO, IRE, FIJ, etc.).
+      {flag_instructions}
 
-    fixture: Harlequins Big Game
-    fixture_short: Quins Big Game
-    ---
-    Now, shorten this event name:
-    fixture: {event_name}
-    fixture_short:
+      Examples:
+      fixture: Women's Rugby World Cup Final
+      fixture_short: W RWC Final
 
-# AI Event Type Detection (for appropriate icons)
-ai_type_detection:
-  enabled: false # Set to true to use AI for event type detection
-  api_key: ${GEMINI_API_KEY} # Can reuse same API key as ai_shortener
-  model: gemini-2.5-pro
-  cache_enabled: true
-  cache_dir: "output/cache"
+      {flag_examples}
+
+      fixture: Taylor Swift | The Eras Tour
+      fixture_short: Taylor Swift
+
+      fixture: Harlequins Big Game
+      fixture_short: Quins Big Game
+      ---
+      Now, shorten this event name:
+      fixture: {event_name}
+      fixture_short:
