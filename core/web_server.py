@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 import threading
 import time
-from typing import Any, Dict, Optional  # noqa: UP035
+from typing import Any, Optional
 
 try:
     from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -30,7 +30,7 @@ class ProjectFileHandler(SimpleHTTPRequestHandler):
     This will be extracted to the shared web_host library.
     """
 
-    def __init__(self, *args, output_dir: Path, config: Dict[str, Any], **kwargs):  # noqa: UP006
+    def __init__(self, *args, output_dir: Path, config: dict[str, Any], **kwargs):
         self.output_dir = output_dir
         self.config = config
         super().__init__(*args, **kwargs)
@@ -76,7 +76,7 @@ class ProjectFileHandler(SimpleHTTPRequestHandler):
             self.wfile.write(content)
 
         except Exception as e:
-            logging.error(f"Error serving calendar: {e}")
+            logging.error("Error serving calendar: %s", e)
             self.send_error(500, "Internal server error")
 
     def serve_status(self):
@@ -121,7 +121,7 @@ class ProjectFileHandler(SimpleHTTPRequestHandler):
             self.wfile.write(content)
 
         except Exception as e:
-            logging.error(f"Error serving status: {e}")
+            logging.error("Error serving status: %s", e)
             self.send_error(500, "Internal server error")
 
     def serve_health(self):
@@ -142,7 +142,7 @@ class ProjectFileHandler(SimpleHTTPRequestHandler):
             self.wfile.write(content)
 
         except Exception as e:
-            logging.error(f"Error serving health check: {e}")
+            logging.error("Error serving health check: %s", e)
             self.send_error(500, "Internal server error")
 
     def serve_index(self):
@@ -186,7 +186,7 @@ class ProjectFileHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         """Override to use proper logging."""
-        logging.info(f"Web Server: {format % args}")
+        logging.info("Web Server: %s", format % args)
 
 
 class TwickenhamWebServer:
@@ -196,7 +196,7 @@ class TwickenhamWebServer:
     This class will be refactored into the shared web_host library.
     """
 
-    def __init__(self, config: Dict[str, Any], output_dir: Path):  # noqa: UP006
+    def __init__(self, config: dict[str, Any], output_dir: Path):
         self.config = config
         self.output_dir = output_dir
         self.server = None
@@ -228,11 +228,11 @@ class TwickenhamWebServer:
             self.running = True
             self.server_thread.start()
 
-            logging.info(f"Web server started on http://{host}:{port}")
+            logging.info("Web server started on http://%s:%s", host, port)
             return True
 
         except Exception as e:
-            logging.error(f"Failed to start web server: {e}")
+            logging.error("Failed to start web server: %s", e)
             return False
 
     def stop(self):
@@ -255,7 +255,7 @@ class TwickenhamWebServer:
         try:
             self.server.serve_forever()
         except Exception as e:
-            logging.error(f"Web server error: {e}")
+            logging.error("Web server error: %s", e)
             self.running = False
 
     def is_running(self) -> bool:
@@ -282,7 +282,7 @@ class TwickenhamWebServer:
 
 
 def start_web_server(
-    config: Dict[str, Any], output_dir: Path
+    config: dict[str, Any], output_dir: Path
 ) -> Optional[TwickenhamWebServer]:
     """
     Start web server if enabled in configuration.
@@ -306,7 +306,7 @@ def start_web_server(
 
 
 def get_web_calendar_url(
-    config: Dict[str, Any], server: Optional[TwickenhamWebServer] = None
+    config: dict[str, Any], server: Optional[TwickenhamWebServer] = None
 ) -> Optional[str]:
     """
     Get calendar URL from web server or configuration override.

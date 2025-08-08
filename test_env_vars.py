@@ -90,7 +90,7 @@ def test_environment_variables():
         print("❌ FAIL: api_key expansion failed")
         success = False
 
-    if mqtt_enabled != True:
+    if not mqtt_enabled:
         print("❌ FAIL: TWICK_ prefix override failed")
         success = False
 
