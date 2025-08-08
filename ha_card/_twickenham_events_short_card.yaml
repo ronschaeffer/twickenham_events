@@ -5,7 +5,7 @@ primary: |
   {% if status_sensor == 'ON' or next_event == none %}
     Twick Stadium
   {% else %}
-    {{ next_event.fixture_short if next_event.fixture_short else next_event.fixture }}
+    {% if next_event.emoji %}{{ next_event.emoji }} {% endif %}{% if next_event.fixture_short %}{{ next_event.fixture_short }}{% else %}{{ next_event.fixture }}{% endif %}
   {% endif %}
 secondary: |
   {% set status_sensor = states('binary_sensor.twickenham_events_status') %}
@@ -37,7 +37,16 @@ secondary: |
       {{ day_text }}
     {% endif %}
   {% endif %}
-icon: mdi:stadium
+icon: |
+  {% set status_sensor = states('binary_sensor.twickenham_events_status') %}
+  {% set next_event = state_attr('sensor.twickenham_events_next', 'event') %}
+  {% if status_sensor == 'ON' or next_event == none %}
+    mdi:alert-circle
+  {% elif next_event.icon %}
+    {{ next_event.icon }}
+  {% else %}
+    mdi:stadium
+  {% endif %}
 entity: sensor.twickenham_events_next
 icon_color: |
   {% set status_sensor = states('binary_sensor.twickenham_events_status') %}

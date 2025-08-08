@@ -3,7 +3,15 @@
 Event name shortener using Google Gemini API. Model chosen in config.yaml.
 
 This module provides functionality to shorten event names using AI,
-designed to be self-contained with graceful fallback behavior.
+designed to         # Get AI configuration from config object
+        model_name = config.get("ai_processor.shortening.model", "gemini-2.5-pro")
+        char_limit = config.get("ai_processor.shortening.max_length", 16)
+        prompt_template = config.get("ai_processor.shortening.prompt_template", "")
+        flags_enabled = config.get("ai_processor.shortening.flags_enabled", False)
+        standardize_spacing = config.get("ai_processor.shortening.standardize_spacing", True)
+
+        if not prompt_template:
+            error_msg = "AI shortener enabled but no prompt template provided - check ai_processor.shortening.prompt_template in config"contained with graceful fallback behavior.
 """
 
 from datetime import datetime
@@ -145,11 +153,11 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:  # noqa
         - error_message: Detailed error message if had_error is True, empty string otherwise
     """
     # Check if feature is disabled
-    if not config.get("ai_shortener.enabled", False):
+    if not config.get("ai_processor.shortening.enabled", False):
         return original_name, False, ""
 
     # Load cache and check if we already have this name
-    cache_enabled = config.get("ai_shortener.cache_enabled", True)
+    cache_enabled = config.get("ai_processor.shortening.cache_enabled", True)
     cache = load_cache() if cache_enabled else {}
 
     if cache_enabled:
@@ -167,7 +175,7 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:  # noqa
 
     try:
         # Configure the API
-        api_key = config.get("ai_shortener.api_key")
+        api_key = config.get("ai_processor.api_key")
 
         # Handle environment variable expansion
         if api_key and api_key.startswith("${") and api_key.endswith("}"):
@@ -175,21 +183,23 @@ def get_short_name(original_name: str, config) -> Tuple[str, bool, str]:  # noqa
             api_key = os.environ.get(env_var)
 
         if not api_key:
-            error_msg = "AI shortener enabled but no API key provided - check ai_shortener.api_key in config"
+            error_msg = "AI shortener enabled but no API key provided - check ai_processor.api_key in config"
             logging.error(error_msg)
             return original_name, True, error_msg
 
         genai.configure(api_key=api_key)  # type: ignore
 
         # Get configuration values
-        model_name = config.get("ai_shortener.model", "gemini-2.5-pro")
-        char_limit = config.get("ai_shortener.max_length", 16)
-        prompt_template = config.get("ai_shortener.prompt_template", "")
-        flags_enabled = config.get("ai_shortener.flags_enabled", False)
-        standardize_spacing = config.get("ai_shortener.standardize_spacing", True)
+        model_name = config.get("ai_processor.shortening.model", "gemini-2.5-pro")
+        char_limit = config.get("ai_processor.shortening.max_length", 16)
+        prompt_template = config.get("ai_processor.shortening.prompt_template", "")
+        flags_enabled = config.get("ai_processor.shortening.flags_enabled", False)
+        standardize_spacing = config.get(
+            "ai_processor.shortening.standardize_spacing", True
+        )
 
         if not prompt_template:
-            error_msg = "AI shortener enabled but no prompt template provided - check ai_shortener.prompt_template in config"
+            error_msg = "AI shortener enabled but no prompt template provided - check ai_processor.shortening.prompt_template in config"
             logging.error(error_msg)
             return original_name, True, error_msg
 

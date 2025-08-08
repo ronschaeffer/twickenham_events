@@ -26,24 +26,24 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         """Set up test fixtures."""
         self.test_config_flags_enabled = Mock()
         self.test_config_flags_enabled.get.side_effect = lambda key, default=None: {
-            "ai_shortener.enabled": True,
-            "ai_shortener.api_key": "${GEMINI_API_KEY}",
-            "ai_shortener.model": "gemini-2.5-pro",
-            "ai_shortener.max_length": 25,
-            "ai_shortener.flags_enabled": True,
-            "ai_shortener.standardize_spacing": True,
-            "ai_shortener.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
+            "ai_processor.shortening.enabled": True,
+            "ai_processor.api_key": "${GEMINI_API_KEY}",
+            "ai_processor.shortening.model": "gemini-2.5-pro",
+            "ai_processor.shortening.max_length": 25,
+            "ai_processor.shortening.flags_enabled": True,
+            "ai_processor.shortening.standardize_spacing": True,
+            "ai_processor.shortening.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
         }.get(key, default)
 
         self.test_config_flags_disabled = Mock()
         self.test_config_flags_disabled.get.side_effect = lambda key, default=None: {
-            "ai_shortener.enabled": True,
-            "ai_shortener.api_key": "test_api_key",
-            "ai_shortener.model": "gemini-2.5-pro",
-            "ai_shortener.max_length": 25,
-            "ai_shortener.flags_enabled": False,
-            "ai_shortener.standardize_spacing": True,
-            "ai_shortener.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
+            "ai_processor.shortening.enabled": True,
+            "ai_processor.api_key": "test_api_key",
+            "ai_processor.shortening.model": "gemini-2.5-pro",
+            "ai_processor.shortening.max_length": 25,
+            "ai_processor.shortening.flags_enabled": False,
+            "ai_processor.shortening.standardize_spacing": True,
+            "ai_processor.shortening.prompt_template": "Shorten this to {char_limit} chars: {event_name}\n{flag_instructions}\n{flag_examples}",
         }.get(key, default)
 
     def test_standardize_flag_spacing_england(self):
@@ -257,7 +257,7 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         # This is tested implicitly in other tests, but let's be explicit
         config = Mock()
         config.get.side_effect = lambda key, default=None: {
-            "ai_shortener.enabled": False,  # Disabled
+            "ai_processor.shortening.enabled": False,  # Disabled
         }.get(key, default)
 
         original_name = "Test Event"
@@ -268,7 +268,7 @@ class TestEventShortenerNewFeatures(unittest.TestCase):
         self.assertFalse(had_error)
 
         # Verify the correct config key was checked
-        config.get.assert_called_with("ai_shortener.enabled", False)
+        config.get.assert_called_with("ai_processor.shortening.enabled", False)
 
     @patch("core.event_shortener.GENAI_AVAILABLE", True)
     @patch("core.event_shortener.load_cache")
