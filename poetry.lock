@@ -1092,18 +1092,18 @@ dev = ["pre-commit (>=4.2.0)", "pytest (>=8.0)", "pytest-cov (>=6.2)", "ruff (>=
 
 [[package]]
 name = "ronschaeffer-mqtt-publisher"
-version = "0.1.4"
+version = "0.2.0"
 description = "An MQTT publisher package"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "ronschaeffer_mqtt_publisher-0.1.4-py3-none-any.whl", hash = "sha256:a202d2e5f434f1e2a281780993b4259b5073563d9ff767ff3520924af4d178fd"},
-    {file = "ronschaeffer_mqtt_publisher-0.1.4.tar.gz", hash = "sha256:9b86b35584ee3d7db6827507d512b7556abd69b0fef16e82a169b2e8eca37298"},
+    {file = "ronschaeffer_mqtt_publisher-0.2.0-py3-none-any.whl", hash = "sha256:cba5148a4cc3a5334123e9be1a5f73ac43c7dc19164ec122fe8558a856cce363"},
+    {file = "ronschaeffer_mqtt_publisher-0.2.0.tar.gz", hash = "sha256:9959b937150ec4b98763fed3cf2bc7b58cdc33d991c72b2616ddb97840e30ea8"},
 ]
 
 [package.dependencies]
-paho-mqtt = "2.1.0"
+paho-mqtt = ">=2.1.0,<3.0.0"
 python-dotenv = ">=1.1.1,<2.0.0"
 pyyaml = ">=6.0,<7.0"
 typing-extensions = ">=4.7.0,<5.0.0"
@@ -1266,4 +1266,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "3e35c44d8862d7602f94d50ae8812ca747d46c083d52ddfd84af6cea5ec843b9"
+content-hash = "16bbcb42beb8516a49a89a868defc5cb7ce32c9b5047ffdc9ca3b05bd0eceb11"
