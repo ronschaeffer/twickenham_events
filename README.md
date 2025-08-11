@@ -29,12 +29,14 @@ Event scraping and MQTT publishing system for Twickenham Stadium that fetches up
 ### Setup
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/ronschaeffer/twickenham_events.git
    cd twickenham_events
    ```
 
 2. **Install dependencies:**
+
    ```bash
    poetry install
    ```
@@ -76,6 +78,7 @@ cp config/config.yaml.example config/config.yaml
 Key configuration sections:
 
 #### MQTT Settings
+
 ```yaml
 mqtt:
   enabled: true
@@ -89,6 +92,7 @@ mqtt:
 ```
 
 #### AI Event Processing
+
 ```yaml
 ai_processor:
   api_key: "${GEMINI_API_KEY}"
@@ -101,6 +105,7 @@ ai_processor:
 ```
 
 #### Home Assistant Discovery
+
 ```yaml
 home_assistant:
   enabled: true
