@@ -131,3 +131,58 @@ parse_error_log.txt
 upcoming_events.json
 *.ics
 output/
+
+###############################
+# Project / Workspace Extras  #
+###############################
+# Local archives & transient workspace artifacts
+.archive/
+.workspace/
+
+# Tool caches beyond base template
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.cache/
+
+# Coverage & reports (ensure all variants ignored)
+coverage.xml
+*.coverage
+*.lcov
+htmlcov/
+
+# Build outputs (redundant with earlier but explicit for clarity)
+dist/
+build/
+*.egg-info/
+
+# Environment / secrets (extended patterns)
+.env.local
+.env.*.local
+.envrc
+.python-version
+
+# Editor / IDE specifics
+.vscode/
+.idea/
+
+# Logs & temp
+*.log
+*.tmp
+*.swp
+*.bak
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Config variants that should stay local
+config/*.local.yaml
+config/*.override.yaml
+config/*.secrets.yaml
+
+# Do NOT ignore example configs (keep tracked)
+!config/example*.yaml
+
+# End standardized additions
