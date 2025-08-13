@@ -9,9 +9,11 @@ scraping:
 app:
   unique_id_prefix: "twickenham_events"
   name: "Twickenham Events"
-  manufacturer: "Ron Schaeffer"
-  model: "Event Scraper v1.0"
+  manufacturer: "ronschaeffer" # Default manufacturer (was "Ron Schaeffer")
+  model: "Twick Events" # Simplified model name (was "Event Scraper v1.0")
   sw_version: "0.1.0"
+  # Public project / repository URL (used in discovery origin block 'o.url')
+  url: "https://github.com/ronschaeffer/twickenham_events"
 
 # Rules for determining when an event is over
 event_rules:
@@ -43,6 +45,7 @@ mqtt:
     next_day_summary: "twickenham_events/events/next_day_summary"
     all_upcoming: "twickenham_events/events/all_upcoming"
     status: "twickenham_events/status"
+  today: "twickenham_events/events/today" # Count + attributes for today's events
 
   # Last Will and Testament - Published when client disconnects unexpectedly
   last_will:
@@ -55,7 +58,6 @@ mqtt:
 home_assistant:
   enabled: true
   discovery_prefix: "homeassistant" # Default Home Assistant discovery topic
-  discovery_config: "config/ha_discovery.yaml" # Path to HA discovery configuration
 
 # ICS Calendar Export
 calendar:

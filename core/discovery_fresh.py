@@ -56,7 +56,7 @@ def publish_twickenham_discovery(config: Config, publisher: MQTTPublisher):
         "device": device_info,
         "state_topic": "twickenham_events/events/all_upcoming",
         "json_attributes_topic": "twickenham_events/events/all_upcoming",
-        "value_template": "{{ value_json.events | count }}",
+        "value_template": "{{ value_json.count }}",
         "json_attributes_template": "{{ value_json | tojson }}",
         "icon": "mdi:calendar-multiple",
         "unit_of_measurement": "events",
@@ -76,7 +76,7 @@ def publish_twickenham_discovery(config: Config, publisher: MQTTPublisher):
         "device": device_info,
         "state_topic": "twickenham_events/events/next",
         "json_attributes_topic": "twickenham_events/events/next",
-        "value_template": "{{ value_json.event.fixture if value_json.event else 'None' }}",
+        "value_template": "{{ value_json.fixture if value_json.fixture else 'None' }}",
         "json_attributes_template": "{{ value_json | tojson }}",
         "icon": "mdi:calendar-star",
     }

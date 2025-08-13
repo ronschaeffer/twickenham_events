@@ -309,35 +309,27 @@ class EventScraper:
                 self.error_log.append(f"AI processor initialization failed: {e}")
 
         today = datetime.now().date()
-        summarized_by_date = {}
+        summarized_by_date: dict[str, dict[str, Any]] = {}
 
         for event in raw_events:
             event_date_str = self.normalize_date_range(event["date"])
             if not event_date_str:
                 self.error_log.append(f"Could not parse date: {event['date']}")
                 continue
-
             try:
                 event_date = datetime.strptime(event_date_str, "%Y-%m-%d").date()
             except ValueError:
                 self.error_log.append(f"Invalid date format: {event_date_str}")
                 continue
-
             if event_date < today:
                 continue
-
             event_date_iso = event_date.isoformat()
-            if event_date_iso not in summarized_by_date:
-                summarized_by_date[event_date_iso] = {
-                    "date": event_date_iso,
-                    "events": [],
-                    "earliest_start": None,
-                }
-
+            day_bucket = summarized_by_date.setdefault(
+                event_date_iso,
+                {"date": event_date_iso, "events": [], "earliest_start": None},
+            )
             start_times = self.normalize_time(event.get("time"))
             crowd_size = self.validate_crowd_size(event.get("crowd"))
-
-            # Get shortened name for the fixture
             fixture_name = event["title"]
             short_name = fixture_name
             if processor:
@@ -347,60 +339,93 @@ class EventScraper:
                     self.error_log.append(
                         f"AI shortening failed for '{fixture_name}': {e}"
                     )
-
             if start_times:
-                for time in start_times:
-                    event_data = {
+                for st in start_times:
+                    ev = {
                         "fixture": fixture_name,
-                        "start_time": time,
+                        "start_time": st,
                         "crowd": crowd_size,
+                        "date": event_date_iso,
                     }
-                    # Add short name if different from original
                     if short_name != fixture_name:
-                        event_data["fixture_short"] = short_name
-                    summarized_by_date[event_date_iso]["events"].append(event_data)
+                        ev["fixture_short"] = short_name
+                    day_bucket["events"].append(ev)
             else:
-                # Handle events with no specific start time (TBC)
-                event_data = {
+                ev = {
                     "fixture": fixture_name,
                     "start_time": None,
                     "crowd": crowd_size,
+                    "date": event_date_iso,
                 }
-                # Add short name if different from original
                 if short_name != fixture_name:
-                    event_data["fixture_short"] = short_name
-                summarized_by_date[event_date_iso]["events"].append(event_data)
+                    ev["fixture_short"] = short_name
+                day_bucket["events"].append(ev)
 
-        # Determine the earliest start time for each day and add event counts
         for date_summary in summarized_by_date.values():
-            # Sort events within the day by start_time
             date_summary["events"].sort(key=lambda x: x.get("start_time") or "23:59")
-
-            # Add event_index and event_count to each event
-            total_events = len(date_summary["events"])
-            for i, event in enumerate(date_summary["events"]):
-                event["event_index"] = i + 1
-                event["event_count"] = total_events
-
-            start_times = [
-                e.get("start_time")
-                for e in date_summary["events"]
-                if e.get("start_time")
+            total = len(date_summary["events"])
+            for idx, ev in enumerate(date_summary["events"], start=1):
+                ev["event_index"] = idx
+                ev["event_count"] = total
+            starts = [
+                e["start_time"] for e in date_summary["events"] if e.get("start_time")
             ]
-            if start_times:
-                date_summary["earliest_start"] = min(start_times)
-
+            if starts:
+                date_summary["earliest_start"] = min(starts)
         return sorted(summarized_by_date.values(), key=lambda x: x["date"])
 
     def find_next_event_and_summary(
         self, summarized_events: list[dict[str, Any]]
     ) -> tuple[Optional[dict], Optional[dict]]:
-        """
-        Finds the current or next upcoming event and a summary for that day.
-        An event is considered "over" based on rules in the config.
-        """
+        """Find the next upcoming event and its day summary."""
         now = datetime.now()
         today = now.date()
+        cutoff_str = self.config.get("event_rules.end_of_day_cutoff", "23:00")
+        delay_hours = self.config.get("event_rules.next_event_delay_hours", 1)
+        try:
+            cutoff_time = datetime.strptime(cutoff_str, "%H:%M").time()
+        except ValueError:
+            cutoff_time = time_obj(23, 0)
+            self.error_log.append(
+                f"Invalid cutoff time format '{cutoff_str}', defaulting to 23:00."
+            )
+        future_days = [
+            d
+            for d in summarized_events
+            if datetime.strptime(d["date"], "%Y-%m-%d").date() >= today
+        ]
+        if not future_days:
+            return None, None
+        future_days.sort(key=lambda d: (d["date"], d.get("earliest_start") or "23:59"))
+        for day_summary in future_days:
+            day_date = datetime.strptime(day_summary["date"], "%Y-%m-%d").date()
+            if day_date > today:
+                return day_summary["events"][0], day_summary
+            if day_date == today:
+                events_today = day_summary["events"]
+                if now.time() >= cutoff_time:
+                    continue
+                for idx, ev in enumerate(events_today):
+                    st_str = ev.get("start_time")
+                    if not st_str:
+                        return ev, day_summary
+                    try:
+                        st = datetime.strptime(st_str, "%H:%M").time()
+                    except ValueError:
+                        continue
+                    is_over = False
+                    if idx + 1 < len(events_today) and (
+                        now.time()
+                        >= (
+                            datetime.combine(date.today(), st)
+                            + timedelta(hours=delay_hours)
+                        ).time()
+                    ):
+                        is_over = True
+                    if not is_over:
+                        return ev, day_summary
+                continue
+        return None, None
 
         # Get rules from config, with defaults
         cutoff_str = self.config.get("event_rules.end_of_day_cutoff", "23:00")

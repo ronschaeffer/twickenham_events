@@ -476,36 +476,80 @@ def find_next_event_and_summary(
     for _i, event_day in enumerate(future_or_current_events):
         event_date = datetime.strptime(event_day["date"], "%Y-%m-%d").date()
 
-        # If the event day is in the future, it's the one we want
+        # Detect shape: day-summary (has 'events') vs flat event row
+        is_day_summary = isinstance(event_day, dict) and "events" in event_day
+
+        if not is_day_summary:
+            # Treat single flat event as its own day summary wrapper
+            single_event = event_day
+            # If future date return immediately
+            if event_date > today:
+                return single_event, {
+                    "date": single_event["date"],
+                    "events": [single_event],
+                }
+            if event_date == today:
+                # Determine if event is still current based on start_time + delay
+                start_time_str = single_event.get("start_time") or single_event.get(
+                    "start"
+                )
+                if not start_time_str:
+                    return single_event, {
+                        "date": single_event["date"],
+                        "events": [single_event],
+                    }
+                try:
+                    start_time = datetime.strptime(
+                        start_time_str.split(" & ")[0], "%H:%M"
+                    ).time()
+                except ValueError:
+                    # Invalid time -> consider it current until cutoff
+                    return single_event, {
+                        "date": single_event["date"],
+                        "events": [single_event],
+                    }
+                # If still within delay window consider current
+                if (
+                    now.time()
+                    < (
+                        datetime.combine(date.today(), start_time)
+                        + timedelta(hours=delay_hours)
+                    ).time()
+                ):
+                    return single_event, {
+                        "date": single_event["date"],
+                        "events": [single_event],
+                    }
+                # Otherwise continue loop to look for next
+            continue
+
+        # Day-summary logic below
         if event_date > today:
-            return event_day["events"][0], event_day
+            # Safe guard: if 'events' is empty skip
+            day_events = event_day.get("events") or []
+            if not day_events:
+                continue
+            return day_events[0], event_day
 
-        # If the event day is today, we need to apply the new logic
         if event_date == today:
-            # Sort today's individual events by start time
-            sorted_events_today = event_day["events"]
+            day_events = event_day.get("events") or []
+            if not day_events:
+                continue
+            sorted_events_today = day_events
 
-            # Check if we are past the end-of-day cutoff time
             if now.time() >= cutoff_time:
-                # If so, all of today's events are over. Look for the next day's event.
                 continue
 
             for j, event_item in enumerate(sorted_events_today):
-                start_time_str = event_item.get("start_time")
+                start_time_str = event_item.get("start_time") or event_item.get("start")
                 if not start_time_str:
-                    # If no start time, it can't be determined to be "over" until cutoff, so it's the next one
                     return event_item, event_day
-
-                # Handle multiple times, e.g., "15:00 & 18:00", take the earliest
-                earliest_start_str = start_time_str
+                earliest_start_str = start_time_str.split(" & ")[0]
                 try:
                     start_time = datetime.strptime(earliest_start_str, "%H:%M").time()
                 except ValueError:
-                    continue  # Skip if time is invalid
-
-                # Check if the event is over
+                    continue
                 is_over = False
-                # Rule 1: Is there a subsequent event on the same day?
                 if j + 1 < len(sorted_events_today) and (
                     now.time()
                     >= (
@@ -514,8 +558,6 @@ def find_next_event_and_summary(
                     ).time()
                 ):
                     is_over = True
-
-                # If not over by the delay rule, it's our current/next event
                 if not is_over:
                     return event_item, event_day
 

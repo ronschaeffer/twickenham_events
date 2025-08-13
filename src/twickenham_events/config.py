@@ -8,19 +8,39 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
+from dotenv import load_dotenv
 import yaml
+
+# Lazy one-time .env loading flag
+_ENV_LOADED = False
+
+
+def _load_env_once():
+    global _ENV_LOADED
+    if _ENV_LOADED:
+        return
+    # Prefer project root .env if present
+    project_root = Path(__file__).parent.parent.parent
+    env_path = project_root / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+    else:  # fallback to default search (current working dir)
+        load_dotenv()
+    _ENV_LOADED = True
 
 
 class Config:
     """Configuration manager with validation and defaults."""
 
     def __init__(self, config_data: dict):
+        _load_env_once()
         """Initialize configuration from dictionary."""
         self._data = config_data
         self.config_path = None  # Will be set by from_file or from_defaults
 
     @classmethod
     def from_file(cls, config_path: str) -> "Config":
+        _load_env_once()
         """Load configuration from YAML file."""
         path = Path(config_path)
 
@@ -41,12 +61,18 @@ class Config:
 
     @classmethod
     def from_defaults(cls) -> "Config":
+        _load_env_once()
         """Create configuration with default values."""
         defaults = {
             "scraping": {
                 "url": "https://www.twickenham-stadium.com/fixtures-and-events",
                 "timeout": 30,
                 "retries": 3,
+            },
+            "service": {
+                "interval_seconds": 14400,  # 4 hours
+                "enable_buttons": True,
+                "discovery_prefix": "homeassistant",
             },
             "mqtt": {
                 "enabled": False,
@@ -148,12 +174,39 @@ class Config:
     @property
     def mqtt_broker(self) -> str:
         """Get MQTT broker."""
-        return self.get("mqtt.broker_url", "localhost")
+        # Support both new style (broker_url) and legacy (broker) keys, plus env overrides.
+        primary = self.get("mqtt.broker_url", None)
+        legacy = self.get("mqtt.broker", None)
+        val = primary or legacy or "localhost"
+        # Handle unexpanded ${VAR} placeholders by falling back to legacy or default
+        if isinstance(val, str) and val.startswith("${"):
+            val = legacy if legacy and not str(legacy).startswith("${") else "localhost"
+        return val  # type: ignore[return-value]
 
     @property
     def mqtt_port(self) -> int:
         """Get MQTT port."""
-        return self.get("mqtt.broker_port", 1883)
+        # Support both new style (broker_port) and legacy (port) keys.
+        primary = self.get("mqtt.broker_port", None)
+        legacy = self.get("mqtt.port", None)
+        val = primary if primary is not None else legacy
+        if val is None:
+            return 1883
+        if isinstance(val, str):
+            if val.startswith("${") or not val.strip():
+                # Try legacy if primary was placeholder
+                if legacy and not str(legacy).startswith("${"):
+                    val = legacy
+                else:
+                    return 1883
+            try:
+                return int(val)
+            except ValueError:
+                return 1883
+        try:
+            return int(val)  # type: ignore[arg-type]
+        except Exception:
+            return 1883
 
     @property
     def mqtt_tls(self) -> bool:
@@ -220,22 +273,41 @@ class Config:
         """Get web server port."""
         return self.get("web_server.port", 8080)
 
+    # Service (daemon) settings
+    @property
+    def service_interval_seconds(self) -> int:
+        return int(self.get("service.interval_seconds", 14400))
+
+    @property
+    def service_buttons_enabled(self) -> bool:
+        return self.get("service.enable_buttons", True)
+
+    @property
+    def service_discovery_prefix(self) -> str:
+        return self.get("service.discovery_prefix", "homeassistant")
+
     def get_mqtt_topics(self) -> dict:
         """Get MQTT topics configuration."""
         return self.get("mqtt.topics", {})
 
     def get_mqtt_config(self) -> dict:
-        """Get complete MQTT configuration for client."""
-        config = {
+        """Get complete MQTT configuration for MQTTPublisher (ha-mqtt-publisher)."""
+        cfg = {
             "broker_url": self.mqtt_broker,
             "broker_port": self.mqtt_port,
             "client_id": self.mqtt_client_id,
-            "tls": self.mqtt_tls,
+            "security": self.get("mqtt.security", "none"),
+            "max_retries": self.get("mqtt.max_retries", 3),
         }
-
-        if self.mqtt_username:
-            config["username"] = self.mqtt_username
-        if self.mqtt_password:
-            config["password"] = self.mqtt_password
-
-        return config
+        tls_cfg = self.get("mqtt.tls")
+        if isinstance(tls_cfg, dict):  # allow dict TLS settings
+            cfg["tls"] = tls_cfg
+        if cfg["security"] == "username" and self.mqtt_username and self.mqtt_password:
+            cfg["auth"] = {
+                "username": self.mqtt_username,
+                "password": self.mqtt_password,
+            }
+        last_will = self.get("mqtt.last_will")
+        if isinstance(last_will, dict):
+            cfg["last_will"] = last_will
+        return cfg

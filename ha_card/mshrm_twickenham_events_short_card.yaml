@@ -1,0 +1,90 @@
+type: custom:mushroom-template-card
+entity: sensor.twickenham_events_next
+primary: >-
+  {% set status_attr = state_attr('sensor.twickenham_events_status','status') %}
+  {% set next_date = state_attr('sensor.twickenham_events_next','date') %}
+  {% set fixture_short = state_attr('sensor.twickenham_events_next','fixture_short') %}
+  {% set emoji = state_attr('sensor.twickenham_events_next','emoji') %}
+  {% set fixture = states('sensor.twickenham_events_next') %}
+  {% if status_attr == 'error' %}
+    Twick Stadium
+  {% elif status_attr == 'no_events' %}
+    Twick Stadium
+  {% elif not next_date %}
+    Twick Stadium
+  {% else %}
+    {% set display_name = (fixture_short if fixture_short else fixture) %}
+    {{ display_name }}{% if emoji %} {{ emoji }}{% endif %}
+  {% endif %}
+secondary: >-
+  {% set status_attr = state_attr('sensor.twickenham_events_status','status') %}
+  {% set next_date = state_attr('sensor.twickenham_events_next','date') %}
+  {% set start_time = state_attr('sensor.twickenham_events_next','start_time') %}
+  {% set event_index = state_attr('sensor.twickenham_events_next','event_index') %}
+  {% set event_count = state_attr('sensor.twickenham_events_next','event_count') %}
+  {% if status_attr == 'error' %}
+    Check
+  {% elif status_attr == 'no_events' %}
+    No events
+  {% elif not next_date %}
+    Pending update
+  {% else %}
+    {% set event_date_str = next_date %}
+    {% if not event_date_str %}
+      Date TBC
+    {% else %}
+      {% set event_date = strptime(event_date_str, '%Y-%m-%d') %}
+      {% set today = now().date() %}
+      {% set days_diff = (event_date.date() - today).days %}
+      {% if days_diff == 0 %}
+        {% set day_text = start_time if start_time else 'Today' %}
+      {% elif 0 < days_diff <= 5 %}
+        {% set day_names = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+        {% set day_text = day_names[event_date.weekday()] %}
+        {% if start_time %}
+          {% set day_text = day_text ~ ' ' ~ start_time %}
+        {% endif %}
+      {% else %}
+        {% set day_text = event_date.strftime('%d %b') %}
+      {% endif %}
+      {% if event_count is defined and event_count|int > 1 %}
+        {{ day_text }} • {{ event_index }}/{{ event_count }}
+      {% else %}
+        {{ day_text }}
+      {% endif %}
+    {% endif %}
+  {% endif %}
+icon: >-
+  {% set status_attr = state_attr('sensor.twickenham_events_status','status') %}
+  {% if status_attr == 'error' %}
+    mdi:alert-circle
+  {% elif status_attr == 'no_events' %}
+    mdi:calendar-remove
+  {% else %}
+    mdi:stadium
+  {% endif %}
+icon_color: >-
+  {% set status = state_attr('sensor.twickenham_events_status','status') %}
+  {% set ds = state_attr('sensor.twickenham_events_next','date') %}
+  {% set color = 'grey' %}
+  {% if status == 'error' %}
+    {% set color = 'red' %}
+  {% elif status == 'no_events' %}
+    {% set color = 'amber' %}
+  {% elif ds %}
+    {% set d = strptime(ds, '%Y-%m-%d') %}
+    {% set days = (d.date() - now().date()).days %}
+    {% if days == 0 %}
+      {% set color = 'green' %}
+    {% elif days <= 5 %}
+      {% set color = 'blue' %}
+    {% elif days <= 14 %}
+      {% set color = 'teal' %}
+    {% else %}
+      {% set color = 'indigo' %}
+    {% endif %}
+  {% endif %}
+  {{ color | trim }}
+tap_action:
+  action: navigate
+  navigation_path: "#twickenham-event"

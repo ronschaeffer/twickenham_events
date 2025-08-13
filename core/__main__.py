@@ -332,17 +332,26 @@ def main():
     if summarized_events:
         for day in summarized_events:
             print(f"\n  \033[36m📅 Date: {day['date']}\033[0m")
-            for event in day["events"]:
-                # Type: ignore to suppress false positive type checking errors
+            # Support both modern day summary (with 'events' list) and legacy flat event dicts
+            events_iter = day.get("events") if isinstance(day, dict) else None  # type: ignore
+            if events_iter is None:
+                candidate = day if isinstance(day, dict) else {}
+                events_iter = (
+                    [candidate]
+                    if isinstance(candidate, dict) and "fixture" in candidate
+                    else []
+                )
+            for event in events_iter:
+                ev = event if isinstance(event, dict) else {}
                 print(
-                    f"    \033[37m-\033[0m \033[1mFixture:\033[0m      {event['fixture']}"
-                )  # type: ignore
+                    f"    \033[37m-\033[0m \033[1mFixture:\033[0m      {ev.get('fixture', 'UNKNOWN')}"
+                )
                 print(
-                    f"      \033[37mStart Time:\033[0m   \033[35m{event.get('start_time', 'TBC')}\033[0m"
-                )  # type: ignore
+                    f"      \033[37mStart Time:\033[0m   \033[35m{ev.get('start_time', 'TBC')}\033[0m"
+                )
                 print(
-                    f"      \033[37mCrowd:\033[0m        \033[34m{event.get('crowd', 'TBC')}\033[0m"
-                )  # type: ignore
+                    f"      \033[37mCrowd:\033[0m        \033[34m{ev.get('crowd', 'TBC')}\033[0m"
+                )
     else:
         print("  \033[31mNo upcoming events found.\033[0m")
     print("\n" + "\033[36m" + "=" * 50 + "\033[0m")

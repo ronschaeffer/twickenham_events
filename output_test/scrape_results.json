@@ -1,0 +1,214 @@
+{
+  "stats": {
+    "raw_events_count": 9,
+    "fetch_duration": 0.13,
+    "retry_attempts": 1,
+    "data_source": "live"
+  },
+  "raw_events": [
+    {
+      "date": "Saturday 14 June 2025",
+      "title": "Gallagher Premiership Final",
+      "time": "3pm",
+      "crowd": "82,000"
+    },
+    {
+      "date": "Saturday 21 June 2025",
+      "title": "England XV vs France XV and County finals",
+      "time": "Main match: 3.15pm\nAdditional matches:10am, 12 noon and 5.15pm",
+      "crowd": "25,000"
+    },
+    {
+      "date": "Saturday 27 September 2025",
+      "title": "Women's Rugby World Cup Final",
+      "time": "12.30 and 4pm (TBC)",
+      "crowd": "82,000"
+    },
+    {
+      "date": "Saturday 4 October 2025",
+      "title": "Argentina V South Africa",
+      "time": "TBC",
+      "crowd": "50-60,000"
+    },
+    {
+      "date": "Saturday 1 November 2025",
+      "title": "England v Australia",
+      "time": "3.10pm",
+      "crowd": "82,000"
+    },
+    {
+      "date": "Saturday 8 November 2025",
+      "title": "England vs Fiji",
+      "time": "5.40pm",
+      "crowd": "82,000"
+    },
+    {
+      "date": "Saturday 15 November 2025",
+      "title": "England vs New Zealand",
+      "time": "3.10pm",
+      "crowd": "82,000"
+    },
+    {
+      "date": "Sunday 23 November 2025",
+      "title": "England vs Argentina",
+      "time": "4.10pm",
+      "crowd": "82,000"
+    },
+    {
+      "date": "Saturday 20 December 2025",
+      "title": "Harlequins Big Game",
+      "time": "TBC",
+      "crowd": "75,000"
+    }
+  ],
+  "summarized_events": [
+    {
+      "date": "2025-09-27",
+      "events": [
+        {
+          "fixture": "Women's Rugby World Cup Final",
+          "start_time": "12:30",
+          "crowd": "82,000",
+          "date": "2025-09-27",
+          "fixture_short": "W RWC Final",
+          "event_index": 1,
+          "event_count": 2
+        },
+        {
+          "fixture": "Women's Rugby World Cup Final",
+          "start_time": "16:00",
+          "crowd": "82,000",
+          "date": "2025-09-27",
+          "fixture_short": "W RWC Final",
+          "event_index": 2,
+          "event_count": 2
+        }
+      ],
+      "earliest_start": "12:30"
+    },
+    {
+      "date": "2025-10-04",
+      "events": [
+        {
+          "fixture": "Argentina V South Africa",
+          "start_time": null,
+          "crowd": "60,000",
+          "date": "2025-10-04",
+          "fixture_short": "\ud83c\udde6\ud83c\uddf7 ARG V \ud83c\uddff\ud83c\udde6 RSA",
+          "event_index": 1,
+          "event_count": 1
+        }
+      ],
+      "earliest_start": null
+    },
+    {
+      "date": "2025-11-01",
+      "events": [
+        {
+          "fixture": "England v Australia",
+          "start_time": "15:10",
+          "crowd": "82,000",
+          "date": "2025-11-01",
+          "fixture_short": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f ENG v \ud83c\udde6\ud83c\uddfa AUS",
+          "event_index": 1,
+          "event_count": 1
+        }
+      ],
+      "earliest_start": "15:10"
+    },
+    {
+      "date": "2025-11-08",
+      "events": [
+        {
+          "fixture": "England vs Fiji",
+          "start_time": "17:40",
+          "crowd": "82,000",
+          "date": "2025-11-08",
+          "fixture_short": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f ENG v \ud83c\uddeb\ud83c\uddef FIJ",
+          "event_index": 1,
+          "event_count": 1
+        }
+      ],
+      "earliest_start": "17:40"
+    },
+    {
+      "date": "2025-11-15",
+      "events": [
+        {
+          "fixture": "England vs New Zealand",
+          "start_time": "15:10",
+          "crowd": "82,000",
+          "date": "2025-11-15",
+          "fixture_short": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f ENG v \ud83c\uddf3\ud83c\uddff NZ",
+          "event_index": 1,
+          "event_count": 1
+        }
+      ],
+      "earliest_start": "15:10"
+    },
+    {
+      "date": "2025-11-23",
+      "events": [
+        {
+          "fixture": "England vs Argentina",
+          "start_time": "16:10",
+          "crowd": "82,000",
+          "date": "2025-11-23",
+          "fixture_short": "\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f ENG v \ud83c\udde6\ud83c\uddf7 ARG",
+          "event_index": 1,
+          "event_count": 1
+        }
+      ],
+      "earliest_start": "16:10"
+    },
+    {
+      "date": "2025-12-20",
+      "events": [
+        {
+          "fixture": "Harlequins Big Game",
+          "start_time": null,
+          "crowd": "75,000",
+          "date": "2025-12-20",
+          "fixture_short": "Quins Big Game",
+          "event_index": 1,
+          "event_count": 1
+        }
+      ],
+      "earliest_start": null
+    }
+  ],
+  "next_event": {
+    "fixture": "Women's Rugby World Cup Final",
+    "start_time": "12:30",
+    "crowd": "82,000",
+    "date": "2025-09-27",
+    "fixture_short": "W RWC Final",
+    "event_index": 1,
+    "event_count": 2
+  },
+  "next_day_summary": {
+    "date": "2025-09-27",
+    "events": [
+      {
+        "fixture": "Women's Rugby World Cup Final",
+        "start_time": "12:30",
+        "crowd": "82,000",
+        "date": "2025-09-27",
+        "fixture_short": "W RWC Final",
+        "event_index": 1,
+        "event_count": 2
+      },
+      {
+        "fixture": "Women's Rugby World Cup Final",
+        "start_time": "16:00",
+        "crowd": "82,000",
+        "date": "2025-09-27",
+        "fixture_short": "W RWC Final",
+        "event_index": 2,
+        "event_count": 2
+      }
+    ],
+    "earliest_start": "12:30"
+  },
+  "errors": []
+}

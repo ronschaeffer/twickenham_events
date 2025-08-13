@@ -1,0 +1,21 @@
+type: markdown
+title: Upcoming Events
+content: |
+  {% set root = state_attr('sensor.twickenham_events_upcoming', 'events_json') or {} %}
+  {% set months = root.get('by_month', []) %}
+
+  {% if months %}
+  {% for m in months %}
+  ### 📅 {{ m.label }}
+
+  {% for d in m.days %}
+  **{{ d.label }}**
+  {% for ev in d.events %}
+  - {% if ev.start_time %}{{ ev.start_time }}  {% endif %}{{ ev.emoji or '📅' }} {{ ev.fixture }}{% if ev.crowd %} • {{ ev.crowd }}{% endif %}
+  {% endfor %}
+
+  {% endfor %}
+  {% endfor %}
+  {% else %}
+  No upcoming events.
+  {% endif %}

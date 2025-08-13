@@ -11,6 +11,8 @@ import json
 import logging
 from pathlib import Path
 import sys
+import time
+from typing import Any
 
 from .ai_processor import AIProcessor
 from .calendar_generator import CalendarGenerator
@@ -104,6 +106,12 @@ Examples:
         "--limit", type=int, default=None, help="maximum number of events to show"
     )
     list_parser.add_argument(
+        "--format",
+        choices=["detailed", "simple", "json"],
+        default="detailed",
+        help="output format: detailed (default), simple, or json",
+    )
+    list_parser.add_argument(
         "--output",
         help="output directory for results (files will be created within this directory)",
     )
@@ -120,6 +128,22 @@ Examples:
     # Status command
     subparsers.add_parser("status", help="show configuration and system status")
 
+    # Service (daemon) command
+    service_parser = subparsers.add_parser(
+        "service", help="run continuous service (periodic scrape + MQTT)"
+    )
+    service_parser.add_argument(
+        "--once", action="store_true", help="run a single cycle then exit"
+    )
+    service_parser.add_argument(
+        "--interval", type=int, help="override scrape interval seconds"
+    )
+    service_parser.add_argument(
+        "--cleanup-discovery",
+        action="store_true",
+        help="cleanup legacy/duplicate discovery entities and exit",
+    )
+
     # Cache command group
     cache_parser = subparsers.add_parser("cache", help="manage AI shortening cache")
     cache_subparsers = cache_parser.add_subparsers(
@@ -129,6 +153,14 @@ Examples:
     cache_subparsers.add_parser("stats", help="show cache statistics")
     cache_subparsers.add_parser(
         "reprocess", help="reprocess cached items with current configuration"
+    )
+
+    # Commands (registry) introspection
+    commands_parser = subparsers.add_parser(
+        "commands", help="print supported command registry (discovery metadata)"
+    )
+    commands_parser.add_argument(
+        "--json", action="store_true", help="output raw JSON instead of pretty table"
     )
 
     return parser
@@ -160,7 +192,7 @@ def cmd_scrape(args):
 
     from .config import Config
 
-    print("�️ \033[1mTwickenham Events Scraper\033[0m")
+    print("🏉 \033[1mTwickenham Events Scraper\033[0m")
     print("=" * 50)
 
     # Load configuration
@@ -218,7 +250,8 @@ def cmd_scrape(args):
 
         if next_event:
             print("\n🎯 \033[1mNext Event:\033[0m")
-            print(f"   📅 Date: {next_day_summary['date']}")
+            if next_day_summary:
+                print(f"   📅 Date: {next_day_summary['date']}")
             print(f"   🏆 Event: {next_event['fixture']}")
             if next_event.get("fixture_short"):
                 print(f"   📝 Short: {next_event['fixture_short']}")
@@ -227,14 +260,15 @@ def cmd_scrape(args):
             if next_event.get("crowd"):
                 print(f"   👥 Crowd: {next_event['crowd']}")
 
-        # Save to file if requested
+        # Save to file(s) if requested
         if args.output:
             from pathlib import Path
 
             output_dir = Path(args.output)
             output_dir.mkdir(exist_ok=True)
-            output_file = output_dir / "scrape_results.json"
 
+            # 1. Rich scrape results bundle (diagnostics + summaries)
+            results_file = output_dir / "scrape_results.json"
             output_data = {
                 "stats": stats,
                 "raw_events": raw_events,
@@ -243,10 +277,53 @@ def cmd_scrape(args):
                 "next_day_summary": next_day_summary,
                 "errors": scraper.error_log,
             }
-
-            with open(output_file, "w") as f:
+            with open(results_file, "w", encoding="utf-8") as f:
                 json.dump(output_data, f, indent=2, default=str)
-            print(f"\n💾 Results saved to: {output_file}")
+
+            # 2. Flat upcoming events file expected by other commands (e.g. mqtt)
+            #    Schema upgraded for parity with MQTT all_upcoming topic:
+            #      {
+            #         "events": [...],
+            #         "count": <int>,
+            #         "generated_ts": <epoch>,
+            #         "last_updated": <iso8601>
+            #      }
+            #    summarized_events' inner events already include date (post-refactor),
+            #    so we can flatten directly without injection logic.
+            flat_events: list[dict[str, Any]] = []
+            for day in summarized_events:
+                day_date = day.get("date")
+                for ev in day.get("events", []):
+                    # Ensure date present
+                    base_ev = ev
+                    if ("date" not in base_ev) and day_date:
+                        base_ev = base_ev.copy()
+                        base_ev["date"] = day_date
+                    # Remove any legacy/display-only title to match MQTT schema
+                    if "title" in base_ev:
+                        if base_ev is ev:
+                            base_ev = base_ev.copy()
+                        base_ev.pop("title", None)
+                    flat_events.append(base_ev)
+            upcoming_file = output_dir / "upcoming_events.json"
+            with open(upcoming_file, "w", encoding="utf-8") as f:
+                now_epoch = int(time.time())
+                now_iso = datetime.now().isoformat()
+                json.dump(
+                    {
+                        "events": flat_events,
+                        "count": len(flat_events),
+                        "generated_ts": now_epoch,
+                        "last_updated": now_iso,
+                    },
+                    f,
+                    indent=2,
+                    default=str,
+                )
+
+            print(
+                f"\n💾 Results saved: {results_file.name} (detailed), {upcoming_file.name} (flat events: {len(flat_events)}) in {output_dir}"
+            )
 
         # Show errors if any
         if scraper.error_log:
@@ -539,7 +616,12 @@ def cmd_mqtt(args) -> int:
     if args.dry_run:
         print("🧪 \033[33mDRY RUN MODE\033[0m - Testing MQTT without publishing")
 
-    # First scrape
+    # First scrape (force writing to our resolved output_dir to avoid stale file reads)
+    try:
+        args.output = str(output_dir)
+    except Exception:
+        # In case args is a frozen namespace, fall back silently
+        pass
     scrape_result = cmd_scrape(args)
     if scrape_result != 0:
         return scrape_result
@@ -561,11 +643,53 @@ def cmd_mqtt(args) -> int:
         # Initialize AI processor for icon detection
         ai_processor = AIProcessor(config)
 
+        # Show effective MQTT configuration (masked password) so user can verify real env/config values
+        try:
+            eff_cfg = config.get_mqtt_config()
+            auth_cfg = eff_cfg.get("auth") or {}
+            user_display = auth_cfg.get("username") or "<none>"
+            pwd_display = "***" if auth_cfg.get("password") else "<none>"
+            print(
+                f"Using MQTT config: broker={eff_cfg.get('broker_url')} port={eff_cfg.get('broker_port')} "
+                f"security={eff_cfg.get('security')} user={user_display} password={pwd_display} client_id={eff_cfg.get('client_id')}"
+            )
+        except Exception as _cfg_e:  # pragma: no cover - defensive
+            print(f"⚠️  Unable to display MQTT config summary: {_cfg_e}")
+
         # Publish to MQTT
         mqtt_client = MQTTClient(config)
         mqtt_client.publish_events(events, ai_processor)
+        # Publish unified device-level discovery (and cleanup legacy) on demand for mqtt command
+        try:
+            from ha_mqtt_publisher.publisher import MQTTPublisher  # type: ignore
 
-        print("✅ Successfully published to MQTT")
+            from .discovery_helper import (
+                AVAILABILITY_TOPIC,
+                publish_device_level_discovery,
+            )
+            from .service_support import AvailabilityPublisher
+
+            cfg = config.get_mqtt_config()
+            with MQTTPublisher(**cfg) as publisher:
+                publish_device_level_discovery(
+                    publisher,
+                    config,
+                    availability_topic=AVAILABILITY_TOPIC,
+                    include_event_count_component=True,
+                )
+                # Immediately mark device online for HA availability
+                try:
+                    AvailabilityPublisher(publisher, AVAILABILITY_TOPIC).online()
+                except Exception:
+                    pass
+            print("📡 Published device discovery config (cmps)")
+        except Exception as e:  # pragma: no cover
+            if args.dry_run:
+                print(f"(dry-run) would publish device discovery: {e}")
+            else:
+                print(f"⚠️  Device discovery publish skipped: {e}")
+
+        print("✅ Successfully published to MQTT (events + discovery)")
         return 0
 
     except Exception as e:
@@ -782,6 +906,333 @@ def cmd_cache(config: Config, args) -> int:
     return 0
 
 
+def cmd_service(config: Config, args) -> int:
+    """Run continuous service loop with periodic scraping and MQTT publishing.
+
+    Command topics:
+      twickenham_events/cmd/refresh -> immediate scrape/publish
+      twickenham_events/cmd/clear_cache -> clear AI cache (if enabled)
+    Interval defaults to config.service_interval_seconds (4h default) unless --interval provided.
+    """
+    if not config.mqtt_enabled:
+        print("❌ MQTT must be enabled for service mode")
+        return 1
+
+    import signal
+    import threading
+    import time
+
+    import paho.mqtt.client as mqtt
+
+    from .discovery_helper import (
+        AVAILABILITY_TOPIC,
+        publish_device_level_discovery,
+    )
+    from .service_support import AvailabilityPublisher, install_global_signal_handler
+
+    interval = args.interval or config.service_interval_seconds
+    scraper = EventScraper(config)
+    ai_processor = AIProcessor(config) if config.ai_enabled else None
+    mqtt_pub = MQTTClient(config)
+
+    last_run = 0.0
+    lock = threading.Lock()
+    stop_flag = {"stop": False}
+
+    availability = AvailabilityPublisher(None)  # placeholder, set after client creation
+
+    last_events_count = {"count": None}
+
+    def run_cycle(trigger: str, command_meta: dict | None = None) -> dict[str, Any]:
+        nonlocal last_run
+        with lock:
+            try:
+                url = config.scraping_url
+                raw_events, stats = scraper.scrape_events(url)
+                summarized = scraper.summarize_events(raw_events)
+                from .flatten import flatten_with_date
+
+                flat = flatten_with_date(summarized)
+                run_ts = time.time()
+                last_run = run_ts
+                from .service_cycle import build_extra_status
+
+                extra_status = build_extra_status(
+                    scraper=scraper,
+                    flat_events=flat,
+                    trigger=trigger,
+                    interval=interval,
+                    run_ts=run_ts,
+                )
+                if command_meta:
+                    extra_status["last_command"] = command_meta
+                prev = last_events_count["count"]
+                # Update last events count (tracking for no-change detection)
+                last_events_count["count"] = len(flat)  # type: ignore[assignment]
+                no_changes = prev is not None and prev == len(flat)
+                mqtt_pub.publish_events(flat, ai_processor, extra_status=extra_status)
+                logging.info(
+                    "service cycle completed trigger=%s events=%s", trigger, len(flat)
+                )
+                return {"events": len(flat), "no_changes": no_changes}
+            except Exception as e:  # pragma: no cover
+                logging.error("service cycle failed: %s", e)
+                raise
+
+    client_id = f"{config.mqtt_client_id}-svc"
+    paho_client = mqtt.Client(client_id=client_id)
+    availability._client = paho_client  # inject real client
+
+    # Apply auth if configured (mirrors publisher settings)
+    if (
+        config.get("mqtt.security") == "username"
+        and config.mqtt_username
+        and config.mqtt_password
+    ):
+        try:
+            paho_client.username_pw_set(config.mqtt_username, config.mqtt_password)
+        except Exception as e:  # pragma: no cover
+            logging.warning("Failed setting MQTT auth on command client: %s", e)
+
+    # Configure Last Will and Testament (LWT)
+    try:
+        lw_cfg = config.get("mqtt.last_will")
+        if isinstance(lw_cfg, dict) and lw_cfg.get("topic"):
+            will_topic = str(lw_cfg.get("topic"))
+            will_payload = lw_cfg.get("payload", '{"status":"offline"}')
+            will_qos = int(lw_cfg.get("qos", 1))
+            will_retain = bool(lw_cfg.get("retain", True))
+        else:
+            will_topic = availability.topic
+            will_payload = "offline"
+            will_qos = 1
+            will_retain = True
+        paho_client.will_set(will_topic, will_payload, qos=will_qos, retain=will_retain)
+        logging.debug(
+            "configured_lwt topic=%s qos=%s retain=%s fallback=%s",
+            will_topic,
+            will_qos,
+            will_retain,
+            not (isinstance(lw_cfg, dict) and lw_cfg.get("topic")),
+        )
+    except Exception as e:  # pragma: no cover
+        logging.warning("Failed configuring MQTT LWT: %s", e)
+
+    last_connect_code = {"code": None}
+
+    def shutdown_sequence():  # pragma: no cover
+        try:
+            availability.offline()
+        finally:
+            stop_flag["stop"] = True
+
+    install_global_signal_handler(shutdown_sequence, (signal.SIGTERM,))
+
+    from .command_processor import CommandProcessor
+    from .plugin_loader import load_command_plugins
+
+    ACK_TOPIC = "twickenham_events/commands/ack"
+    RESULT_TOPIC = "twickenham_events/commands/result"
+    processor = CommandProcessor(paho_client, ACK_TOPIC, RESULT_TOPIC)
+    # Auto publish registry to retained discovery topic on every registration
+    processor.enable_auto_registry_publish("twickenham_events/commands/registry")
+    # Load dynamic command plugins (non-fatal if missing)
+    try:
+        loaded_plugins = load_command_plugins(processor)
+        if loaded_plugins:
+            logging.info(
+                "Loaded %d command plugins: %s",
+                len(loaded_plugins),
+                ", ".join(loaded_plugins),
+            )
+    except Exception as e:  # pragma: no cover
+        logging.debug("Plugin loading failed: %s", e)
+
+    def refresh_executor(ctx: dict[str, Any]):
+        try:
+            meta = {
+                "id": ctx["id"],
+                "name": ctx["command"],
+                "requested_ts": ctx.get("requested_ts"),
+                "received_ts": ctx.get("received_ts"),
+            }
+            result = run_cycle("command", command_meta=meta)
+            events = result.get("events", 0)
+            if result.get("no_changes"):
+                details = f"events regenerated: {events} (no changes)"
+            else:
+                details = f"events regenerated: {events}"
+            return "success", details, {"events": events}
+        except Exception as e:  # pragma: no cover
+            return "fatal_error", f"refresh failed: {e}", {}
+
+    def clear_cache_executor(ctx: dict[str, Any]):
+        if not ai_processor:
+            return "validation_failed", "AI cache not enabled", {}
+        try:
+            ai_processor.clear_cache()
+            logging.info("AI cache cleared via command")
+            meta = {
+                "id": ctx["id"],
+                "name": ctx["command"],
+                "requested_ts": ctx.get("requested_ts"),
+                "received_ts": ctx.get("received_ts"),
+                "completed_ts": time.time(),
+            }
+            try:
+                mqtt_pub.publish_events(
+                    [], ai_processor, extra_status={"last_command": meta}
+                )
+            except Exception:  # pragma: no cover
+                pass
+            return "success", "AI cache cleared", {}
+        except Exception as e:  # pragma: no cover
+            return "fatal_error", f"cache clear failed: {e}", {}
+
+    processor.register(
+        "refresh",
+        refresh_executor,
+        description="Immediate scrape + publish",
+        outcome_codes=["success", "fatal_error", "busy"],
+        cooldown_seconds=0,
+        requires_ai=False,
+    )
+    processor.register(
+        "clear_cache",
+        clear_cache_executor,
+        description="Clear AI cache entries",
+        outcome_codes=["success", "validation_failed", "fatal_error", "busy"],
+        cooldown_seconds=0,
+        requires_ai=True,
+    )
+
+    def on_connect(client, userdata, flags, reason_code, properties=None):
+        if last_connect_code["code"] == reason_code:
+            return
+        last_connect_code["code"] = reason_code
+        if reason_code == 0:
+            logging.info("service connected rc=%s", reason_code)
+            client.subscribe("twickenham_events/cmd/#")
+            try:
+                for uid in (
+                    "tw_events_refresh",
+                    "tw_events_clear_cache",
+                    "twickenham_events_refresh",
+                    "twickenham_events_clear_cache",
+                ):
+                    btn_topic = f"{config.service_discovery_prefix}/button/{uid}/config"
+                    client.publish(btn_topic, "", retain=True)
+                publish_device_level_discovery(
+                    client,
+                    config,
+                    availability_topic=AVAILABILITY_TOPIC,
+                    include_event_count_component=False,
+                    migrate_from_per_entity=True,
+                )
+                # Publish command registry discovery (retained)
+                try:
+                    processor.publish_registry("twickenham_events/commands/registry")
+                    logging.info("Published command registry discovery")
+                except Exception as e:  # pragma: no cover
+                    logging.warning("Failed publishing command registry: %s", e)
+                availability.online()
+                logging.info(
+                    "Published device-level discovery (cmps) and set device online"
+                )
+            except Exception as e:  # pragma: no cover
+                logging.warning("Failed discovery/availability: %s", e)
+        else:
+            logging.error(
+                "service connect failed rc=%s (will not publish discovery)", reason_code
+            )
+
+    def on_message(client, userdata, msg):
+        try:
+            processor.handle_raw(msg.payload or b"")
+        except Exception as e:  # pragma: no cover
+            logging.error("command handling failure: %s", e)
+
+    paho_client.on_connect = on_connect
+    paho_client.on_message = on_message
+    try:
+        paho_client.connect(config.mqtt_broker, config.mqtt_port, keepalive=60)
+        paho_client.loop_start()
+    except Exception as e:
+        logging.error("cannot start MQTT command client: %s", e)
+        return 1
+
+    run_cycle("startup")
+    if args.once:
+        paho_client.loop_stop()
+        paho_client.disconnect()
+        return 0
+
+    print(
+        f"🚀 Service started interval={interval}s (refresh topic: twickenham_events/cmd/refresh)"
+    )
+    try:
+        while not stop_flag["stop"]:
+            if time.time() - last_run >= interval:
+                run_cycle("interval")
+            time.sleep(5)
+    except KeyboardInterrupt:  # pragma: no cover
+        print("Stopping service...")
+    finally:
+        availability.offline()
+        paho_client.loop_stop()
+        paho_client.disconnect()
+    return 0
+
+
+def cmd_commands(config: Config, args) -> int:
+    """Print command registry (mirrors service discovery) without connecting."""
+    from .command_processor import CommandProcessor
+
+    class _NoopClient:
+        def publish(self, *_, **__):
+            return True
+
+    proc = CommandProcessor(_NoopClient(), "", "")
+    proc.register(
+        "refresh",
+        lambda ctx: ("success", "noop", {}),
+        description="Immediate scrape + publish",
+        outcome_codes=["success", "fatal_error", "busy"],
+        cooldown_seconds=0,
+        requires_ai=False,
+    )
+    proc.register(
+        "clear_cache",
+        lambda ctx: ("success", "noop", {}),
+        description="Clear AI cache entries",
+        outcome_codes=["success", "validation_failed", "fatal_error", "busy"],
+        cooldown_seconds=0,
+        requires_ai=True,
+    )
+    payload = proc.build_registry_payload()
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2))
+    else:
+        print(
+            f"\n📋 Supported Commands (registry v{payload.get('registry_version', 1)})"
+        )
+        for cmd in payload.get("commands", []):
+            print(f"  • {cmd['name']}: {cmd.get('description', '')}")
+            extras = []
+            if "requires_ai" in cmd:
+                extras.append(f"requires_ai={cmd['requires_ai']}")
+            if "cooldown_seconds" in cmd:
+                extras.append(f"cooldown={cmd['cooldown_seconds']}s")
+            if extras:
+                print("     (" + ", ".join(extras) + ")")
+            print(
+                "     outcomes="
+                + ",".join(cmd.get("outcome_codes", []))
+                + f" qos={cmd.get('qos_recommended')}"
+            )
+    return 0
+
+
 def main() -> int:
     """Main CLI entry point."""
     parser = create_parser()
@@ -821,6 +1272,10 @@ def main() -> int:
             return cmd_status(config, args)
         elif args.command == "cache":
             return cmd_cache(config, args)
+        elif args.command == "service":
+            return cmd_service(config, args)
+        elif args.command == "commands":
+            return cmd_commands(config, args)
         else:
             print(f"❌ Unknown command: {args.command}")
             return 1

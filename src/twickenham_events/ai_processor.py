@@ -153,8 +153,8 @@ Respond with ONLY the category word (trophy, rugby, concert, or generic), nothin
             r"\b(lions|all blacks|wallabies|springboks|pumas)\b",
             r"\b(internationals?|test match|championship)\b",
             r"\b(guinness|championship|premiership).*rugby\b",
-            r"\b(harlequins|leicester|saracens|northampton|bath|gloucester|exeter|bristol|sale|wasps)\b.*\b(v|vs|versus)\b",
-            r"\b(quins|tigers|saints|chiefs|sharks)\b.*\b(v|vs|versus)\b",
+            r"\b(quins|harlequins|leicester|saracens|northampton|bath|gloucester|exeter|bristol|sale|wasps)\b.*\b(v|vs|versus)\b",
+            r"\b(tigers|saints|chiefs|sharks)\b.*\b(v|vs|versus)\b",
         ]
 
         # Concert keywords
