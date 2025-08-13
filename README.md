@@ -1,5 +1,227 @@
 # Twickenham Events
 
+## Table of Contents
+
+- Badges
+- Description
+- Features
+- Prerequisites
+- Installation
+- Configuration
+- Usage
+- MQTT topics and payloads
+- Unified HA discovery (bundle)
+- Home Assistant cards (links)
+- Validation tools
+- Emoji/icon rules
+- Notes and troubleshooting
+- Testing
+- Support
+- Contributing
+- License
+
+## Badges
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
+## Description
+
+Event scraping and MQTT publishing for Twickenham Stadium with a single, unified Home Assistant discovery bundle, consistent payload schemas, and explicit availability/LWT handling.
+
+Source: Upcoming event data is scraped and normalized from the Richmond Council website.
+
+## Features
+
+- Single device-level discovery topic with a compact components map (cmps)
+- Event scraping and normalization from the Richmond Council website
+- Retained MQTT topics for status, all_upcoming, next, today, and availability
+- Flat attributes on the next sensor; grouped events_json for upcoming
+- Explicit availability online/offline alongside LWT
+- Optional AI shortening/enrichment with caching
+- Strict validator with cross-topic checks; tests and linting
+
+## Prerequisites
+
+Prerequisites:
+- Python 3.11+
+- Poetry
+
+## Installation
+
+Steps:
+1) Clone and enter the repo
+2) Install dependencies
+3) (Optional) Install AI extras
+
+## Configure
+
+Environment (.env or your environment):
+- MQTT_BROKER_URL=${MQTT_BROKER_URL}
+- MQTT_BROKER_PORT=${MQTT_BROKER_PORT}
+- MQTT_CLIENT_ID=${MQTT_CLIENT_ID}
+- MQTT_USERNAME=${MQTT_USERNAME}
+- MQTT_PASSWORD=${MQTT_PASSWORD}
+- GEMINI_API_KEY=${GEMINI_API_KEY} (optional)
+
+Config file:
+- Copy config/config.yaml.example to config/config.yaml and adjust values
+- Set home_assistant.discovery_prefix (default: homeassistant)
+- Ensure app.url points to your project/repo for device details in HA
+
+MQTT excerpt:
+- topics:
+  - status: twickenham_events/status
+  - all_upcoming: twickenham_events/events/all_upcoming
+  - next: twickenham_events/events/next
+  - today: twickenham_events/events/today
+  - availability: twickenham_events/availability
+- last_will: retained JSON for unexpected disconnect
+
+## MQTT topics and payloads
+
+Topics (retained unless noted):
+- twickenham_events/status: status + diagnostics
+- twickenham_events/events/all_upcoming: structured list with events_json
+- twickenham_events/events/next: next event with flat attributes; state = fixture
+- twickenham_events/events/today: today summary
+- twickenham_events/availability: online/offline
+- twickenham_events/cmd/refresh (non-retained): trigger scrape
+- twickenham_events/cmd/clear_cache (non-retained)
+
+Status (example):
+- status: active | no_events | error
+- event_count, ai_error_count, publish_error_count
+- ai_enabled, sw_version
+- last_updated, last_run_ts/iso (if applicable)
+
+All upcoming (example, trimmed):
+- count: integer
+- last_updated: ISO timestamp
+- events_json:
+  - by_month: [
+    { key, label, days: [ { date, label, events: [ { fixture, fixture_short, start_time, emoji, icon, crowd } ] } ] }
+  ]
+
+Next (flat attributes, state template reads fixture):
+- fixture (state)
+- date
+- start_time
+- crowd
+- fixture_short
+- event_index
+- event_count
+- emoji
+- icon
+- last_updated
+
+Today:
+- date
+- has_event_today (bool)
+- events_today (int)
+- events (optional list of today’s events with fixture/start_time)
+- last_updated
+
+## Unified HA discovery (bundle)
+
+Single retained discovery payload at:
+- homeassistant/device/twickenham_events/config
+
+Includes:
+- dev: compressed device metadata (ids, name, mf, mdl, sw)
+- o: { name, sw, url }
+- cmps: map of components → minimal discovery specs
+- availability_topic: twickenham_events/availability
+
+Components (typical):
+- status: sensor.twickenham_events_status
+- last_run: sensor.twickenham_events_last_run
+- upcoming: sensor.twickenham_events_upcoming (value_json.count)
+- next: sensor.twickenham_events_next (value_json.fixture)
+- today: sensor.twickenham_events_today
+- refresh: button.twickenham_events_refresh
+- clear_cache: button.twickenham_events_clear_cache
+- event_count (optional diagnostic sensor)
+
+## Home Assistant cards (links)
+
+These example cards live in the repository. Link to these files to keep your dashboards aligned with updates.
+
+<!-- BEGIN: ha_cards_list (auto-managed) -->
+
+- md twickenham events upcoming: [ha_card/md_twickenham_events_upcoming.yaml](ha_card/md_twickenham_events_upcoming.yaml)
+  - Renders `events_json.by_month[].days[].events[]` with `ev.start_time`, `ev.emoji`, `ev.fixture`, `ev.crowd`.
+- mshrm twickenham events short card: [ha_card/mshrm_twickenham_events_short_card.yaml](ha_card/mshrm_twickenham_events_short_card.yaml)
+  - Uses `sensor.twickenham_events_next` with flat attributes (date, start_time, fixture_short, emoji, event_index, event_count); state is the full `fixture`.
+
+<!-- END: ha_cards_list -->
+
+## CLI and service
+
+Entry point: twick-events
+- scrape: one-time scrape
+- mqtt: scrape + publish retained topics and discovery; sets availability online
+- calendar: export ICS/JSON
+- all: scrape + mqtt + calendar
+- status: show config/status
+- cache: AI cache tools
+- service: long-running loop with interval, availability, and command topics
+
+Examples:
+- poetry run twick-events scrape
+- poetry run twick-events mqtt
+- poetry run twick-events service --interval 3600
+
+Artifacts:
+- output/upcoming_events.json: flat list for quick inspection
+- output/scrape_results.json: raw+summaries bundle
+- output/*.ics: calendar export
+
+## Validation tools
+
+- scripts/mqtt_validate.py: validates retained topics; --strict enforces cross-topic rules and discovery
+- scripts/validate_all.py: orchestrates JSON/ICS and MQTT checks
+
+Key strict checks:
+- status.event_count == all_upcoming.count
+- next.fixture matches first event in events_json; next.date matches first day
+- discovery cmps include the expected components
+
+## Emoji/icon rules
+
+Priority logic picks a single emoji and a separate icon per event. Examples: finals (trophy) outrank rugby; American football outranks soccer; concerts use music; fallback calendar.
+
+## Notes and troubleshooting
+
+- Availability: We publish twickenham_events/availability="online" during mqtt/service; LWT covers ungraceful exits.
+- HA cards: Use next’s flat attributes (date, start_time, fixture_short, emoji, event_index, event_count) and upcoming’s events_json fields.
+- Count parity: Status.event_count, all_upcoming.count, and the first event alignment are validated in strict mode.
+- Source: Events are scraped from the Richmond Council website; network or page changes can temporarily reduce event_count.
+
+---
+
+## Testing
+
+Run the test suite:
+
+```bash
+poetry run pytest -q
+```
+
+## Support
+
+Open an issue on GitHub with details and steps to reproduce.
+
+## Contributing
+
+PRs are welcome. Please run linting and tests before submitting.
+
+## License
+
+MIT License.
+# Twickenham Events
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
