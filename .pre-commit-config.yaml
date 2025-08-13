@@ -1,4 +1,13 @@
 repos:
+  - repo: local
+    hooks:
+      - id: update-ha-cards-links
+        name: Update HA cards links in README
+        entry: python .dev-scripts/update_ha_cards_links.py
+        language: python
+        pass_filenames: false
+        files: ^(ha_card/.*\.yaml|README\.md)$
+        stages: [commit]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0 # Use the latest version
     hooks:

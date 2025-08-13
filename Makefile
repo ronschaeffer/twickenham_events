@@ -1,6 +1,6 @@
 # Makefile for consistent linting and formatting
 
-.PHONY: lint format check fix install-hooks clean help
+.PHONY: lint format check fix install-hooks clean help update-ha-cards pre-commit-all test ci-check
 
 # Install pre-commit hooks
 install-hooks:
@@ -39,6 +39,11 @@ pre-commit-all:
 	@echo "🚀 Running pre-commit on all files..."
 	poetry run pre-commit run --all-files
 
+# Update HA cards links in README
+update-ha-cards:
+	@echo "🧩 Updating HA cards links in README..."
+	poetry run python .dev-scripts/update_ha_cards_links.py
+
 # Run tests
 test:
 	@echo "🧪 Running tests..."
@@ -58,6 +63,7 @@ help:
 	@echo "  make format        - Format code only"
 	@echo "  make clean         - Clean cache files"
 	@echo "  make pre-commit-all - Run pre-commit on all files"
+	@echo "  make update-ha-cards - Regenerate HA cards links in README"
 	@echo "  make test          - Run tests"
 	@echo "  make ci-check      - Run full CI checks locally"
 	@echo "  make help          - Show this help"
