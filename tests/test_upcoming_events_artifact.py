@@ -18,6 +18,8 @@ def test_upcoming_events_regenerated_non_empty(tmp_path):
                 "scrape",
                 "--output",
                 str(out_dir),
+                "--config",
+                "config/config.yaml.example",
             ],
             check=True,
         )
@@ -31,6 +33,8 @@ def test_upcoming_events_regenerated_non_empty(tmp_path):
                 "scrape",
                 "--output",
                 str(out_dir),
+                "--config",
+                "config/config.yaml.example",
             ],
             check=True,
         )
