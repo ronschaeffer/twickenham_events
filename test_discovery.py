@@ -3,10 +3,9 @@
 Test the fresh discovery implementation directly
 """
 
-from mqtt_publisher.publisher import MQTTPublisher
-
 from core.config import Config
 from core.discovery import publish_twickenham_discovery
+from mqtt_publisher.publisher import MQTTPublisher
 
 # Load config
 config = Config("config/config.yaml")
