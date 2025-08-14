@@ -5,10 +5,13 @@ MQTT Status Inspector - Check what enhanced status looks like
 
 import json
 
-from mqtt_publisher.publisher import MQTTPublisher
-
 from core.config import Config
-from core.twick_event import fetch_events, process_and_publish_events, summarise_events
+from core.twick_event import (
+    fetch_events,
+    process_and_publish_events,
+    summarise_events,
+)
+from mqtt_publisher.publisher import MQTTPublisher
 
 # Load config
 config = Config("config/config.yaml")

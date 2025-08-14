@@ -15,11 +15,11 @@ def test_upcoming_events_regenerated_non_empty(tmp_path):
         subprocess.run(
             [
                 "twick-events",
+                "--config",
+                "config/config.yaml.example",
                 "scrape",
                 "--output",
                 str(out_dir),
-                "--config",
-                "config/config.yaml.example",
             ],
             check=True,
         )
@@ -30,11 +30,11 @@ def test_upcoming_events_regenerated_non_empty(tmp_path):
                 sys.executable,
                 "-m",
                 "twickenham_events.__main__",
+                "--config",
+                "config/config.yaml.example",
                 "scrape",
                 "--output",
                 str(out_dir),
-                "--config",
-                "config/config.yaml.example",
             ],
             check=True,
         )
