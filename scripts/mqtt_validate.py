@@ -382,11 +382,10 @@ def main(argv: list[str]) -> int:
         client = mqtt.Client(client_id=args.client_id, protocol=mqtt.MQTTv5)
     if args.username and args.password:
         client.username_pw_set(args.username, args.password)
-    else:
-        if loaded_config and loaded_config.get("mqtt.security") == "username":
-            print(
-                "WARNING: Security=username but no credentials applied (connection may fail)"
-            )
+    elif loaded_config and loaded_config.get("mqtt.security") == "username":
+        print(
+            "WARNING: Security=username but no credentials applied (connection may fail)"
+        )
     client.on_connect = on_connect
     client.on_message = on_message
 
