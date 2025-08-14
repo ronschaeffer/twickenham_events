@@ -1,63 +1,65 @@
-"""Service support utilities: availability + signal handling.
+"""Service support: thin wrappers around ha_mqtt_publisher helpers.
 
-Designed to make future migration to a library ServiceRunner trivial.
+This preserves existing imports while delegating to the shared library.
 """
 
 from __future__ import annotations
 
-import signal
-import threading
 from typing import Callable
 
+try:
+    from ha_mqtt_publisher import (
+        AvailabilityPublisher as _LibAvailabilityPublisher,
+        install_signal_handlers as _lib_install_signal_handlers,
+    )
 
-class AvailabilityPublisher:
-    """Publishes simple online/offline retained states."""
+    # Re-export the library AvailabilityPublisher for drop-in use in callers
+    class AvailabilityPublisher(_LibAvailabilityPublisher):  # type: ignore[misc]
+        pass
 
-    def __init__(self, mqtt_client, topic: str = "twickenham_events/availability"):
-        self._client = mqtt_client
-        self.topic = topic
-        self._lock = threading.Lock()
-        self._state = None
+except Exception as _e:  # pragma: no cover - defensive fallback
+    _LibAvailabilityPublisher = None  # type: ignore
+    _lib_install_signal_handlers = None  # type: ignore
 
-    def online(self):  # pragma: no cover - trivial
-        with self._lock:
-            self._client.publish(self.topic, "online", retain=True)
-            self._state = "online"
-
-    def offline(self):  # pragma: no cover - trivial
-        with self._lock:
-            # Publish offline only if we previously were online to avoid noise
-            if self._state != "offline":
-                self._client.publish(self.topic, "offline", retain=True)
-                self._state = "offline"
-
-
-class ServiceSignalController:
-    """Registers SIGTERM/SIGINT to invoke a shutdown callback once."""
-
-    def __init__(self, shutdown_cb: Callable[[], None]):
-        self._shutdown_cb = shutdown_cb
-        self._called = False
-
-    def _handler(self, signum, frame):  # pragma: no cover - real signal path
-        if not self._called:
-            self._called = True
-            self._shutdown_cb()
-
-    def register(self, signals: tuple[int, ...] = (signal.SIGTERM,)):
-        for sig in signals:
-            signal.signal(sig, self._handler)
-
-
-_GLOBAL_SIGNAL_CONTROLLER: ServiceSignalController | None = None
+    class AvailabilityPublisher:  # type: ignore[no-redef]
+        def __init__(self, *_, **__):
+            raise ImportError("ha_mqtt_publisher not available; install dependency")
 
 
 def install_global_signal_handler(
-    shutdown_cb: Callable[[], None], signals: tuple[int, ...] = (signal.SIGTERM,)
+    shutdown_cb: Callable[[], None], signals: tuple[int, ...] | None = None
 ):
-    """Install a global signal controller for tests & service runtime."""
-    global _GLOBAL_SIGNAL_CONTROLLER
-    controller = ServiceSignalController(shutdown_cb)
-    controller.register(signals)
-    _GLOBAL_SIGNAL_CONTROLLER = controller
-    return controller
+    """Compatibility wrapper using library install_signal_handlers.
+
+    If a custom signals tuple is provided, install handlers only for those
+    signals in a minimal local controller to avoid interfering with global
+    handlers during tests. Otherwise, delegate to the library which installs
+    SIGINT/SIGTERM.
+    """
+    if _lib_install_signal_handlers is None:  # pragma: no cover
+        raise ImportError("ha_mqtt_publisher not available; install dependency")
+    if not signals:
+        return _lib_install_signal_handlers(shutdown_cb)
+
+    from contextlib import AbstractContextManager
+    import signal as _signal
+    from types import FrameType
+
+    class _LocalCtrl(AbstractContextManager):  # pragma: no cover - signal paths
+        def __enter__(self):
+            self._orig = {}
+
+            def _handler(signum: int, frame: FrameType | None):
+                shutdown_cb()
+
+            for sig in signals:
+                self._orig[sig] = _signal.getsignal(sig)
+                _signal.signal(sig, _handler)
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            for sig, orig in self._orig.items():
+                _signal.signal(sig, orig)
+            return False
+
+    return _LocalCtrl()

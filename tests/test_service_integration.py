@@ -9,7 +9,8 @@ publish_all_discovery and AvailabilityPublisher.
 from unittest.mock import MagicMock, patch
 
 from twickenham_events.config import Config
-from twickenham_events.discovery_helper import AVAILABILITY_TOPIC, publish_all_discovery
+from twickenham_events.constants import AVAILABILITY_TOPIC
+from twickenham_events.discovery_helper import publish_all_discovery
 from twickenham_events.mqtt_client import MQTTClient
 from twickenham_events.service_support import AvailabilityPublisher
 
@@ -44,7 +45,7 @@ def test_service_startup_and_availability(monkeypatch):
 
         # Simulate availability publisher with fake paho client
         fake_paho = MagicMock()
-        availability = AvailabilityPublisher(fake_paho)
+        availability = AvailabilityPublisher(fake_paho, AVAILABILITY_TOPIC)
 
         # Publish discovery (buttons + availability sensor)
         publish_all_discovery(fake_paho, config)

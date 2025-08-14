@@ -10,15 +10,27 @@ from datetime import datetime
 import json
 import logging
 from pathlib import Path
+import signal
 import sys
+import threading
 import time
 from typing import Any
+
+from ha_mqtt_publisher.ha_discovery import publish_command_buttons
+from ha_mqtt_publisher.publisher import MQTTPublisher  # type: ignore
+import paho.mqtt.client as mqtt
 
 from .ai_processor import AIProcessor
 from .calendar_generator import CalendarGenerator
 from .config import Config
+from .ha_integration import (
+    build_device,
+    build_entities,
+    publish_discovery_bundle,
+)
 from .mqtt_client import MQTTClient
 from .scraper import EventScraper
+from .service_support import AvailabilityPublisher, install_global_signal_handler
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -659,30 +671,40 @@ def cmd_mqtt(args) -> int:
         # Publish to MQTT
         mqtt_client = MQTTClient(config)
         mqtt_client.publish_events(events, ai_processor)
-        # Publish unified device-level discovery (and cleanup legacy) on demand for mqtt command
+        # Publish unified device-level discovery bundle via library helpers
         try:
-            from ha_mqtt_publisher.publisher import MQTTPublisher  # type: ignore
-
-            from .discovery_helper import (
-                AVAILABILITY_TOPIC,
-                publish_device_level_discovery,
-            )
-            from .service_support import AvailabilityPublisher
-
+            AVAILABILITY_TOPIC = "twickenham_events/availability"
             cfg = config.get_mqtt_config()
             with MQTTPublisher(**cfg) as publisher:
-                publish_device_level_discovery(
-                    publisher,
+                device = build_device(config)
+                entities = build_entities(
                     config,
-                    availability_topic=AVAILABILITY_TOPIC,
-                    include_event_count_component=True,
+                    device,
+                    ai_enabled=getattr(config, "ai_enabled", False),
                 )
+                publish_discovery_bundle(config, publisher, entities, device)
+                try:
+                    base = config.get("app.unique_id_prefix", "twickenham_events")
+                    publish_command_buttons(
+                        config,
+                        publisher,
+                        device,
+                        base_unique_id=base,
+                        base_name=config.get("app.name", "Twickenham Events"),
+                        command_topic_base=f"{base}/cmd",
+                        buttons={
+                            "refresh": "Refresh",
+                            "clear_cache": "Clear Cache",
+                        },
+                    )
+                except Exception:
+                    pass
                 # Immediately mark device online for HA availability
                 try:
                     AvailabilityPublisher(publisher, AVAILABILITY_TOPIC).online()
                 except Exception:
                     pass
-            print("📡 Published device discovery config (cmps)")
+            print("📡 Published device discovery bundle (cmps)")
         except Exception as e:  # pragma: no cover
             if args.dry_run:
                 print(f"(dry-run) would publish device discovery: {e}")
@@ -918,17 +940,7 @@ def cmd_service(config: Config, args) -> int:
         print("❌ MQTT must be enabled for service mode")
         return 1
 
-    import signal
-    import threading
-    import time
-
-    import paho.mqtt.client as mqtt
-
-    from .discovery_helper import (
-        AVAILABILITY_TOPIC,
-        publish_device_level_discovery,
-    )
-    from .service_support import AvailabilityPublisher, install_global_signal_handler
+    # imports moved to module top for linter compliance
 
     interval = args.interval or config.service_interval_seconds
     scraper = EventScraper(config)
@@ -939,7 +951,8 @@ def cmd_service(config: Config, args) -> int:
     lock = threading.Lock()
     stop_flag = {"stop": False}
 
-    availability = AvailabilityPublisher(None)  # placeholder, set after client creation
+    AVAILABILITY_TOPIC = "twickenham_events/availability"
+    availability = AvailabilityPublisher(None, AVAILABILITY_TOPIC)  # client set below
 
     last_events_count = {"count": None}
 
@@ -1122,13 +1135,32 @@ def cmd_service(config: Config, args) -> int:
                 ):
                     btn_topic = f"{config.service_discovery_prefix}/button/{uid}/config"
                     client.publish(btn_topic, "", retain=True)
-                publish_device_level_discovery(
-                    client,
+                device = build_device(config)
+                entities = build_entities(
                     config,
-                    availability_topic=AVAILABILITY_TOPIC,
-                    include_event_count_component=False,
-                    migrate_from_per_entity=True,
+                    device,
+                    ai_enabled=getattr(config, "ai_enabled", False),
                 )
+                try:
+                    publish_discovery_bundle(config, client, entities, device)
+                except Exception as e:
+                    logging.warning("Failed to publish discovery bundle: %s", e)
+                try:
+                    base = config.get("app.unique_id_prefix", "twickenham_events")
+                    publish_command_buttons(
+                        config,
+                        client,
+                        device,
+                        base_unique_id=base,
+                        base_name=config.get("app.name", "Twickenham Events"),
+                        command_topic_base=f"{base}/cmd",
+                        buttons={
+                            "refresh": "Refresh",
+                            "clear_cache": "Clear Cache",
+                        },
+                    )
+                except Exception as e:
+                    logging.warning("Failed to publish command buttons: %s", e)
                 # Publish command registry discovery (retained)
                 try:
                     processor.publish_registry("twickenham_events/commands/registry")

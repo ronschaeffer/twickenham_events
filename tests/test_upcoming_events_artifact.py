@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 
 
 def test_upcoming_events_regenerated_non_empty(tmp_path):
@@ -10,15 +11,29 @@ def test_upcoming_events_regenerated_non_empty(tmp_path):
     out_dir = tmp_path / "out"
     out_dir.mkdir()
     # Run scrape; allow failure to raise for test visibility
-    subprocess.run(
-        [
-            "twick-events",
-            "scrape",
-            "--output",
-            str(out_dir),
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "twick-events",
+                "scrape",
+                "--output",
+                str(out_dir),
+            ],
+            check=True,
+        )
+    except FileNotFoundError:
+        # Fallback to module invocation if console script isn't on PATH in CI
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "twickenham_events.__main__",
+                "scrape",
+                "--output",
+                str(out_dir),
+            ],
+            check=True,
+        )
     up_file = out_dir / "upcoming_events.json"
     assert up_file.exists(), "upcoming_events.json not created"
     data = json.loads(up_file.read_text())
