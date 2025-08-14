@@ -28,7 +28,7 @@ class StatusPayload(TypedDict, total=False):
     ai_error_count: AI icon/shortening errors for this publish cycle
         publish_error_count: MQTT publish attempt failures (network, auth)
     ai_enabled: Whether AI enrichment is active
-    sw_version: Package/app version
+    sw_version: Software version string (e.g., "0.1.1")
         last_updated: ISO timestamp of publish
         errors: (optional) list of scrape / processing error strings (bounded upstream)
         error_count: (optional) convenience numeric length of errors list
