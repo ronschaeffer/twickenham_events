@@ -291,6 +291,20 @@ class MQTTClient:
                 "sw_version": PACKAGE_VERSION,
                 "last_updated": ts,
             }  # type: ignore[assignment]
+            # If AI circuit breaker is open, include explicit AI backoff info
+            try:
+                if ai_processor and hasattr(ai_processor, "get_shortener_backoff_info"):
+                    info = ai_processor.get_shortener_backoff_info()
+                    if info.get("open"):
+                        status_payload["ai_status"] = "backoff"  # type: ignore[index]
+                        if info.get("retry_at"):
+                            status_payload["ai_retry_at"] = info.get("retry_at")  # type: ignore[index]
+                        if info.get("retry_in_seconds") is not None:
+                            status_payload["ai_retry_in_seconds"] = info.get(
+                                "retry_in_seconds"
+                            )  # type: ignore[index]
+            except Exception:  # pragma: no cover - defensive
+                pass
             if extra_status:
                 # Merge but don't overwrite core keys unless explicitly intended
                 for k, v in extra_status.items():

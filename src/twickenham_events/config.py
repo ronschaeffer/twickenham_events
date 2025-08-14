@@ -73,6 +73,12 @@ class Config:
                 "interval_seconds": 14400,  # 4 hours
                 "enable_buttons": True,
                 "discovery_prefix": "homeassistant",
+                "systemd": {
+                    "auto_launch": False,
+                    "unit": "twickenham-events.service",
+                    "user": True,
+                    "delay_seconds": 2,
+                },
             },
             "mqtt": {
                 "enabled": False,
@@ -99,6 +105,7 @@ class Config:
                     "cache_enabled": True,
                     "model": "gemini-2.5-pro",
                     "max_length": 16,
+                    "retry_minutes_on_quota": 10,
                     "flags_enabled": False,
                     "standardize_spacing": True,
                     "prompt_template": "",

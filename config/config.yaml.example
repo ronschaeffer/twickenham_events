@@ -116,3 +116,14 @@ ai_processor:
       Now, shorten this event name:
       fixture: {event_name}
       fixture_short:
+
+# Service/daemon settings
+service:
+  interval_seconds: 14400
+  enable_buttons: true
+  discovery_prefix: "homeassistant"
+  systemd:
+    auto_launch: true        # Start the systemd unit when restart is requested
+    unit: "twickenham-events.service"
+    user: true               # Use --user systemd (per-user service)
+    delay_seconds: 2         # Small delay before exit to allow start

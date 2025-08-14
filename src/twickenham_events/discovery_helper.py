@@ -169,6 +169,11 @@ def publish_device_level_discovery(
         or config.get("app.project_url")
         or "https://github.com/ronschaeffer/twickenham_events",
     }
+    # Command topics (fixed)
+    ack_topic = "twickenham_events/commands/ack"
+    result_topic = "twickenham_events/commands/result"
+    last_ack_topic = "twickenham_events/commands/last_ack"
+    last_result_topic = "twickenham_events/commands/last_result"
     entities: dict[str, dict[str, Any]] = {
         "status": {
             "p": "sensor",
@@ -183,7 +188,7 @@ def publish_device_level_discovery(
             "p": "sensor",
             "unique_id": f"{base}_last_run",
             "name": "Last Run",
-            "value_template": "{{ value_json.last_updated }}",
+            "value_template": "{{ value_json.last_run_iso | default(value_json.last_updated) }}",
             "device_class": "timestamp",
             "entity_category": "diagnostic",
         },
@@ -223,8 +228,57 @@ def publish_device_level_discovery(
         "clear_cache": {
             "p": "button",
             "unique_id": f"{base}_clear_cache",
-            "name": "Clear Cache",
+            "name": "Clear All",
             "command_topic": f"{base}/cmd/clear_cache",
+        },
+        "restart": {
+            "p": "button",
+            "unique_id": f"{base}_restart",
+            "name": "Restart Service",
+            "command_topic": f"{base}/cmd/restart",
+            "icon": "mdi:restart",
+        },
+        "cmd_ack": {
+            "p": "sensor",
+            "unique_id": f"{base}_cmd_ack",
+            "name": "Last Command Ack",
+            "state_topic": ack_topic,
+            "value_template": "{% set s = value_json.status %}{% if s == 'received' %}busy{% else %}{{ s | default(value_json.command) | default(value_json.name) | default(value_json.id) | default('') }}{% endif %}",
+            "json_attributes_topic": ack_topic,
+            "icon": "mdi:progress-wrench",
+            "entity_category": "diagnostic",
+            # Auto-clear if no updates for a while (service not running)
+            "expire_after": 120,
+        },
+        "cmd_result": {
+            "p": "sensor",
+            "unique_id": f"{base}_cmd_result",
+            "name": "Last Command Result",
+            "state_topic": result_topic,
+            "value_template": "{{ value_json.status | default(value_json.outcome) | default('') }}",
+            "json_attributes_topic": result_topic,
+            "icon": "mdi:progress-check",
+            "entity_category": "diagnostic",
+        },
+        "last_ack": {
+            "p": "sensor",
+            "unique_id": f"{base}_last_ack",
+            "name": "Last Ack (retained)",
+            "state_topic": last_ack_topic,
+            "value_template": "{{ value_json.status | default(value_json.command) | default('') }}",
+            "json_attributes_topic": last_ack_topic,
+            "icon": "mdi:clock-outline",
+            "entity_category": "diagnostic",
+        },
+        "last_result": {
+            "p": "sensor",
+            "unique_id": f"{base}_last_result",
+            "name": "Last Result (retained)",
+            "state_topic": last_result_topic,
+            "value_template": "{{ value_json.status | default(value_json.outcome) | default('') }}",
+            "json_attributes_topic": last_result_topic,
+            "icon": "mdi:clock-check",
+            "entity_category": "diagnostic",
         },
     }
     if include_event_count_component:
@@ -266,10 +320,13 @@ def publish_device_level_discovery(
                     "next",
                     "today",
                     "event_count",
+                    "cmd_ack",
+                    "cmd_result",
                 ]
             ),
             f"{discovery_prefix}/button/{base}_refresh/config",
             f"{discovery_prefix}/button/{base}_clear_cache/config",
+            f"{discovery_prefix}/button/{base}_restart/config",
         ]:
             mqtt_client.publish(t, migrate_marker, retain=True)
     mqtt_client.publish(device_topic, json.dumps(payload), retain=True)
@@ -284,10 +341,13 @@ def publish_device_level_discovery(
                     "next",
                     "today",
                     "event_count",
+                    "cmd_ack",
+                    "cmd_result",
                 ]
             ),
             f"{discovery_prefix}/button/{base}_refresh/config",
             f"{discovery_prefix}/button/{base}_clear_cache/config",
+            f"{discovery_prefix}/button/{base}_restart/config",
         ]:
             mqtt_client.publish(t, "", retain=True)
     return device_topic

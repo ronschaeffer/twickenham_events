@@ -8,7 +8,14 @@ import subprocess
 
 
 def get_git_version() -> str:
-    """Get version string based on Git commit hash."""
+    """Get version string based on Git commit hash, prefixed by project version.
+
+    Example outputs:
+    - <project_version>-<hash>
+    - <project_version>-<hash>-dirty
+    - <project_version>-dev (when git is unavailable)
+    """
+    base_version = get_project_version()
     try:
         # Get the short commit hash
         git_hash = (
@@ -29,14 +36,14 @@ def get_git_version() -> str:
                 stderr=subprocess.DEVNULL,
             )
             # No uncommitted changes
-            return f"0.1.0-{git_hash}"
+            return f"{base_version}-{git_hash}"
         except subprocess.CalledProcessError:
             # Uncommitted changes detected
-            return f"0.1.0-{git_hash}-dirty"
+            return f"{base_version}-{git_hash}-dirty"
 
     except (subprocess.CalledProcessError, FileNotFoundError):
         # Git not available or not a git repository
-        return "0.1.0-dev"
+        return f"{base_version}-dev"
 
 
 def get_project_version() -> str:

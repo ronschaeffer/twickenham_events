@@ -1,0 +1,20 @@
+[Unit]
+Description=Twickenham Events Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/twickenham_events
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/env bash -lc 'cd %h/projects/twickenham_events && poetry run python -m twickenham_events service'
+Restart=always
+RestartSec=5
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+
+[Install]
+WantedBy=default.target

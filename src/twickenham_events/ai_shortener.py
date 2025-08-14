@@ -34,6 +34,28 @@ class AIShortener:
             if config.get("ai_type_detection.cache_enabled", True)
             else {}
         )
+        # Circuit breaker with timed backoff on quota/rate limit
+        self._shortener_circuit_open = False
+        self._shortener_circuit_open_ts: float | None = None
+
+    def shortener_circuit_open(self) -> bool:
+        """Return True if circuit is open and backoff window hasn't elapsed.
+
+        Uses ai_shortener.retry_minutes_on_quota when available, else defaults to 10.
+        """
+        if not self._shortener_circuit_open:
+            return False
+        try:
+            backoff_min = int(
+                self.config.get("ai_shortener.retry_minutes_on_quota", 10)
+            )
+        except Exception:
+            backoff_min = 10
+        if self._shortener_circuit_open_ts is None:
+            return True
+        import time as _t
+
+        return (_t.time() - self._shortener_circuit_open_ts) < (backoff_min * 60)
 
     def get_event_type_and_icons(self, event_name: str) -> tuple[str, str, str]:
         """
@@ -82,7 +104,7 @@ class AIShortener:
             if not api_key:
                 return self._detect_event_type_fallback(event_name)
 
-            genai.configure(api_key=api_key)
+            genai.configure(api_key=api_key)  # type: ignore[attr-defined]
             model_name = self.config.get("ai_type_detection.model", "gemini-2.5-pro")
 
             prompt = f"""Analyze this event name and classify it into one of these categories:
@@ -94,7 +116,7 @@ Event name: "{event_name}"
 
 Respond with ONLY the category word (rugby, concert, or generic), nothing else."""
 
-            model = genai.GenerativeModel(model_name)
+            model = genai.GenerativeModel(model_name)  # type: ignore[attr-defined]
             response = model.generate_content(prompt)
 
             if response and response.text:
@@ -208,6 +230,10 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
             logging.warning("Event shortening requested but %s", error_msg)
             return original_name, True, error_msg
 
+        # Fast exit if we've previously hit quota/rate limiting (respect timed backoff)
+        if self.shortener_circuit_open():
+            return original_name, False, ""
+
         try:
             # Configure the API - config handles ${VARIABLE} expansion
             api_key = self.config.get("ai_shortener.api_key")
@@ -217,7 +243,7 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
                 logging.error(error_msg)
                 return original_name, True, error_msg
 
-            genai.configure(api_key=api_key)
+            genai.configure(api_key=api_key)  # type: ignore[attr-defined]
 
             # Get configuration values
             model_name = self.config.get("ai_shortener.model", "gemini-2.5-pro")
@@ -265,7 +291,7 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
             # Make the API call with rate limiting and retry for safety filters
             import time
 
-            model = genai.GenerativeModel(model_name)
+            model = genai.GenerativeModel(model_name)  # type: ignore[attr-defined]
 
             # Try the request, with retry for safety filter issues
             max_attempts = 2
@@ -349,6 +375,21 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
                             return original_name, True, error_msg
                     else:
                         # Different error, don't retry
+                        quota_hit = (
+                            "429" in error_str
+                            or "quota" in error_str.lower()
+                            or "rate" in error_str.lower()
+                        )
+                        if quota_hit:
+                            if not self._shortener_circuit_open:
+                                self._shortener_circuit_open = True
+                                import time as _time
+
+                                self._shortener_circuit_open_ts = _time.time()
+                                logging.warning(
+                                    "AI quota/rate limit encountered; backing off further shortening"
+                                )
+                            return original_name, False, ""
                         error_msg = (
                             f"API error while shortening '{original_name}': {e!s}"
                         )
@@ -361,6 +402,21 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
             return original_name, True, error_msg
 
         except Exception as e:
+            error_str = str(e)
+            if (
+                "429" in error_str
+                or "quota" in error_str.lower()
+                or "rate" in error_str.lower()
+            ):
+                if not self._shortener_circuit_open:
+                    self._shortener_circuit_open = True
+                    import time as _time
+
+                    self._shortener_circuit_open_ts = _time.time()
+                    logging.warning(
+                        "AI quota/rate limit encountered (outer); backing off further shortening"
+                    )
+                return original_name, False, ""
             error_msg = f"Unexpected error while shortening '{original_name}': {e!s}"
             logging.error(error_msg)
             return original_name, True, error_msg

@@ -16,18 +16,13 @@ import threading
 import time
 from typing import Any
 
-from ha_mqtt_publisher.ha_discovery import publish_command_buttons
 from ha_mqtt_publisher.publisher import MQTTPublisher  # type: ignore
 import paho.mqtt.client as mqtt
 
 from .ai_processor import AIProcessor
 from .calendar_generator import CalendarGenerator
 from .config import Config
-from .ha_integration import (
-    build_device,
-    build_entities,
-    publish_discovery_bundle,
-)
+from .discovery_helper import publish_device_level_discovery
 from .mqtt_client import MQTTClient
 from .scraper import EventScraper
 from .service_support import AvailabilityPublisher, install_global_signal_handler
@@ -676,29 +671,14 @@ def cmd_mqtt(args) -> int:
             AVAILABILITY_TOPIC = "twickenham_events/availability"
             cfg = config.get_mqtt_config()
             with MQTTPublisher(**cfg) as publisher:
-                device = build_device(config)
-                entities = build_entities(
-                    config,
-                    device,
-                    ai_enabled=getattr(config, "ai_enabled", False),
+                # Publish device-level discovery bundle using status/all_upcoming/next/today topics
+                publish_device_level_discovery(
+                    mqtt_client=publisher,
+                    config=config,
+                    availability_topic=AVAILABILITY_TOPIC,
+                    include_event_count_component=True,
+                    migrate_from_per_entity=True,
                 )
-                publish_discovery_bundle(config, publisher, entities, device)
-                try:
-                    base = config.get("app.unique_id_prefix", "twickenham_events")
-                    publish_command_buttons(
-                        config,
-                        publisher,
-                        device,
-                        base_unique_id=base,
-                        base_name=config.get("app.name", "Twickenham Events"),
-                        command_topic_base=f"{base}/cmd",
-                        buttons={
-                            "refresh": "Refresh",
-                            "clear_cache": "Clear Cache",
-                        },
-                    )
-                except Exception:
-                    pass
                 # Immediately mark device online for HA availability
                 try:
                     AvailabilityPublisher(publisher, AVAILABILITY_TOPIC).online()
@@ -993,7 +973,26 @@ def cmd_service(config: Config, args) -> int:
                 raise
 
     client_id = f"{config.mqtt_client_id}-svc"
-    paho_client = mqtt.Client(client_id=client_id)
+    # Use Paho MQTT v5 and Callback API v2 to avoid deprecation
+    try:
+        # Prefer MQTT v5; add callback_api_version V2 if available in this Paho version
+        kwargs = {
+            "client_id": client_id,
+            "protocol": getattr(mqtt, "MQTTv5", mqtt.MQTTv311),
+            "userdata": None,
+        }
+        try:  # import locally to avoid top-level import ordering issues
+            from paho.mqtt.client import CallbackAPIVersion as _CBV  # type: ignore
+
+            cbv_v2 = getattr(_CBV, "V2", getattr(_CBV, "VERSION2", None))
+            if cbv_v2 is not None:
+                kwargs["callback_api_version"] = cbv_v2  # type: ignore[assignment]
+        except Exception:
+            pass
+        paho_client = mqtt.Client(**kwargs)
+    except Exception:
+        # Fallback if very old paho
+        paho_client = mqtt.Client(client_id=client_id)
     availability._client = paho_client  # inject real client
 
     # Apply auth if configured (mirrors publisher settings)
@@ -1046,7 +1045,9 @@ def cmd_service(config: Config, args) -> int:
 
     ACK_TOPIC = "twickenham_events/commands/ack"
     RESULT_TOPIC = "twickenham_events/commands/result"
-    processor = CommandProcessor(paho_client, ACK_TOPIC, RESULT_TOPIC)
+    LAST_ACK_TOPIC = "twickenham_events/commands/last_ack"
+    LAST_RESULT_TOPIC = "twickenham_events/commands/last_result"
+    processor = CommandProcessor(paho_client, ACK_TOPIC, RESULT_TOPIC)  # type: ignore[call-arg]
     # Auto publish registry to retained discovery topic on every registration
     processor.enable_auto_registry_publish("twickenham_events/commands/registry")
     # Load dynamic command plugins (non-fatal if missing)
@@ -1119,13 +1120,67 @@ def cmd_service(config: Config, args) -> int:
         requires_ai=True,
     )
 
-    def on_connect(client, userdata, flags, reason_code, properties=None):
+    def restart_executor(ctx: dict[str, Any]):
+        try:
+            # Publish a quick result and then exit so service manager can restart
+            # We let the CommandProcessor handle result publication; here we just signal shutdown.
+            # Small delay to allow result/idle ack to flush before exiting.
+            logging.info("Restart requested via command")
+            time.sleep(0.5)
+            # Optional: proactively start/enable systemd service so it comes back
+            try:
+                sysd = config.get("service.systemd", {}) or {}
+                if sysd.get("auto_launch", False):
+                    unit = sysd.get("unit", "twickenham-events.service")
+                    is_user = bool(sysd.get("user", True))
+                    delay = int(sysd.get("delay_seconds", 2))
+                    cmd_prefix = ["systemctl", "--user"] if is_user else ["systemctl"]
+                    # Start (and optionally enable) the service; best-effort only
+                    import subprocess
+
+                    try:
+                        subprocess.run([*cmd_prefix, "daemon-reload"], check=False)
+                    except Exception:
+                        pass
+                    # Start the unit after a slight delay; we cannot sleep long here
+                    try:
+                        subprocess.Popen([*cmd_prefix, "start", unit])
+                    except Exception:
+                        pass
+                    if delay and delay > 0:
+                        try:
+                            time.sleep(min(delay, 3))
+                        except Exception:
+                            pass
+            except Exception as _e:
+                logging.debug("systemd auto_launch skipped: %s", _e)
+            shutdown_sequence()
+            return "success", "service restarting", {}
+        except Exception as e:  # pragma: no cover
+            return "fatal_error", f"restart failed: {e}", {}
+
+    processor.register(
+        "restart",
+        restart_executor,
+        description="Restart the running service",
+        outcome_codes=["success", "fatal_error", "busy"],
+        cooldown_seconds=0,
+        requires_ai=False,
+    )
+
+    def on_connect(client, userdata, flags, reason_code, properties):
         if last_connect_code["code"] == reason_code:
             return
         last_connect_code["code"] = reason_code
         if reason_code == 0:
             logging.info("service connected rc=%s", reason_code)
-            client.subscribe("twickenham_events/cmd/#")
+            base = config.get("app.unique_id_prefix", "twickenham_events")
+            client.subscribe(f"{base}/cmd/#")
+            # Also listen for our own result messages to publish a final 'idle' ack
+            try:
+                client.subscribe(RESULT_TOPIC)
+            except Exception:  # pragma: no cover
+                pass
             try:
                 for uid in (
                     "tw_events_refresh",
@@ -1135,32 +1190,16 @@ def cmd_service(config: Config, args) -> int:
                 ):
                     btn_topic = f"{config.service_discovery_prefix}/button/{uid}/config"
                     client.publish(btn_topic, "", retain=True)
-                device = build_device(config)
-                entities = build_entities(
-                    config,
-                    device,
-                    ai_enabled=getattr(config, "ai_enabled", False),
-                )
                 try:
-                    publish_discovery_bundle(config, client, entities, device)
-                except Exception as e:
-                    logging.warning("Failed to publish discovery bundle: %s", e)
-                try:
-                    base = config.get("app.unique_id_prefix", "twickenham_events")
-                    publish_command_buttons(
-                        config,
-                        client,
-                        device,
-                        base_unique_id=base,
-                        base_name=config.get("app.name", "Twickenham Events"),
-                        command_topic_base=f"{base}/cmd",
-                        buttons={
-                            "refresh": "Refresh",
-                            "clear_cache": "Clear Cache",
-                        },
+                    publish_device_level_discovery(
+                        mqtt_client=client,
+                        config=config,
+                        availability_topic=AVAILABILITY_TOPIC,
+                        include_event_count_component=True,
+                        migrate_from_per_entity=True,
                     )
                 except Exception as e:
-                    logging.warning("Failed to publish command buttons: %s", e)
+                    logging.warning("Failed to publish device-level discovery: %s", e)
                 # Publish command registry discovery (retained)
                 try:
                     processor.publish_registry("twickenham_events/commands/registry")
@@ -1180,10 +1219,22 @@ def cmd_service(config: Config, args) -> int:
 
     def on_message(client, userdata, msg):
         try:
-            processor.handle_raw(msg.payload or b"")
+            from .message_handler import handle_command_message
+
+            handle_command_message(
+                client,
+                config,
+                processor,
+                msg,
+                ACK_TOPIC,
+                LAST_ACK_TOPIC,
+                RESULT_TOPIC,
+                LAST_RESULT_TOPIC,
+            )
         except Exception as e:  # pragma: no cover
             logging.error("command handling failure: %s", e)
 
+    # Assign v2-compatible callbacks
     paho_client.on_connect = on_connect
     paho_client.on_message = on_message
     try:
@@ -1224,7 +1275,7 @@ def cmd_commands(config: Config, args) -> int:
         def publish(self, *_, **__):
             return True
 
-    proc = CommandProcessor(_NoopClient(), "", "")
+    proc = CommandProcessor(_NoopClient(), "", "")  # type: ignore[call-arg]
     proc.register(
         "refresh",
         lambda ctx: ("success", "noop", {}),
