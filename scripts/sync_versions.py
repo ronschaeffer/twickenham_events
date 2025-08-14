@@ -173,7 +173,11 @@ class VersionSync:
         return False
 
     def update_ha_config_file(self, ha_path: Path, check_only: bool = False) -> bool:
-        """Update sw_version in Home Assistant config files."""
+        """Update sw_version in Home Assistant config files.
+
+        Note: For Python files, only update assignment style (sw_version = "x.y.z").
+        Do not modify type annotations (e.g., "sw_version: str").
+        """
         if not ha_path.exists():
             return False
 
@@ -183,25 +187,27 @@ class VersionSync:
             # Skip binary files
             return False
 
-        # Pattern to match sw_version: "x.y.z" or sw_version="x.y.z"
-        sw_version_patterns = [
-            r'(\s*sw_version:\s*)["\']?[^"\'\n]*["\']?',  # YAML format
-            r'(sw_version\s*=\s*)["\'][^"\']*["\']',  # Python format
-        ]
-
+        suffix = ha_path.suffix.lower()
         updated = False
         new_content = content
 
-        for pattern in sw_version_patterns:
+        if suffix in [".yaml", ".yml"]:
+            # YAML: only update YAML-style keys
+            pattern = r'(\s*sw_version:\s*)["\']?[^"\'\n]*["\']?'
             if re.search(pattern, content):
-                if ha_path.suffix in [".yaml", ".yml"]:
-                    replacement = rf'\1"{self.version}"'
-                else:
-                    replacement = rf'\1"{self.version}"'
-
+                replacement = rf'\1"{self.version}"'
                 new_content = re.sub(pattern, replacement, new_content)
                 updated = True
-                break
+        elif suffix == ".py":
+            # Python: only update assignment, not annotations
+            pattern = r'(\bsw_version\s*=\s*)["\'][^"\']*["\']'
+            if re.search(pattern, content):
+                replacement = rf'\1"{self.version}"'
+                new_content = re.sub(pattern, replacement, new_content)
+                updated = True
+        else:
+            # Other file types are ignored
+            return False
 
         if updated and content != new_content:
             if not check_only:

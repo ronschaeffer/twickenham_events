@@ -39,7 +39,7 @@ def update_dynamic_version():
 
             # Update sw_version line
             updated_content = re.sub(
-                r'(\s*sw_version:"0.1.1")[^"]*(")',
+                r'(\s*sw_version:"0.1.2")[^"]*(")',
                 rf"\g<1>{current_version}\g<2>",
                 content,
             )
