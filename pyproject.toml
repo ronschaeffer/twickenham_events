@@ -14,10 +14,8 @@ dependencies = [
     "paho-mqtt>=2.1.0",
     "pyyaml>=6.0.1",
     "python-dotenv>=1.1.1",
-    # Use local development copy of ha-mqtt-publisher (path dependency) so we can iterate quickly
-    # NOTE: When ready to pin PyPI release, replace with: "ha-mqtt-publisher>=0.3.2"
-    # PEP 621 direct reference syntax is handled by Poetry 2; keep also mirrored in [tool.poetry.dependencies]
-    "ha-mqtt-publisher @ ../mqtt_publisher",
+    # Use PyPI release in CI; local dev can override via Poetry if needed
+    "ha-mqtt-publisher>=0.3.3",
     "ronschaeffer-ics-calendar-utils>=0.2.2",
 ]
 
@@ -38,7 +36,7 @@ beautifulsoup4 = "^4.12.0"
 paho-mqtt = "^2.1.0"
 pyyaml = "^6.0.1"
 python-dotenv = "^1.1.1"
-ha-mqtt-publisher = { path = "../mqtt_publisher", develop = true }
+ha-mqtt-publisher = ">=0.3.3"
 ronschaeffer-ics-calendar-utils = "^0.2.2"
 
 [tool.poetry.group.ai.dependencies]

@@ -29,29 +29,36 @@ def generate_ics_calendar(
         filename = calendar_config.get("filename", "twickenham_events.ics")
         calendar_name = "Twickenham Stadium Events"
 
-        # Create field mapping for Twickenham events
-        field_mapping = {
-            "title": "summary",
-            "date": "dtstart_date",
-            "time": "dtstart_time",  # Will be added with default time
-        }
+        # Create field mapping for Twickenham events. The installed library already
+        # maps common fields like 'fixture'->'summary', 'date'->'dtstart_date',
+        # and 'start_time'->'dtstart_time'. We'll normalize our input accordingly
+        # and only rely on defaults to minimize API coupling.
 
         # Add default time for events that don't have one
-        events_with_time = []
-        for event in events:
-            event_copy = event.copy()
-            if "time" not in event_copy or not event_copy["time"]:
-                event_copy["time"] = "15:00"  # Default 3 PM start time
-            # Add location
-            event_copy["location"] = (
-                "Twickenham Stadium, 200 Whitton Rd, Twickenham TW2 7BA, UK"
+        events_normalized: list[dict[str, Any]] = []
+        for ev in events:
+            e = ev.copy()
+            # Normalize keys expected by the processor defaults
+            if "title" in e and "fixture" not in e:
+                e["fixture"] = e.get("title")
+            if "time" in e and "start_time" not in e:
+                e["start_time"] = e.get("time")
+            if not e.get("start_time"):
+                e["start_time"] = "15:00"  # Default 3 PM start time
+            # Ensure location present
+            e["venue"] = e.get(
+                "venue",
+                "Twickenham Stadium, 200 Whitton Rd, Twickenham TW2 7BA, UK",
             )
-            events_with_time.append(event_copy)
+            events_normalized.append(e)
 
         # Process events
         processor = EventProcessor()
-        processor.add_mapping(field_mapping)
-        processed_events = processor.process_events(events_with_time)
+        # Newer library exposes process_events; older fallback may expose 'process'.
+        if hasattr(processor, "process_events"):
+            processed_events = processor.process_events(events_normalized)  # type: ignore[attr-defined]
+        else:  # pragma: no cover - legacy shim
+            processed_events = processor.process(events_normalized)  # type: ignore[call-arg]
 
         # Generate ICS
         generator = ICSGenerator(calendar_name=calendar_name, timezone="Europe/London")

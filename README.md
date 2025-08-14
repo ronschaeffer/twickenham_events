@@ -45,19 +45,22 @@ Source: Upcoming event data is scraped and normalized from the Richmond Council 
 ## Prerequisites
 
 Prerequisites:
+
 - Python 3.11+
 - Poetry
 
 ## Installation
 
 Steps:
-1) Clone and enter the repo
-2) Install dependencies
-3) (Optional) Install AI extras
+
+1. Clone and enter the repo
+2. Install dependencies
+3. (Optional) Install AI extras
 
 ## Configure
 
 Environment (.env or your environment):
+
 - MQTT_BROKER_URL=${MQTT_BROKER_URL}
 - MQTT_BROKER_PORT=${MQTT_BROKER_PORT}
 - MQTT_CLIENT_ID=${MQTT_CLIENT_ID}
@@ -66,11 +69,13 @@ Environment (.env or your environment):
 - GEMINI_API_KEY=${GEMINI_API_KEY} (optional)
 
 Config file:
+
 - Copy config/config.yaml.example to config/config.yaml and adjust values
 - Set home_assistant.discovery_prefix (default: homeassistant)
 - Ensure app.url points to your project/repo for device details in HA
 
 MQTT excerpt:
+
 - topics:
   - status: twickenham_events/status
   - all_upcoming: twickenham_events/events/all_upcoming
@@ -82,6 +87,7 @@ MQTT excerpt:
 ## MQTT topics and payloads
 
 Topics (retained unless noted):
+
 - twickenham_events/status: status + diagnostics
 - twickenham_events/events/all_upcoming: structured list with events_json
 - twickenham_events/events/next: next event with flat attributes; state = fixture
@@ -91,20 +97,23 @@ Topics (retained unless noted):
 - twickenham_events/cmd/clear_cache (non-retained)
 
 Status (example):
+
 - status: active | no_events | error
 - event_count, ai_error_count, publish_error_count
 - ai_enabled, sw_version
 - last_updated, last_run_ts/iso (if applicable)
 
 All upcoming (example, trimmed):
+
 - count: integer
 - last_updated: ISO timestamp
 - events_json:
   - by_month: [
     { key, label, days: [ { date, label, events: [ { fixture, fixture_short, start_time, emoji, icon, crowd } ] } ] }
-  ]
+    ]
 
 Next (flat attributes, state template reads fixture):
+
 - fixture (state)
 - date
 - start_time
@@ -117,6 +126,7 @@ Next (flat attributes, state template reads fixture):
 - last_updated
 
 Today:
+
 - date
 - has_event_today (bool)
 - events_today (int)
@@ -126,15 +136,18 @@ Today:
 ## Unified HA discovery (bundle)
 
 Single retained discovery payload at:
+
 - homeassistant/device/twickenham_events/config
 
 Includes:
+
 - dev: compressed device metadata (ids, name, mf, mdl, sw)
 - o: { name, sw, url }
 - cmps: map of components → minimal discovery specs
 - availability_topic: twickenham_events/availability
 
 Components (typical):
+
 - status: sensor.twickenham_events_status
 - last_run: sensor.twickenham_events_last_run
 - upcoming: sensor.twickenham_events_upcoming (value_json.count)
@@ -160,6 +173,7 @@ These example cards live in the repository. Link to these files to keep your das
 ## CLI and service
 
 Entry point: twick-events
+
 - scrape: one-time scrape
 - mqtt: scrape + publish retained topics and discovery; sets availability online
 - calendar: export ICS/JSON
@@ -169,14 +183,16 @@ Entry point: twick-events
 - service: long-running loop with interval, availability, and command topics
 
 Examples:
+
 - poetry run twick-events scrape
 - poetry run twick-events mqtt
 - poetry run twick-events service --interval 3600
 
 Artifacts:
+
 - output/upcoming_events.json: flat list for quick inspection
 - output/scrape_results.json: raw+summaries bundle
-- output/*.ics: calendar export
+- output/\*.ics: calendar export
 
 ## Validation tools
 
@@ -184,6 +200,7 @@ Artifacts:
 - scripts/validate_all.py: orchestrates JSON/ICS and MQTT checks
 
 Key strict checks:
+
 - status.event_count == all_upcoming.count
 - next.fixture matches first event in events_json; next.date matches first day
 - discovery cmps include the expected components
@@ -220,6 +237,7 @@ PRs are welcome. Please run linting and tests before submitting.
 ## License
 
 MIT License.
+
 # Twickenham Events
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -453,17 +471,17 @@ poetry run twick-events status      # Show status
 
 Running the various commands produces a consistent set of output channels for consumers:
 
-| Channel / Artifact            | Produced By            | Path / Topic                                           | Contents / Purpose                                                |
-| ----------------------------- | ---------------------- | ------------------------------------------------------ | ----------------------------------------------------------------- |
-| Terminal Summary              | `scrape`, `mqtt`, `all`| stdout                                                 | Human-readable scrape statistics & next event details             |
-| `output/upcoming_events.json` | `scrape`, `mqtt`, `all`| Local filesystem (or `--output` dir)                   | Flat list of all upcoming events (array of event objects)         |
-| `output/scrape_results.json`  | `scrape`, `mqtt`, `all`| Local filesystem (or `--output` dir)                   | Rich bundle: raw_events, summarized_events (per-day), next event  |
-| MQTT Status Topic             | `mqtt`, `service`, `all`| `twickenham_events/status` (retained)                 | Status + diagnostics (event_count, errors, metadata)              |
-| MQTT Events (all_upcoming)    | `mqtt`, `service`, `all`| `twickenham_events/events/all_upcoming` (retained)    | List of future events (structured)                               |
-| MQTT Events (next)            | `mqtt`, `service`, `all`| `twickenham_events/events/next` (retained)            | Single next event wrapper                                        |
-| MQTT Events (today)           | `mqtt`, `service`, `all`| `twickenham_events/events/today` (retained)           | Today events + count                                             |
-| Calendar (ICS)                | `calendar`, `all`       | `output/<configured>.ics`                              | iCalendar export for external calendar apps                      |
-| Discovery Bundle              | `mqtt`, `service`, `all`| `homeassistant/device/twickenham_events/config`       | Unified HA device-level discovery JSON                           |
+| Channel / Artifact            | Produced By              | Path / Topic                                       | Contents / Purpose                                               |
+| ----------------------------- | ------------------------ | -------------------------------------------------- | ---------------------------------------------------------------- |
+| Terminal Summary              | `scrape`, `mqtt`, `all`  | stdout                                             | Human-readable scrape statistics & next event details            |
+| `output/upcoming_events.json` | `scrape`, `mqtt`, `all`  | Local filesystem (or `--output` dir)               | Flat list of all upcoming events (array of event objects)        |
+| `output/scrape_results.json`  | `scrape`, `mqtt`, `all`  | Local filesystem (or `--output` dir)               | Rich bundle: raw_events, summarized_events (per-day), next event |
+| MQTT Status Topic             | `mqtt`, `service`, `all` | `twickenham_events/status` (retained)              | Status + diagnostics (event_count, errors, metadata)             |
+| MQTT Events (all_upcoming)    | `mqtt`, `service`, `all` | `twickenham_events/events/all_upcoming` (retained) | List of future events (structured)                               |
+| MQTT Events (next)            | `mqtt`, `service`, `all` | `twickenham_events/events/next` (retained)         | Single next event wrapper                                        |
+| MQTT Events (today)           | `mqtt`, `service`, `all` | `twickenham_events/events/today` (retained)        | Today events + count                                             |
+| Calendar (ICS)                | `calendar`, `all`        | `output/<configured>.ics`                          | iCalendar export for external calendar apps                      |
+| Discovery Bundle              | `mqtt`, `service`, `all` | `homeassistant/device/twickenham_events/config`    | Unified HA device-level discovery JSON                           |
 
 `upcoming_events.json` schema (example) (updated for parity with MQTT all_upcoming):
 
@@ -472,13 +490,13 @@ Running the various commands produces a consistent set of output channels for co
   "events": [
     {
       "fixture": "Women's Rugby World Cup Final",
-      "title": "Women's Rugby World Cup Final",   // added: canonical title (fallback to fixture/name)
+      "title": "Women's Rugby World Cup Final", // added: canonical title (fallback to fixture/name)
       "date": "2025-09-27",
       "start_time": "12:30",
       "crowd": "82,000"
     }
   ],
-  "count": 8,                 // added: total events (must match events.length)
+  "count": 8, // added: total events (must match events.length)
   "generated_ts": 1755030088, // epoch seconds OR ISO string
   "last_updated": "2025-08-12T22:39:57.123456" // ISO-8601 timestamp (mirrors MQTT)
 }
@@ -491,12 +509,12 @@ The number of events MUST match across: ICS (VEVENT count), upcoming_events.json
 
 New validator scripts (all in `scripts/`):
 
-| Script | Purpose | Key Flags |
-| ------ | ------- | --------- |
-| `ics_validate.py` | Structural ICS checks (BEGIN/END, VEVENT blocks, required DTSTART/SUMMARY/UID) | `--file`, `--allow-empty`, `--min-events` |
-| `upcoming_events_validate.py` | Schema + ordering + duplication checks for upcoming_events.json | `--file`, `--allow-empty`, `--require-generated-ts` |
-| `mqtt_validate.py` | Runtime retained topic validation (optionally strict cross-topic) | `--broker`, `--port`, `--timeout`, `--run-service`, `--strict`, `--purge-discovery` |
-| `validate_all.py` | Orchestrates all validators + cross-artifact count parity | `--scrape-run`, `--broker`, `--strict`, `--allow-empty-upcoming`, `--mqtt-run-service` |
+| Script                        | Purpose                                                                        | Key Flags                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `ics_validate.py`             | Structural ICS checks (BEGIN/END, VEVENT blocks, required DTSTART/SUMMARY/UID) | `--file`, `--allow-empty`, `--min-events`                                              |
+| `upcoming_events_validate.py` | Schema + ordering + duplication checks for upcoming_events.json                | `--file`, `--allow-empty`, `--require-generated-ts`                                    |
+| `mqtt_validate.py`            | Runtime retained topic validation (optionally strict cross-topic)              | `--broker`, `--port`, `--timeout`, `--run-service`, `--strict`, `--purge-discovery`    |
+| `validate_all.py`             | Orchestrates all validators + cross-artifact count parity                      | `--scrape-run`, `--broker`, `--strict`, `--allow-empty-upcoming`, `--mqtt-run-service` |
 
 Quick examples:
 
@@ -668,19 +686,19 @@ The single retained discovery config (topic: `homeassistant/device/twickenham_ev
 
 ### Status Payload & Diagnostics Fields
 
-| Field               | Type          | Description                                                     |
-| ------------------- | ------------- | --------------------------------------------------------------- |
-| status              | str           | Logical data state (active / no_events / error)                |
-| event_count         | int           | Total future events known at last run                           |
-| last_run_ts         | int           | Unix epoch seconds of last scrape                               |
-| last_run_iso        | str           | ISO-8601 timestamp of last scrape                               |
-| interval_seconds    | int           | Service scrape interval in seconds                              |
-| ai_enabled          | bool          | AI shortening currently active                                  |
-| ai_error_count      | int           | Cumulative AI processing errors                                 |
-| publish_error_count | int           | MQTT publish errors since start                                 |
-| error_count         | int           | Count of currently retained (deduped) structured errors         |
-| sw_version          | str           | Software version (mirrors device block)                         |
-| errors              | list[object]  | Recent unique errors (each: {"message": str, "ts": epoch int}) |
+| Field               | Type         | Description                                                    |
+| ------------------- | ------------ | -------------------------------------------------------------- |
+| status              | str          | Logical data state (active / no_events / error)                |
+| event_count         | int          | Total future events known at last run                          |
+| last_run_ts         | int          | Unix epoch seconds of last scrape                              |
+| last_run_iso        | str          | ISO-8601 timestamp of last scrape                              |
+| interval_seconds    | int          | Service scrape interval in seconds                             |
+| ai_enabled          | bool         | AI shortening currently active                                 |
+| ai_error_count      | int          | Cumulative AI processing errors                                |
+| publish_error_count | int          | MQTT publish errors since start                                |
+| error_count         | int          | Count of currently retained (deduped) structured errors        |
+| sw_version          | str          | Software version (mirrors device block)                        |
+| errors              | list[object] | Recent unique errors (each: {"message": str, "ts": epoch int}) |
 
 Downstream automations can create template sensors for uptime, last success, or error alerts without adding more discovery entities.
 
@@ -688,29 +706,29 @@ Downstream automations can create template sensors for uptime, last success, or 
 
 The `status` field and the `availability` topic serve different purposes:
 
-| Aspect        | `status` field                                             | `twickenham_events/availability` topic |
-| ------------- | ---------------------------------------------------------- | -------------------------------------- |
-| Meaning       | Data/content state of the most recent successful cycle    | Service process liveness (online/offline) |
-| Current Values| `active`, `no_events`, `error`                             | `online`, `offline`                    |
-| Retained In   | `twickenham_events/status` JSON payload                    | Dedicated retained string              |
-| Triggered By  | Scrape + publish pipeline logic                           | Service startup / graceful shutdown    |
+| Aspect         | `status` field                                         | `twickenham_events/availability` topic    |
+| -------------- | ------------------------------------------------------ | ----------------------------------------- |
+| Meaning        | Data/content state of the most recent successful cycle | Service process liveness (online/offline) |
+| Current Values | `active`, `no_events`, `error`                         | `online`, `offline`                       |
+| Retained In    | `twickenham_events/status` JSON payload                | Dedicated retained string                 |
+| Triggered By   | Scrape + publish pipeline logic                        | Service startup / graceful shutdown       |
 
 Current implemented `status` values:
 
-* active: At least one future event was scraped and published. The `event_count` attribute is > 0.
-* no_events: Scrape succeeded but produced zero future events (off‑season / gap days). Distinct from an error so dashboards can show an empty-but-healthy state.
-* error: A scrape cycle failed or produced zero events alongside scrape/processing errors. Errors list (and `error_count`) included for diagnostics; prior retained data may remain in other topics until next successful cycle.
+- active: At least one future event was scraped and published. The `event_count` attribute is > 0.
+- no_events: Scrape succeeded but produced zero future events (off‑season / gap days). Distinct from an error so dashboards can show an empty-but-healthy state.
+- error: A scrape cycle failed or produced zero events alongside scrape/processing errors. Errors list (and `error_count`) included for diagnostics; prior retained data may remain in other topics until next successful cycle.
 
 Rationale for separating availability:
 
-* A service can be `online` (process running) while the latest `status` is `no_events` (normal) or eventually `error` (transient failure).
-* On restart, Home Assistant instantly knows if the service is alive (availability) even before first scrape completes; `status` then updates with content state.
+- A service can be `online` (process running) while the latest `status` is `no_events` (normal) or eventually `error` (transient failure).
+- On restart, Home Assistant instantly knows if the service is alive (availability) even before first scrape completes; `status` then updates with content state.
 
 Automation tips:
 
-* Treat `availability` = offline for alerting about process failure (missed heartbeats / container stopped).
-* Treat `status` = no_events as low severity / informational.
-* Treat `status` = error to trigger a retry or notification summarizing `errors` list contents.
+- Treat `availability` = offline for alerting about process failure (missed heartbeats / container stopped).
+- Treat `status` = no_events as low severity / informational.
+- Treat `status` = error to trigger a retry or notification summarizing `errors` list contents.
 
 Example template handling all states:
 

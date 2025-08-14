@@ -17,22 +17,50 @@ Design choices (per user requirements):
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import __version__
 from .config import Config
 
-try:
+if TYPE_CHECKING:
     from ha_mqtt_publisher.ha_discovery import (
         BinarySensor,
         Device,
         Sensor,
-        publish_device_bundle,
+        publish_device_bundle as _publish_device_bundle,
     )
 
     HA_DISCOVERY_AVAILABLE = True
-except ImportError:  # pragma: no cover - defensive
-    HA_DISCOVERY_AVAILABLE = False
+else:  # runtime import with fallback
+    try:
+        from ha_mqtt_publisher.ha_discovery import (
+            BinarySensor,  # type: ignore
+            Device,  # type: ignore
+            Sensor,  # type: ignore
+            publish_device_bundle as _publish_device_bundle,  # type: ignore
+        )
+
+        HA_DISCOVERY_AVAILABLE = True
+    except ImportError:  # pragma: no cover - defensive
+        HA_DISCOVERY_AVAILABLE = False
+
+        class _Missing:
+            def __init__(self, *_, **__):
+                raise ImportError("ha_mqtt_publisher not available; install dependency")
+
+        # Provide stubs so type names exist, but raise if constructed/used
+        BinarySensor = _Missing  # type: ignore
+        Device = _Missing  # type: ignore
+        Sensor = _Missing  # type: ignore
+
+        def _publish_device_bundle(*args, **kwargs):  # type: ignore
+            raise ImportError("ha_mqtt_publisher not available; install dependency")
+
+
+# Provide a public name that tests and callers can patch
+def publish_device_bundle(*args, **kwargs):  # type: ignore
+    return _publish_device_bundle(*args, **kwargs)
+
 
 DEVICE_ID = "twickenham_events"
 

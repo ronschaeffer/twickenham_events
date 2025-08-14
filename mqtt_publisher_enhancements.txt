@@ -1,105 +1,126 @@
-# Twickenham Events: Website Unavailability Handling Improvements
+# ha_mqtt_publisher: Enhancements to backport from Twickenham Events
 
-## Current Behavior
-When the Richmond Council website is unavailable:
-- ✅ Network errors are caught and logged
-- ✅ Application exits gracefully without crashing
-- ✅ Error details saved to JSON file
-- ⚠️ MQTT status not published (app exits early)
-- ⚠️ No fallback to previous data
+Goal: capture generic MQTT patterns proven here so they can be added to the ha_mqtt_publisher library and be drop-in for this project and reusable for non-HA projects. Each item lists where to look in this repo (file and symbol names) so code can be ported or adapted.
 
-## Suggested Improvements
+Note: Prefer core, HA-agnostic helpers in the base package, and optional HA-specific helpers in a discovery submodule.
 
-### 1. Always Publish Status (Even on Failure)
-```python
-def main():
-    # ... existing code ...
+---
 
-    raw_events = fetch_events(config.get("scraping.url"))
+1) Availability + LWT utilities (generic)
+- What: Simple online/offline publisher with graceful shutdown handling; maps cleanly onto MQTT Last Will without requiring HA.
+- Library API sketch:
+    - class AvailabilityPublisher(mqtt_client, topic: str, qos=0)
+        - start_online(retain=True) -> None
+        - stop_offline(retain=True) -> None
+    - install_signal_handlers(shutdown_cb) -> context handle
+    - config helpers to pass last_will {topic, payload, qos, retain}
+- References in this repo:
+    - src/twickenham_events/service_support.py: AvailabilityPublisher, ServiceSignalController, install_global_signal_controller
+    - src/twickenham_events/config.py: get_mqtt_config includes pass-through of mqtt.last_will
+    - README.md: sections “Availability & LWT”, “Status vs Availability”
 
-    # Write errors regardless of success/failure
-    errors_path = output_dir / "event_processing_errors.json"
-    with open(errors_path, "w") as f:
-        json.dump({"last_updated": timestamp, "errors": error_log}, f, indent=4)
+2) Command Processor (generic, HA-optional)
+- What: MQTT command handling with ack/result topics, idempotency, cooldowns, single-flight execution, and pluggable commands; payloads can be plain or JSON.
+- Library API sketch:
+    - class CommandProcessor(client, base_topic: str, ack_suffix="/ack", result_suffix="/result", qos=0, retain_ack=False, retain_result=False)
+        - register_command(name, executor, description=None, cooldown_s=None, schema=None)
+        - handle_message(topic, payload_bytes)  # parse, dedupe, ack, run on thread, publish result
+        - publish_registry(topic, retain=True)  # optional registry for UIs
+    - Optional: simple plugin loader (entry point or directory scan)
+- References in this repo:
+    - src/twickenham_events/command_processor.py: CommandProcessor (register_command, handle_message, _publish, publish_registry)
+    - src/twickenham_events/plugin_loader.py: load_command_plugins(processor)
+    - README.md: “Command Topics”, “Service Modes & CLI” (uses refresh, clear_cache commands)
 
-    if not raw_events:
-        print("No events found or failed to fetch events.")
-        # IMPROVEMENT: Still publish error status to MQTT
-        if config.get("mqtt.enabled"):
-            publish_error_status(config, timestamp)
-        return
-```
+3) Retained JSON publishing helpers (generic)
+- What: Safe JSON publishing with consistent encoding, retain flag, QoS, and optional auto-inject of timestamps (e.g., last_updated) and defensive logging.
+- Library API sketch:
+    - def publish_json(client, topic, obj, qos=0, retain=True, ensure_ts_field=None, log_debug=False)
+    - def publish_many(client, messages: list[tuple[topic, obj, qos, retain]])
+- References in this repo:
+    - src/twickenham_events/mqtt_client.py: MQTTClient.publish_events(...)
+        - Ensures last_updated; DEBUG logs full status payload before publish
+    - tests/test_event_date_regressions.py: CapturingPublisher.publish captures calls and retain flags
 
-### 2. Data Retention Strategy
-```python
-def load_previous_events(output_dir):
-    """Load previously successful event data as fallback."""
-    try:
-        with open(output_dir / "upcoming_events.json") as f:
-            previous_data = json.load(f)
-            return previous_data.get("events", [])
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+4) Service runner conveniences (generic)
+- What: Helpers to encapsulate a “single cycle” vs “daemon” loop, wiring availability, LWT, and command subscription.
+- Library API sketch:
+    - run_service_once(setup_fn, cycle_fn, teardown_fn, availability: AvailabilityPublisher | None)
+    - run_service_loop(interval_s, on_tick, on_command, availability, stop_signal)
+- References in this repo:
+    - src/twickenham_events/service_support.py: ServiceSignalController, install_global_signal_controller
+    - src/twickenham_events/service_cycle.py: build_extra_status_for_publish (extra diagnostics attached to status)
+    - src/twickenham_events/__main__.py: “service” command orchestration
 
-def main():
-    # ... existing code ...
+5) HA discovery: unified device bundle publisher (optional submodule)
+- What: Device-level single retained discovery JSON with compact components map and shared availability; includes buttons mapped to command topics.
+- Library API sketch (HA-specific):
+    - build_device(config) -> dict
+    - build_entities(config) -> dict[str, dict]
+    - publish_device_bundle(mqtt_client, config, availability_topic)
+    - publish_command_buttons(mqtt_client, config, availability_topic)
+    - purge_legacy_discovery(mqtt_client, config)  # idempotent retained empty publishes
+- References in this repo:
+    - src/twickenham_events/discovery_helper.py: publish_command_buttons, publish_availability_binary_sensor, publish_device_bundle, purge_legacy_discovery, constants
+    - src/twickenham_events/ha_integration.py: build_device, build_entities, publish_discovery_bundle
+    - README.md: “Unified HA discovery (bundle)” and “Migration”
 
-    if not raw_events:
-        print("Website unavailable - checking for previous data...")
-        previous_events = load_previous_events(output_dir)
-        if previous_events:
-            print(f"Using {len(previous_events)} events from previous run")
-            # Publish with stale data indicator
-        else:
-            print("No previous data available")
-```
+6) Topic conventions and command mirroring (generic + HA option)
+- What: Conventional subtopics: status, availability, events/*, cmd/*; buttons mirror cmd topics in HA.
+- Library guidance:
+    - Provide a small TopicMap helper (status, availability, cmd.refresh, cmd.clear_cache, etc.)
+    - Offer HA button specs only when HA module is used
+- References in this repo:
+    - README.md: MQTT topics table; command topics; availability
+    - src/twickenham_events/discovery_helper.py: command_topic wiring
 
-### 3. Enhanced Error Status
-```python
-def publish_error_status(config, timestamp):
-    """Publish error status when website is unavailable."""
-    try:
-        mqtt_config = config.get_mqtt_config()
-        with MQTTPublisher(**mqtt_config) as publisher:
-            status_payload = {
-                "status": "error",
-                "last_updated": timestamp,
-                "event_count": 0,
-                "error_count": len(error_log),
-                "errors": error_log,
-                "website_status": "unavailable"
-            }
-            publisher.publish(config.get("mqtt.topics.status"), status_payload, retain=True)
-            print("Published error status to MQTT")
-    except Exception as e:
-        print(f"Failed to publish error status: {e}")
-```
+7) Validation and hygiene utilities (generic)
+- What: Minimal retained-topic validator with subscribe+timeout, JSON shape checks, and optional strict cross-topic invariants hook.
+- Library API sketch:
+    - def validate_retained(client, topics: list[str], timeout_s=2.0, on_message=None) -> dict[topic, payload]
+    - hook for custom invariants (e.g., count parity)
+- References in this repo:
+    - scripts/validate_all.py: subscribe logic with mid-wait re-subscribe, on_message callback, timeouts
+    - README.md: Validation & Hygiene Tooling
 
-### 4. Retry Logic
-```python
-def fetch_events_with_retry(url, max_retries=3, delay=5):
-    """Fetch events with retry logic for temporary outages."""
-    for attempt in range(max_retries):
-        try:
-            events = fetch_events(url)
-            if events:  # Success
-                return events
-        except Exception as e:
-            error_log.append(f"Attempt {attempt + 1} failed: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(delay)
-    return []
-```
+8) Config conveniences (generic)
+- What: Build MQTT publisher kwargs from app config with env interpolation; pass through last_will dict; derive broker/port defaults.
+- Library API sketch:
+    - class MQTTConfig: from_mapping(cfg: dict) -> MQTTConfig
+    - def to_publisher_kwargs(self) -> dict
+- References in this repo:
+    - src/twickenham_events/config.py: get_mqtt_config(), service_discovery_prefix(), service buttons flags
+    - Workspace Infrastructure/NEXT_STEPS.md: note about deriving host/port from config keys
 
-## Benefits of These Improvements
+9) Error/status shaping (generic)
+- What: Consistent status payload with counters, structured errors, and roll-up fields.
+- Library pieces:
+    - dataclass StatusPayload(status: str, event_count: int, last_run_ts: int | None, last_run_iso: str | None, ai_enabled: bool | None, ai_error_count: int, publish_error_count: int, error_count: int, errors: list[dict])
+    - helper to dedupe/truncate errors and to increment counters
+- References in this repo:
+    - README.md: “Status Payload & Diagnostics Fields” and “Error Types Captured”
+    - src/twickenham_events/mqtt_client.py: status_payload assembly and logging
 
-1. **Better Monitoring**: Home Assistant always receives status updates
-2. **Graceful Degradation**: Previous data can be used when website is down
-3. **Transparency**: Clear indication of website availability status
-4. **Resilience**: Temporary outages don't cause complete data loss
+10) Drop-in plan for this project
+- After adding the above to ha_mqtt_publisher:
+    - Replace local AvailabilityPublisher with library version.
+    - Replace CommandProcessor with library version; keep plugins.
+    - Use library publish_json/publish_many to publish retained topics.
+    - Use library HA discovery helpers (or keep ours if library houses them under ha_discovery).
+    - Keep existing topics and payloads; only call sites change.
 
-## Implementation Priority
+---
 
-1. **High**: Always publish MQTT status (even on errors)
-2. **Medium**: Data retention for fallback
-3. **Low**: Retry logic (may not be needed for scheduled runs)
+Quick reference: symbols to search in this repo
+- Availability: twickenham_events.service_support.AvailabilityPublisher, ServiceSignalController, install_global_signal_controller
+- Commands: twickenham_events.command_processor.CommandProcessor (register_command, handle_message, publish_registry), twickenham_events.plugin_loader.load_command_plugins
+- Publishing: twickenham_events.mqtt_client.MQTTClient.publish_events
+- Discovery (HA): twickenham_events.discovery_helper.(publish_command_buttons|publish_availability_binary_sensor|publish_device_bundle|purge_legacy_discovery)
+- Integration glue: twickenham_events.ha_integration.(build_device|build_entities|publish_discovery_bundle)
+- Validation: scripts/validate_all.py (subscribe, on_message, timeouts)
+- Config: twickenham_events.config.Config.get_mqtt_config, service_discovery_prefix
+
+Out-of-scope for the base library (keep as examples or HA submodule)
+- Event/domain-specific schemas (e.g., Twickenham events_json)
+- AI enrichment logic
+- Project-specific cards and dashboards

@@ -4,9 +4,8 @@
 import json
 import logging
 
-from mqtt_publisher.publisher import MQTTPublisher
-
 from core.config import Config
+from mqtt_publisher.publisher import MQTTPublisher
 
 
 def publish_twickenham_discovery(config: Config, publisher: MQTTPublisher):
