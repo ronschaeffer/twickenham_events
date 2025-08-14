@@ -554,13 +554,15 @@ protobuf = ">=5.26.1,<6.0dev"
 
 [[package]]
 name = "ha-mqtt-publisher"
-version = "0.3.2"
+version = "0.3.3"
 description = "An MQTT publisher package"
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
-files = []
-develop = true
+files = [
+    {file = "ha_mqtt_publisher-0.3.3-py3-none-any.whl", hash = "sha256:eea232c53535f2446d7e647457a62276ab2cde68f03148074eb33e8bc5caeaf7"},
+    {file = "ha_mqtt_publisher-0.3.3.tar.gz", hash = "sha256:cfbdb2b2921c76e1f070fb1fb996d8e70cb89dbf59d13e1f36a9c16a4f16ff6f"},
+]
 
 [package.dependencies]
 paho-mqtt = ">=2.1.0"
@@ -570,10 +572,6 @@ typing-extensions = ">=4.7.0"
 
 [package.extras]
 dev = ["codespell (>=2.1.0)", "pre-commit (>=4.2.0)", "pytest (>=8.3.4)", "pytest-cov (>=6.2.1)", "pytest-mock (>=3.10.0)", "ruff (>=0.12.7)"]
-
-[package.source]
-type = "directory"
-url = "../mqtt_publisher"
 
 [[package]]
 name = "httplib2"
@@ -1271,4 +1269,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "b89ebf4889dfd94d47ac6adab9006e3fefa5dc56ca13ba4ab1ee379a0b3630b3"
+content-hash = "4bec5f05add51e84130b3e9c02a9ab122f0c3228d7a446e08adfec1750be63a0"
