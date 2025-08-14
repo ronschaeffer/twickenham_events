@@ -9,13 +9,13 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple  # noqa: UP035
 
 from bs4 import BeautifulSoup
-from mqtt_publisher.publisher import MQTTPublisher
 import requests
 
 from core.config import Config
 from core.discovery import publish_twickenham_discovery
 from core.event_icons import get_event_emoji_and_icon
 from core.event_shortener import get_short_name
+from mqtt_publisher.publisher import MQTTPublisher
 
 # Add project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

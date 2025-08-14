@@ -5,7 +5,6 @@ import sys
 from typing import Any, Dict, List, Optional  # noqa: UP035
 
 from dotenv import load_dotenv
-from mqtt_publisher.publisher import MQTTPublisher
 
 from core.config import Config
 from core.discovery import publish_twickenham_discovery
@@ -17,6 +16,7 @@ from core.twick_event import (
     summarise_events,
 )
 from core.version import get_dynamic_version
+from mqtt_publisher.publisher import MQTTPublisher
 
 # Add project root to the Python path
 sys.path.append(str(Path(__file__).parent.parent))
