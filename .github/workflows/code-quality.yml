@@ -75,7 +75,8 @@ jobs:
       - name: Run comprehensive linting
         run: |
           echo "🔍 Running comprehensive Ruff analysis..."
-          poetry run ruff check . --statistics --output-format=github
+          # Use a supported output format for statistics; 'github' isn't valid for --statistics
+          poetry run ruff check . --statistics
           echo "📊 Code complexity analysis..."
           poetry run ruff check . --select=PLR5501 --statistics
 
