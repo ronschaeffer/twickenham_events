@@ -3,7 +3,10 @@
 from pathlib import Path
 from typing import Any, Optional
 
-from ics_calendar_utils import EventProcessor, ICSGenerator
+from icalendar import Calendar, Event
+
+# Use the project's canonical date normalizer
+from twickenham_events.scraper import EventScraper
 
 
 def generate_ics_calendar(
@@ -21,7 +24,6 @@ def generate_ics_calendar(
         Tuple of (result_dict, ics_file_path)
     """
     try:
-        # Get calendar configuration
         calendar_config = config.get("calendar", {})
         if not calendar_config.get("enabled", True):
             return None, None
@@ -29,67 +31,105 @@ def generate_ics_calendar(
         filename = calendar_config.get("filename", "twickenham_events.ics")
         calendar_name = "Twickenham Stadium Events"
 
-        # Create field mapping for Twickenham events. The installed library already
-        # maps common fields like 'fixture'->'summary', 'date'->'dtstart_date',
-        # and 'start_time'->'dtstart_time'. We'll normalize our input accordingly
-        # and only rely on defaults to minimize API coupling.
+        cal = Calendar()
+        cal.add("prodid", "-//Twickenham Events//twickenham_events//EN")
+        cal.add("version", "2.0")
+        cal.add("X-WR-CALNAME", calendar_name)
+        cal.add("X-WR-TIMEZONE", "Europe/London")
 
-        # Add default time for events that don't have one
-        events_normalized: list[dict[str, Any]] = []
+        total_events = 0
+        # Leverage the repository's EventScraper.normalize_date_range to canonicalize dates
+        normalizer = EventScraper({})
+
+        def _parse_date_using_normalizer(date_str: str, time_str: str):
+            """Return a datetime or None using the project's normalizer, falling back to flexible parsing."""
+            normalized = normalizer.normalize_date_range(date_str)
+            from datetime import datetime as _dt
+
+            if normalized:
+                try:
+                    y, m, d = [int(x) for x in normalized.split("-")]
+                    t_parts = [int(x) for x in (time_str or "15:00").split(":")]
+                    return _dt(y, m, d, t_parts[0], t_parts[1])
+                except Exception:
+                    return None
+
+            # Fallback: try ISO-style YYYY-MM-DD parsing
+            try:
+                parts = [int(x) for x in date_str.split("-")]
+                t_parts = [int(x) for x in (time_str or "15:00").split(":")]
+                return _dt(parts[0], parts[1], parts[2], t_parts[0], t_parts[1])
+            except Exception:
+                pass
+
+            # Fallback: try a few common human-readable formats
+            fmts = ["%A, %d %B %Y", "%d %B %Y", "%d %b %Y"]
+            for fmt in fmts:
+                try:
+                    d = _dt.strptime(date_str, fmt)
+                    t_parts = [int(x) for x in (time_str or "15:00").split(":")]
+                    return _dt(d.year, d.month, d.day, t_parts[0], t_parts[1])
+                except Exception:
+                    continue
+
+            return None
+
         for ev in events:
             e = ev.copy()
-            # Normalize keys expected by the processor defaults
-            if "title" in e and "fixture" not in e:
-                e["fixture"] = e.get("title")
-            if "time" in e and "start_time" not in e:
-                e["start_time"] = e.get("time")
-            if not e.get("start_time"):
-                e["start_time"] = "15:00"  # Default 3 PM start time
-            # Ensure location present
-            e["venue"] = e.get(
-                "venue",
-                "Twickenham Stadium, 200 Whitton Rd, Twickenham TW2 7BA, UK",
+            # Normalize keys
+            summary = e.get("fixture") or e.get("title") or "Event"
+            date_str = e.get("date")
+            time_str = e.get("start_time") or e.get("time") or "15:00"
+            venue = e.get(
+                "venue", "Twickenham Stadium, 200 Whitton Rd, Twickenham TW2 7BA, UK"
             )
-            events_normalized.append(e)
+            description = []
+            if e.get("fixture_short"):
+                description.append(f"Short name: {e['fixture_short']}")
+            if e.get("crowd"):
+                description.append(f"Expected crowd: {e['crowd']}")
+            desc = " | ".join(description) if description else None
 
-        # Process events
-        processor = EventProcessor()
-        # Newer library exposes process_events; older fallback may expose 'process'.
-        if hasattr(processor, "process_events"):
-            processed_events = processor.process_events(events_normalized)  # type: ignore[attr-defined]
-        else:  # pragma: no cover - legacy shim
-            processed_events = processor.process(events_normalized)  # type: ignore[call-arg]
+            # Parse date and time using the canonical normalizer
+            dtstart = None
+            if date_str:
+                dtstart = _parse_date_using_normalizer(date_str, time_str)
+                if not dtstart:
+                    # Skip events with invalid dates entirely
+                    continue
 
-        # Generate ICS
-        generator = ICSGenerator(calendar_name=calendar_name, timezone="Europe/London")
+            from uuid import uuid4
 
-        # Validate events
-        validation_errors = generator.validate_events(processed_events)
-        if validation_errors:
-            print(f"⚠️  Validation warnings: {validation_errors}")
+            event = Event()
+            event.add("summary", summary)
+            # Add a UID for each event to satisfy validator
+            event.add("uid", str(uuid4()))
+            if dtstart:
+                # Convert to UTC-aware datetime so icalendar serializes with 'Z' and full timestamp
+                from datetime import timezone
 
-        # Create output path
+                dt_utc = dtstart.replace(tzinfo=timezone.utc)
+                event.add("dtstart", dt_utc)
+            event.add("location", venue)
+            if desc:
+                event.add("description", desc)
+            cal.add_component(event)
+            total_events += 1
+
         ics_path = output_dir / filename
         ics_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(ics_path, "wb") as f:
+            f.write(cal.to_ical())
 
-        # Generate ICS content and save to file
-        generator.generate_ics(processed_events, str(ics_path))
-
-        # Get statistics
-        stats = generator.get_ics_stats(processed_events)
-
-        # Return success result
         result = {
             "success": True,
             "stats": {
-                "total_events": stats.get("total_events", len(processed_events)),
+                "total_events": total_events,
                 "calendar_name": calendar_name,
                 "filename": filename,
             },
         }
-
         return result, ics_path
-
     except Exception as e:
         print(f"❌ Error generating ICS calendar: {e}")
         return None, None
