@@ -2,7 +2,6 @@
 ICS calendar generation for Twickenham Events.
 """
 
-
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -12,6 +11,7 @@ from icalendar import Calendar, Event
 
 class CalendarGenerator:
     """Handles generation of ICS calendar files from event data."""
+
     def generate_ics_calendar(
         self, events: list[dict[str, Any]], output_dir: Path
     ) -> tuple[Optional[dict[str, Any]], Optional[Path]]:
@@ -44,7 +44,10 @@ class CalendarGenerator:
                 for event in event_day["events"]:
                     summary = event.get("fixture") or event.get("title") or "Event"
                     time_str = event.get("start_time") or event.get("time") or "15:00"
-                    venue = event.get("venue", "Twickenham Stadium, 200 Whitton Rd, Twickenham TW2 7BA, UK")
+                    venue = event.get(
+                        "venue",
+                        "Twickenham Stadium, 200 Whitton Rd, Twickenham TW2 7BA, UK",
+                    )
                     desc = event.get("description")
 
                     # Parse date and time
@@ -53,7 +56,13 @@ class CalendarGenerator:
                         try:
                             dt_parts = [int(x) for x in date_str.split("-")]
                             t_parts = [int(x) for x in time_str.split(":")]
-                            dtstart = datetime(dt_parts[0], dt_parts[1], dt_parts[2], t_parts[0], t_parts[1])
+                            dtstart = datetime(
+                                dt_parts[0],
+                                dt_parts[1],
+                                dt_parts[2],
+                                t_parts[0],
+                                t_parts[1],
+                            )
                         except Exception:
                             continue  # Skip event if date is invalid
 
