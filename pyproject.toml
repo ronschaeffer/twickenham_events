@@ -59,6 +59,7 @@ build-backend = "poetry.core.masonry.api"
 target-version = "py39"
 line-length = 88
 required-version = ">=0.12.0"
+exclude = ["archive/**"]
 
 [tool.ruff.lint]
 select = [
