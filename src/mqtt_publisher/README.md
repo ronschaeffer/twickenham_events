@@ -12,7 +12,7 @@ This module provides a reusable `handle_command_message` function for Home Assis
 Import and use `handle_command_message` in your MQTT callback:
 
 ```python
-from mqtt_publisher.message_handler import handle_command_message
+from ha_mqtt_publisher.message_handler import handle_command_message
 
 # In your MQTT on_message callback:
 handle_command_message(
