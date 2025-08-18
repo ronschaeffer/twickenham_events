@@ -17,6 +17,7 @@ dependencies = [
     # Use PyPI release in CI; local dev can override via Poetry if needed
     "ha-mqtt-publisher>=0.3.3",
     "ronschaeffer-ics-calendar-utils>=0.2.2",
+    "icalendar>=5.0.0",
 ]
 
 [project.scripts]
@@ -38,6 +39,7 @@ pyyaml = "^6.0.1"
 python-dotenv = "^1.1.1"
 ha-mqtt-publisher = ">=0.3.3"
 ronschaeffer-ics-calendar-utils = "^0.2.2"
+icalendar = ">=5.0.0"
 
 [tool.poetry.group.ai.dependencies]
 google-generativeai = "^0.8.0"
@@ -57,6 +59,7 @@ build-backend = "poetry.core.masonry.api"
 target-version = "py39"
 line-length = 88
 required-version = ">=0.12.0"
+exclude = ["archive/**"]
 
 [tool.ruff.lint]
 select = [
