@@ -1094,18 +1094,16 @@ def cmd_service(config: Config, args) -> int:
                         )
                         if verify_flag is False:
                             paho_client.tls_insecure_set(True)
-                    else:
-                        if verify_flag is True:
-                            paho_client.tls_set()
-                        else:
-                            paho_client.tls_set(cert_reqs=ssl.CERT_NONE)
-                            paho_client.tls_insecure_set(True)
-                else:
-                    if verify_flag is True:
+                    elif verify_flag is True:
                         paho_client.tls_set()
                     else:
                         paho_client.tls_set(cert_reqs=ssl.CERT_NONE)
                         paho_client.tls_insecure_set(True)
+                elif verify_flag is True:
+                    paho_client.tls_set()
+                else:
+                    paho_client.tls_set(cert_reqs=ssl.CERT_NONE)
+                    paho_client.tls_insecure_set(True)
                 logging.info(
                     "service mqtt_client tls configured requested=%s verify=%s",
                     tls_requested,

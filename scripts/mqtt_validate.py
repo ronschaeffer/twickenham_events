@@ -480,20 +480,19 @@ def main(argv: list[str]) -> int:
                         client.tls_set(ca_certs=ca, certfile=certfile, keyfile=keyfile)
                         if verify_flag is False:
                             client.tls_insecure_set(True)
-                    else:
-                        # Permissive fallback for local validation (no CA available)
-                        if verify_flag is True:
-                            client.tls_set()  # default verification
-                        else:
-                            client.tls_set(cert_reqs=ssl.CERT_NONE)
-                            client.tls_insecure_set(True)
-                else:
-                    # Boolean/envar-driven TLS: use permissive mode for validation
-                    if verify_flag is True:
+                    elif verify_flag is True:
+                        # Default verification when explicitly requested
                         client.tls_set()
                     else:
+                        # Permissive fallback for local validation (no CA available)
                         client.tls_set(cert_reqs=ssl.CERT_NONE)
                         client.tls_insecure_set(True)
+                elif verify_flag is True:
+                    # Boolean/envar-driven TLS
+                    client.tls_set()
+                else:
+                    client.tls_set(cert_reqs=ssl.CERT_NONE)
+                    client.tls_insecure_set(True)
             except Exception:
                 # Non-fatal; proceed without TLS if TLS setup fails for any reason
                 pass
