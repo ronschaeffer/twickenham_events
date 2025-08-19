@@ -1197,12 +1197,39 @@ def cmd_service(config: Config, args) -> int:
         from ha_mqtt_publisher.mqtt_utils import extract_reason_code
     except Exception:
 
-        def extract_reason_code(rc: int) -> str:  # fallback simple mapper
-            return str(rc)
+        def extract_reason_code(
+            *args, **kwargs
+        ):  # robust fallback compatible with paho v1/v2
+            # Try to extract an integer-like reason code from common callback signatures
+            for a in args:
+                try:
+                    if isinstance(a, int):
+                        return a
+                    if hasattr(a, "rc"):
+                        return int(a.rc)  # type: ignore[attr-defined]
+                    if hasattr(a, "reason_code"):
+                        return int(a.reason_code)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
+            for v in kwargs.values():
+                try:
+                    if isinstance(v, int):
+                        return v
+                    if hasattr(v, "rc"):
+                        return int(v.rc)  # type: ignore[attr-defined]
+                    if hasattr(v, "reason_code"):
+                        return int(v.reason_code)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
+            return None
 
     def on_connect(client, userdata, *args, **kwargs):
         # Support both v1 and v2 paho callback signatures. Extract reason_code
-        reason_code = extract_reason_code(*args, **kwargs)
+        rc_val = extract_reason_code(*args, **kwargs)
+        try:
+            reason_code = int(rc_val) if rc_val is not None else 0
+        except Exception:
+            reason_code = 0
         if last_connect_code["code"] == reason_code:
             return
         last_connect_code["code"] = reason_code

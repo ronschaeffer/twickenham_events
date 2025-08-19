@@ -169,7 +169,10 @@ def parse_args() -> argparse.ArgumentParser:
 
 def launch_service_once():
     try:
-        subprocess.run(["twick-events", "service", "--once"], check=True)
+        # Use module invocation to avoid dependency on console script installation
+        subprocess.run(
+            [sys.executable, "-m", "twickenham_events", "service", "--once"], check=True
+        )
     except Exception as e:
         print(f"WARNING: service run failed: {e}")
 
@@ -443,6 +446,13 @@ def main(argv: list[str]) -> int:
         _tls_env = os.getenv("MQTT_USE_TLS")
         if _tls_env and _tls_env.lower() in ("true", "1", "yes", "on"):
             tls_requested = True
+        # If connecting to standard non-TLS port, avoid enabling TLS unless explicitly forced via env
+        if args.port == 1883:
+            _force_tls_env = os.getenv("MQTT_USE_TLS")
+            if not (
+                _force_tls_env and _force_tls_env.lower() in ("true", "1", "yes", "on")
+            ):
+                tls_requested = False
         if tls_requested:
             # If config provided a dict of TLS options, prefer explicit cert paths
             cfg_tls = None

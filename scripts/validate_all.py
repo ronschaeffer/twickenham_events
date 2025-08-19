@@ -135,9 +135,12 @@ def main(argv=None) -> int:  # pragma: no cover
         out_dir = Path(a.upcoming).parent
         print(f"→ Running scrape to refresh artifacts in {out_dir} ...")
         try:
+            # Prefer module invocation to avoid dependency on console script being installed
             subprocess.run(
                 [
-                    "twick-events",
+                    sys.executable,
+                    "-m",
+                    "twickenham_events",
                     "scrape",
                     "--output",
                     str(out_dir),
