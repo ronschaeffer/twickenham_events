@@ -352,24 +352,23 @@ class Config:
                 cfg["tls"] = tls_cfg
             else:
                 cfg["tls"] = {"verify": False}
-        else:
+        elif isinstance(tls_cfg, bool) and tls_cfg:
             # Interpret explicit boolean True from YAML
-            if isinstance(tls_cfg, bool) and tls_cfg:
+            cfg["tls"] = {"verify": False}
+        else:
+            # Fall back to env var MQTT_USE_TLS if present
+            env_tls = os.getenv("MQTT_USE_TLS")
+            if env_tls is not None and str(env_tls).lower() in (
+                "true",
+                "1",
+                "yes",
+                "on",
+            ):
+                # Enable TLS. If no TLS details provided, default to a permissive
+                # mode (verify=False) to simplify local validation runs where no
+                # CA certificate has been configured. Users should supply
+                # CA/client certs in production.
                 cfg["tls"] = {"verify": False}
-            else:
-                # Fall back to env var MQTT_USE_TLS if present
-                env_tls = os.getenv("MQTT_USE_TLS")
-                if env_tls is not None and str(env_tls).lower() in (
-                    "true",
-                    "1",
-                    "yes",
-                    "on",
-                ):
-                    # Enable TLS. If no TLS details provided, default to a permissive
-                    # mode (verify=False) to simplify local validation runs where no
-                    # CA certificate has been configured. Users should supply
-                    # CA/client certs in production.
-                    cfg["tls"] = {"verify": False}
         if cfg["security"] == "username" and self.mqtt_username and self.mqtt_password:
             cfg["auth"] = {
                 "username": self.mqtt_username,
