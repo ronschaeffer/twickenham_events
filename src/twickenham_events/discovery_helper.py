@@ -30,7 +30,7 @@ LEGACY_BUNDLE_SENSOR_UNIQUE_IDS = [
 ]
 
 
-def build_device(config) -> dict:
+def build_device(config: Any) -> dict[str, Any]:
     """Build a minimal device payload (expandable later)."""
     prefix = config.get("app.unique_id_prefix", "twickenham_events")
     return {
@@ -43,7 +43,7 @@ def build_device(config) -> dict:
     }
 
 
-def button_configs(config) -> list[dict]:
+def button_configs(config: Any) -> list[dict[str, Any]]:
     """Return list of button discovery specs (unique_id, name, command_topic)."""
     base = config.get("app.unique_id_prefix", "twickenham_events")
     return [
@@ -61,8 +61,8 @@ def button_configs(config) -> list[dict]:
 
 
 def publish_buttons_discovery(
-    mqtt_client,
-    config,
+    mqtt_client: Any,
+    config: Any,
     buttons: Iterable[dict] | None = None,
     availability_topic: str = AVAILABILITY_TOPIC,
 ) -> None:
@@ -89,7 +89,7 @@ def publish_buttons_discovery(
 
 
 def publish_availability_binary_sensor(
-    mqtt_client, config, availability_topic: str = AVAILABILITY_TOPIC
+    mqtt_client: Any, config: Any, availability_topic: str = AVAILABILITY_TOPIC
 ) -> None:
     """Publish discovery for an availability binary_sensor (optional)."""
     discovery_prefix = config.service_discovery_prefix
@@ -108,8 +108,8 @@ def publish_availability_binary_sensor(
 
 
 def publish_device_bundle(
-    mqtt_client, config, availability_topic: str = AVAILABILITY_TOPIC
-):
+    mqtt_client: Any, config: Any, availability_topic: str = AVAILABILITY_TOPIC
+) -> None:
     """Publish a single status sensor with full attributes instead of multiple entities.
 
     The sensor exposes the status value, and attaches the entire status JSON payload
@@ -146,12 +146,12 @@ def publish_device_bundle(
 
 
 def publish_device_level_discovery(
-    mqtt_client,
-    config,
+    mqtt_client: Any,
+    config: Any,
     availability_topic: str = AVAILABILITY_TOPIC,
     include_event_count_component: bool = True,
     migrate_from_per_entity: bool = False,
-):
+) -> str:
     """Publish device-based discovery (single payload with 'cmps' component map)."""
     discovery_prefix = config.service_discovery_prefix
     base = config.get("app.unique_id_prefix", "twickenham_events")
@@ -354,8 +354,8 @@ def publish_device_level_discovery(
 
 
 def publish_all_discovery(
-    mqtt_client, config, availability_topic: str = AVAILABILITY_TOPIC
-):
+    mqtt_client: Any, config: Any, availability_topic: str = AVAILABILITY_TOPIC
+) -> None:
     """Publish buttons + availability binary sensor."""
     publish_buttons_discovery(
         mqtt_client, config, availability_topic=availability_topic
@@ -366,7 +366,7 @@ def publish_all_discovery(
     publish_device_bundle(mqtt_client, config, availability_topic=availability_topic)
 
 
-def cleanup_legacy_discovery(mqtt_client, config) -> list[str]:
+def cleanup_legacy_discovery(mqtt_client: Any, config: Any) -> list[str]:
     """Publish blank retained payloads to legacy discovery topics to clear duplicates.
 
     Returns list of topics cleared.

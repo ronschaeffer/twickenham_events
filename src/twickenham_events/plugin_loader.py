@@ -37,13 +37,13 @@ def load_command_plugins(
             if not spec or not spec.loader:
                 continue
             module = util.module_from_spec(spec)
-            spec.loader.exec_module(module)  # type: ignore
+            spec.loader.exec_module(module)
             if hasattr(module, "register_commands"):
                 module.register_commands(processor)
                 loaded.append(path.stem)
                 logger.info("loaded command plugin %s", path.name)
-        except Exception as e:  # pragma: no cover
-            logger.warning("failed loading plugin %s: %s", path, e)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("failed loading plugin %s: %s", path, exc)
     return loaded
 
 

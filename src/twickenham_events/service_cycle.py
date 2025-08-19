@@ -45,7 +45,7 @@ _LAST_ERRORS_STRUCT: list[dict[str, str]] = []  # structured cumulative list (bo
 
 
 def build_extra_status(
-    scraper,  # object having error_log list
+    scraper: Any,  # object having error_log list
     flat_events: list[dict[str, Any]],
     trigger: str,
     interval: int,

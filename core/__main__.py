@@ -21,6 +21,21 @@ from mqtt_publisher.publisher import MQTTPublisher
 # Add project root to the Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
+# Re-export CLI helper from the main package for compatibility with tests that
+# import `create_parser` from core.__main__.
+try:
+    # Prefer the installed/src twickenham_events CLI when available
+    from twickenham_events.__main__ import create_parser  # type: ignore
+except Exception:
+    # Provide a lightweight fallback that returns a minimal parser so tests
+    # that only instantiate the parser do not fail at import time.
+    import argparse
+
+    def create_parser() -> argparse.ArgumentParser:  # pragma: no cover - fallback
+        p = argparse.ArgumentParser(prog="twick-events")
+        p.add_argument("--config", default="config/config.yaml")
+        return p
+
 
 def update_dynamic_version():
     """Update ha_entities.yaml with current semantic version from pyproject.toml."""

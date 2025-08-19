@@ -58,14 +58,18 @@ def main() -> int:
         client.username_pw_set(cfg.mqtt_username, cfg.mqtt_password)
 
     # Simple handlers
-    def on_connect(client, userdata, flags, reason_code, properties=None):
+    from ha_mqtt_publisher.mqtt_utils import extract_reason_code
+
+    def on_connect(client, userdata, *args, **kwargs):
+        # Support both v1 and v2 callback signatures. Extract reason_code if present.
+        reason_code = extract_reason_code(*args, **kwargs)
         print(
             f"[watch] connected rc={reason_code} -> subscribing {', '.join(t for t, _ in topics)}"
         )
         for t, qos in topics:
             client.subscribe(t, qos=qos)
 
-    def on_message(client, userdata, msg):
+    def on_message(client, userdata, msg, *args, **kwargs):
         ts = time.strftime("%H:%M:%S")
         print(f"[{ts}] {msg.topic}:\n{pretty(msg.payload)}\n---")
 

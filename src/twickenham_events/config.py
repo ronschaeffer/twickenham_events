@@ -8,35 +8,55 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 import yaml
 
 # Lazy one-time .env loading flag
 _ENV_LOADED = False
 
 
-def _load_env_once():
+def _load_env_once() -> None:
     global _ENV_LOADED
     if _ENV_LOADED:
         return
-    # Prefer project root .env if present
+    # Load environment files with cascading precedence:
+    # 1) system environment (highest) - already present in os.environ
+    # 2) project-level .env (overrides workspace defaults)
+    # 3) workspace-level .env (defaults for all projects)
+    # Implementation: read both files, merge (project overrides workspace) and
+    # set values into os.environ only when the key is not already present in
+    # the system environment. This prevents accidental overwriting of OS envs.
     project_root = Path(__file__).parent.parent.parent
-    env_path = project_root / ".env"
-    if env_path.exists():
-        load_dotenv(env_path)
-    else:  # fallback to default search (current working dir)
-        load_dotenv()
+    workspace_env = project_root.parent / ".env"
+    project_env = project_root / ".env"
+
+    # Read dotenv files into dictionaries (no side-effects)
+    workspace_vals = dotenv_values(workspace_env) if workspace_env.exists() else {}
+    project_vals = dotenv_values(project_env) if project_env.exists() else {}
+
+    # Merge: project values override workspace defaults
+    merged = {}
+    merged.update({k: v for k, v in workspace_vals.items() if v is not None})
+    merged.update({k: v for k, v in project_vals.items() if v is not None})
+
+    # Apply merged values to environment only when not already defined by OS
+    for k, v in merged.items():
+        if k and v is not None and k not in os.environ:
+            os.environ[k] = str(v)
     _ENV_LOADED = True
 
 
 class Config:
     """Configuration manager with validation and defaults."""
 
+    config_path: Optional[str] = None
+
     def __init__(self, config_data: dict):
         _load_env_once()
         """Initialize configuration from dictionary."""
         self._data = config_data
-        self.config_path = None  # Will be set by from_file or from_defaults
+        # Instance-specific path; may be set by from_file or from_defaults
+        self.config_path = None
 
     @classmethod
     def from_file(cls, config_path: str) -> "Config":
@@ -188,7 +208,8 @@ class Config:
         # Handle unexpanded ${VAR} placeholders by falling back to legacy or default
         if isinstance(val, str) and val.startswith("${"):
             val = legacy if legacy and not str(legacy).startswith("${") else "localhost"
-        return val  # type: ignore[return-value]
+        # Ensure we return a string for mqtt broker
+        return str(val)
 
     @property
     def mqtt_port(self) -> int:
@@ -211,7 +232,7 @@ class Config:
             except ValueError:
                 return 1883
         try:
-            return int(val)  # type: ignore[arg-type]
+            return int(val)
         except Exception:
             return 1883
 
@@ -299,6 +320,19 @@ class Config:
 
     def get_mqtt_config(self) -> dict:
         """Get complete MQTT configuration for MQTTPublisher (ha-mqtt-publisher)."""
+        # If this Config object was created directly from a dict (i.e. via
+        # Config(config_data=...)) we require the caller to provide an explicit
+        # MQTT broker (either 'broker_url' or legacy 'broker') so that tests and
+        # callers who construct Config programmatically get a clear failure
+        # rather than silently falling back to localhost.
+        mqtt_section = (
+            self._data.get("mqtt", {}) if isinstance(self._data, dict) else {}
+        )
+        if self.config_path is None and not (
+            mqtt_section.get("broker_url") or mqtt_section.get("broker")
+        ):
+            raise ValueError("broker_url is required")
+
         cfg = {
             "broker_url": self.mqtt_broker,
             "broker_port": self.mqtt_port,
@@ -307,8 +341,35 @@ class Config:
             "max_retries": self.get("mqtt.max_retries", 3),
         }
         tls_cfg = self.get("mqtt.tls")
+        # Allow several forms to enable TLS:
+        # - a dict in config (detailed TLS settings)
+        # - a boolean True in config
+        # - an environment variable MQTT_USE_TLS set to true/1/yes
         if isinstance(tls_cfg, dict):  # allow dict TLS settings
-            cfg["tls"] = tls_cfg
+            # If dict is empty, default to permissive verification False to allow
+            # local validation without CA certs. Production should set 'verify: True'.
+            if tls_cfg:
+                cfg["tls"] = tls_cfg
+            else:
+                cfg["tls"] = {"verify": False}
+        else:
+            # Interpret explicit boolean True from YAML
+            if isinstance(tls_cfg, bool) and tls_cfg:
+                cfg["tls"] = {"verify": False}
+            else:
+                # Fall back to env var MQTT_USE_TLS if present
+                env_tls = os.getenv("MQTT_USE_TLS")
+                if env_tls is not None and str(env_tls).lower() in (
+                    "true",
+                    "1",
+                    "yes",
+                    "on",
+                ):
+                    # Enable TLS. If no TLS details provided, default to a permissive
+                    # mode (verify=False) to simplify local validation runs where no
+                    # CA certificate has been configured. Users should supply
+                    # CA/client certs in production.
+                    cfg["tls"] = {"verify": False}
         if cfg["security"] == "username" and self.mqtt_username and self.mqtt_password:
             cfg["auth"] = {
                 "username": self.mqtt_username,

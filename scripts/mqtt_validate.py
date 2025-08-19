@@ -29,10 +29,44 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import json
+import os
+import ssl
 import subprocess
 import sys
 import time
 from typing import Any
+
+try:
+    from ha_mqtt_publisher.mqtt_utils import extract_reason_code  # type: ignore
+except Exception:  # pragma: no cover - upstream helper optional
+
+    def extract_reason_code(*args, **kwargs):
+        """Lightweight fallback: try to extract an int-style reason code from
+        whatever signature the paho callback provided. Return None if not found.
+        """
+        # Common positions: (rc,), (client, userdata, flags, rc), (client, userdata, reason_code, props)
+        for a in args:
+            if isinstance(a, int):
+                return a
+            try:
+                if hasattr(a, "rc"):
+                    return int(a.rc)
+                if hasattr(a, "reason_code"):
+                    return int(a.reason_code)
+            except Exception:
+                pass
+        for v in kwargs.values():
+            if isinstance(v, int):
+                return v
+            try:
+                if hasattr(v, "rc"):
+                    return int(v.rc)
+                if hasattr(v, "reason_code"):
+                    return int(v.reason_code)
+            except Exception:
+                pass
+        return None
+
 
 import paho.mqtt.client as mqtt
 
@@ -119,6 +153,11 @@ def parse_args() -> argparse.ArgumentParser:
         "--strict",
         action="store_true",
         help="enable deeper cross-topic content validation",
+    )
+    p.add_argument(
+        "--presence-only",
+        action="store_true",
+        help="only check that topics are present (skip schema/content validation)",
     )
     p.add_argument(
         "--config",
@@ -352,14 +391,19 @@ def main(argv: list[str]) -> int:
     records: dict[str, MessageRecord] = {}
     done = dict.fromkeys(topics, False)
 
-    def on_connect(client, userdata, flags, reason_code, properties=None):  # type: ignore
-        if reason_code == 0:
+    def on_connect(client, userdata, *args, **kwargs):  # type: ignore
+        # Accept both v1 and v2 signatures. Use helper to extract an int-like reason_code.
+        reason_code = extract_reason_code(*args, **kwargs)
+        # If reason_code is None (some brokers / callback variants), assume
+        # the connection succeeded and proceed to subscribe. Only treat a
+        # numeric non-zero code as an explicit failure.
+        if reason_code is None or reason_code == 0:
             for t in topics:
                 client.subscribe(t)
         else:
             print(f"ERROR: connect failed rc={reason_code}")
 
-    def on_message(client, userdata, msg):  # type: ignore
+    def on_message(client, userdata, msg, *args, **kwargs):  # type: ignore
         try:
             payload_raw = msg.payload.decode("utf-8") if msg.payload else ""
             try:
@@ -388,6 +432,48 @@ def main(argv: list[str]) -> int:
         )
     client.on_connect = on_connect
     client.on_message = on_message
+
+    # If configuration / environment indicates TLS should be used, configure client
+    # to use TLS with permissive verification when no CA is provided (matches
+    # service behavior for local validation).
+    try:
+        tls_requested = False
+        if loaded_config is not None:
+            tls_requested = bool(loaded_config.get("mqtt.tls"))
+        _tls_env = os.getenv("MQTT_USE_TLS")
+        if _tls_env and _tls_env.lower() in ("true", "1", "yes", "on"):
+            tls_requested = True
+        if tls_requested:
+            # If config provided a dict of TLS options, prefer explicit cert paths
+            cfg_tls = None
+            try:
+                cfg_tls = (
+                    loaded_config.get("mqtt.tls") if loaded_config is not None else None
+                )
+            except Exception:
+                cfg_tls = None
+            try:
+                if isinstance(cfg_tls, dict):
+                    ca = cfg_tls.get("ca_certs")
+                    certfile = cfg_tls.get("certfile")
+                    keyfile = cfg_tls.get("keyfile")
+                    # Use provided certs if present
+                    if ca or certfile:
+                        client.tls_set(ca_certs=ca, certfile=certfile, keyfile=keyfile)
+                    else:
+                        # Permissive fallback for local validation (no CA available)
+                        client.tls_set(cert_reqs=ssl.CERT_NONE)
+                        client.tls_insecure_set(True)
+                else:
+                    # Boolean/envar-driven TLS: use permissive mode for validation
+                    client.tls_set(cert_reqs=ssl.CERT_NONE)
+                    client.tls_insecure_set(True)
+            except Exception:
+                # Non-fatal; proceed without TLS if TLS setup fails for any reason
+                pass
+    except Exception:
+        # Non-fatal; proceed without TLS if TLS setup fails for any reason
+        pass
 
     print(f"Connecting to {args.broker}:{args.port} ...")
     client.connect(args.broker, args.port, keepalive=30)
@@ -431,97 +517,110 @@ def main(argv: list[str]) -> int:
 
     missing = [t for t, ok in done.items() if not ok]
     errors: list[str] = []
-    for rec in records.values():
-        errors.extend(basic_schema_checks(rec.topic, rec.payload))
+    if not args.presence_only:
+        for rec in records.values():
+            errors.extend(basic_schema_checks(rec.topic, rec.payload))
 
-    # Strict cross-topic validation
-    if args.strict and not missing:
-        try:
-            status = records.get("twickenham_events/status")
-            all_upcoming = records.get("twickenham_events/events/all_upcoming")
-            next_topic = records.get("twickenham_events/events/next")
-            today_topic = records.get("twickenham_events/events/today")
-            avail = records.get("twickenham_events/availability")
-            # Status internal consistency
-            if status and isinstance(status.payload, dict):
-                ec = status.payload.get("event_count")
-                if all_upcoming and isinstance(all_upcoming.payload, dict):
-                    count_val = all_upcoming.payload.get("count")
-                    if isinstance(count_val, int) and ec != count_val:
-                        errors.append(
-                            f"strict: event_count mismatch status={ec} count={count_val}"
-                        )
-            # next event must match first upcoming if both available
-            if (
-                next_topic
-                and all_upcoming
-                and isinstance(next_topic.payload, dict)
-                and isinstance(all_upcoming.payload, dict)
-            ):
-                # Next sensor exposes flattened fields; compare fixture against first events_json entry
-                nf = (
-                    next_topic.payload.get("fixture")
-                    if isinstance(next_topic.payload, dict)
-                    else None
-                )
-                if not nf:
-                    # fallback to short or older fields if present
-                    rec = records.get("twickenham_events/events/next")
-                    if rec and isinstance(rec.payload, dict):
-                        nf = rec.payload.get("fixture") or rec.payload.get(
-                            "fixture_short"
-                        )
-                first_fixture = None
-                evj = (
-                    all_upcoming.payload.get("events_json")
-                    if isinstance(all_upcoming.payload, dict)
-                    else None
-                )
-                if isinstance(evj, dict):
-                    by_month = evj.get("by_month") or []
-                    if isinstance(by_month, list) and by_month:
-                        days = by_month[0].get("days") or []
-                        if isinstance(days, list) and days:
-                            first_events = days[0].get("events") or []
-                            if isinstance(first_events, list) and first_events:
-                                first_fixture = first_events[0].get(
-                                    "fixture"
-                                ) or first_events[0].get("fixture_short")
-                if nf and first_fixture and nf != first_fixture:
-                    errors.append(
-                        "strict: next.fixture mismatch first events_json entry"
-                    )
-            # today topic consistency
-            if today_topic and isinstance(today_topic.payload, dict):
-                has_today = today_topic.payload.get("has_event_today")
-                events_today = today_topic.payload.get("events_today")
+        # Strict cross-topic validation
+        if args.strict and not missing:
+            try:
+                status = records.get("twickenham_events/status")
+                all_upcoming = records.get("twickenham_events/events/all_upcoming")
+                next_topic = records.get("twickenham_events/events/next")
+                today_topic = records.get("twickenham_events/events/today")
+                avail = records.get("twickenham_events/availability")
+                # Status internal consistency
+                if status and isinstance(status.payload, dict):
+                    ec = status.payload.get("event_count")
+                    if all_upcoming and isinstance(all_upcoming.payload, dict):
+                        count_val = all_upcoming.payload.get("count")
+                        if isinstance(count_val, int) and ec != count_val:
+                            errors.append(
+                                f"strict: event_count mismatch status={ec} count={count_val}"
+                            )
+                # next event must match first upcoming if both available
                 if (
-                    isinstance(events_today, int)
-                    and bool(events_today > 0) != has_today
+                    next_topic
+                    and all_upcoming
+                    and isinstance(next_topic.payload, dict)
+                    and isinstance(all_upcoming.payload, dict)
                 ):
-                    errors.append("strict: today.has_event_today != (events_today>0)")
-            # availability correlation
-            if avail and isinstance(avail.payload, str) and avail.payload == "offline":
-                errors.append("strict: availability offline while data present")
-            # Device-level discovery component presence
-            device_disc = records.get(discovery_topics[0]) if discovery_topics else None
-            if device_disc and isinstance(device_disc.payload, dict):
-                # In strict mode only 'cmps' is acceptable; legacy keys should have been flagged earlier
-                components = (
-                    device_disc.payload.get("cmps")
-                    if isinstance(device_disc.payload.get("cmps"), dict)
-                    else None
+                    # Next sensor exposes flattened fields; compare fixture against first events_json entry
+                    nf = (
+                        next_topic.payload.get("fixture")
+                        if isinstance(next_topic.payload, dict)
+                        else None
+                    )
+                    if not nf:
+                        # fallback to short or older fields if present
+                        rec = records.get("twickenham_events/events/next")
+                        if rec and isinstance(rec.payload, dict):
+                            nf = rec.payload.get("fixture") or rec.payload.get(
+                                "fixture_short"
+                            )
+                    first_fixture = None
+                    evj = (
+                        all_upcoming.payload.get("events_json")
+                        if isinstance(all_upcoming.payload, dict)
+                        else None
+                    )
+                    if isinstance(evj, dict):
+                        by_month = evj.get("by_month") or []
+                        if isinstance(by_month, list) and by_month:
+                            days = by_month[0].get("days") or []
+                            if isinstance(days, list) and days:
+                                first_events = days[0].get("events") or []
+                                if isinstance(first_events, list) and first_events:
+                                    first_fixture = first_events[0].get(
+                                        "fixture"
+                                    ) or first_events[0].get("fixture_short")
+                    if nf and first_fixture and nf != first_fixture:
+                        errors.append(
+                            "strict: next.fixture mismatch first events_json entry"
+                        )
+                # today topic consistency
+                if today_topic and isinstance(today_topic.payload, dict):
+                    has_today = today_topic.payload.get("has_event_today")
+                    events_today = today_topic.payload.get("events_today")
+                    if (
+                        isinstance(events_today, int)
+                        and bool(events_today > 0) != has_today
+                    ):
+                        errors.append(
+                            "strict: today.has_event_today != (events_today>0)"
+                        )
+                # availability correlation
+                if (
+                    avail
+                    and isinstance(avail.payload, str)
+                    and avail.payload == "offline"
+                ):
+                    errors.append("strict: availability offline while data present")
+                # Device-level discovery component presence
+                device_disc = (
+                    records.get(discovery_topics[0]) if discovery_topics else None
                 )
-                if components is None:
-                    errors.append("strict: device discovery missing cmps dict")
-                else:
-                    missing_cmps = [
-                        c for c in EXPECTED_DISCOVERY_COMPONENTS if c not in components
-                    ]
-                    if missing_cmps:
-                        errors.append(f"strict: missing discovery cmps {missing_cmps}")
-        except Exception as e:  # pragma: no cover
-            errors.append(f"strict: validation exception {e}")
+                if device_disc and isinstance(device_disc.payload, dict):
+                    # In strict mode only 'cmps' is acceptable; legacy keys should have been flagged earlier
+                    components = (
+                        device_disc.payload.get("cmps")
+                        if isinstance(device_disc.payload.get("cmps"), dict)
+                        else None
+                    )
+                    if components is None:
+                        errors.append("strict: device discovery missing cmps dict")
+                    else:
+                        missing_cmps = [
+                            c
+                            for c in EXPECTED_DISCOVERY_COMPONENTS
+                            if c not in components
+                        ]
+                        if missing_cmps:
+                            errors.append(
+                                f"strict: missing discovery cmps {missing_cmps}"
+                            )
+            except Exception as e:  # pragma: no cover
+                errors.append(f"strict: validation exception {e}")
 
     if missing:
         print("\nMissing topics:")
@@ -539,6 +638,15 @@ def main(argv: list[str]) -> int:
             print(f"  [{label}] {t}: OK ({type(records[t].payload).__name__})")
         else:
             print(f"  [{label}] {t}: MISSING")
+
+    # In presence-only mode we only require topics to be present
+    if args.presence_only:
+        if not missing:
+            print("\n✅ All topics received (presence-only mode)")
+            return 0
+        else:
+            print("\n❌ Missing topics in presence-only mode")
+            return 1
 
     if not missing and not errors:
         print("\n✅ All topics received and validated")

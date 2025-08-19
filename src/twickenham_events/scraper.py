@@ -9,6 +9,7 @@ import time
 from typing import Any, Optional
 
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 import requests
 
 
@@ -20,7 +21,7 @@ class EventScraper:
         self.config = config
         self.error_log = []
 
-    def scrape_events(self, url: str) -> tuple[list[dict[str, str]], dict[str, Any]]:
+    def scrape_events(self, url: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """
         Scrape events with retry logic for temporary outages.
 
@@ -91,7 +92,7 @@ class EventScraper:
 
     def _fetch_events_single_attempt(
         self, url: str, timeout: int = 10
-    ) -> list[dict[str, str]]:
+    ) -> list[dict[str, Any]]:
         """
         Single attempt to fetch events from the website.
 
@@ -108,22 +109,29 @@ class EventScraper:
         raw_events = []
 
         for table in event_tables:
+            # Narrow the type for mypy: only operate on Tag elements
+            if not isinstance(table, Tag):
+                continue
             caption = table.find("caption")
-            if (
-                not caption
-                or "events at twickenham stadium" not in caption.text.lower()
-            ):
+            caption_text = getattr(caption, "text", "") if caption is not None else ""
+            if "events at twickenham stadium" not in caption_text.lower():
                 continue
 
             for row in table.find_all("tr")[1:]:  # Skip header row
+                if not isinstance(row, Tag):
+                    continue
                 cols = row.find_all("td")
                 if len(cols) >= 3:
+                    date_text = getattr(cols[0], "text", "")
+                    title_text = getattr(cols[1], "text", "")
+                    time_text = getattr(cols[2], "text", "")
+                    crowd_text = getattr(cols[3], "text", "") if len(cols) > 3 else None
                     raw_events.append(
                         {
-                            "date": cols[0].text.strip(),
-                            "title": cols[1].text.strip(),
-                            "time": cols[2].text.strip(),
-                            "crowd": cols[3].text.strip() if len(cols) > 3 else None,
+                            "date": date_text.strip(),
+                            "title": title_text.strip(),
+                            "time": time_text.strip(),
+                            "crowd": crowd_text.strip() if crowd_text else None,
                         }
                     )
 
@@ -275,8 +283,8 @@ class EventScraper:
 
         try:
             int_numbers = [int(n) for n in numbers]
-            crowd = max(int_numbers)
-            if crowd > 100000:
+            crowd: int | None = max(int_numbers)
+            if crowd is not None and crowd > 100000:
                 potential_crowds = [n for n in int_numbers if n <= 100000]
                 crowd = max(potential_crowds) if potential_crowds else None
                 if crowd is None:

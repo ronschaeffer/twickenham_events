@@ -7,12 +7,17 @@ import json
 import logging
 from pathlib import Path
 import re
+from typing import Any
 
+# Load generative AI client dynamically. genai is Any so attribute access is permitted
+genai: Any = None
 try:
-    import google.generativeai as genai
+    import importlib
 
+    _gen_mod = importlib.import_module("google.generativeai")
+    genai = _gen_mod
     GENAI_AVAILABLE = True
-except ImportError:
+except Exception:
     genai = None
     GENAI_AVAILABLE = False
     logging.warning(
@@ -23,7 +28,7 @@ except ImportError:
 class AIShortener:
     """Handles AI-powered shortening of event names and event type detection."""
 
-    def __init__(self, config):
+    def __init__(self, config: Any):
         """Initialize the AI shortener with configuration."""
         self.config = config
         self.cache = (
@@ -104,7 +109,8 @@ class AIShortener:
             if not api_key:
                 return self._detect_event_type_fallback(event_name)
 
-            genai.configure(api_key=api_key)  # type: ignore[attr-defined]
+            assert GENAI_AVAILABLE
+            genai.configure(api_key=api_key)
             model_name = self.config.get("ai_type_detection.model", "gemini-2.5-pro")
 
             prompt = f"""Analyze this event name and classify it into one of these categories:
@@ -116,7 +122,8 @@ Event name: "{event_name}"
 
 Respond with ONLY the category word (rugby, concert, or generic), nothing else."""
 
-            model = genai.GenerativeModel(model_name)  # type: ignore[attr-defined]
+            assert GENAI_AVAILABLE
+            model = genai.GenerativeModel(model_name)
             response = model.generate_content(prompt)
 
             if response and response.text:
@@ -243,6 +250,7 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
                 logging.error(error_msg)
                 return original_name, True, error_msg
 
+            assert GENAI_AVAILABLE
             genai.configure(api_key=api_key)  # type: ignore[attr-defined]
 
             # Get configuration values
@@ -291,7 +299,8 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
             # Make the API call with rate limiting and retry for safety filters
             import time
 
-            model = genai.GenerativeModel(model_name)  # type: ignore[attr-defined]
+            assert GENAI_AVAILABLE
+            model = genai.GenerativeModel(model_name)
 
             # Try the request, with retry for safety filter issues
             max_attempts = 2
@@ -492,7 +501,7 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
         # Each flag = 2 units, each character = 1 unit
         return char_count + (flag_count * 2)
 
-    def get_cache_stats(self) -> dict:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         if not self.config.get("ai_shortener.cache_enabled", True):
             return {"cache_enabled": False}
@@ -539,7 +548,7 @@ Respond with ONLY the category word (rugby, concert, or generic), nothing else."
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir / "ai_type_cache.json"
 
-    def _load_type_cache(self) -> dict:
+    def _load_type_cache(self) -> dict[str, Any]:
         """Load the type detection cache from disk."""
         cache_path = self._get_type_cache_path()
         if cache_path.exists():

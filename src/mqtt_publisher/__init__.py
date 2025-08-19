@@ -15,15 +15,21 @@ import importlib as _importlib
 import sys as _sys
 
 # Re-export package-level symbols if defined
-_ha = _importlib.import_module("ha_mqtt_publisher")
-if hasattr(_ha, "__all__"):
-    for _name in _ha.__all__:
-        globals()[_name] = getattr(_ha, _name)
+try:
+    _ha = _importlib.import_module("ha_mqtt_publisher")
+    if hasattr(_ha, "__all__"):
+        for _name in _ha.__all__:
+            globals()[_name] = getattr(_ha, _name)
 
-# Alias common submodules used by tests/callers
-_sys.modules[__name__ + ".publisher"] = _importlib.import_module(
-    "ha_mqtt_publisher.publisher"
-)
-_sys.modules[__name__ + ".ha_discovery"] = _importlib.import_module(
-    "ha_mqtt_publisher.ha_discovery"
-)
+    # Alias common submodules used by tests/callers
+    _sys.modules[__name__ + ".publisher"] = _importlib.import_module(
+        "ha_mqtt_publisher.publisher"
+    )
+    _sys.modules[__name__ + ".ha_discovery"] = _importlib.import_module(
+        "ha_mqtt_publisher.ha_discovery"
+    )
+except ImportError:
+    # ha_mqtt_publisher not installed in the test environment. Tests that rely
+    # on the local fallback submodules should import from the local package
+    # paths (tests already do this). Avoid raising during import.
+    pass

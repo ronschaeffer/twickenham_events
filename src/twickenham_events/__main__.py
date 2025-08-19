@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """
 Twickenham Events CLI - Modern command-line interface.
 
@@ -7,6 +8,7 @@ Complete restoration of CLI functionality with modern architecture.
 
 import argparse
 from datetime import datetime
+import importlib
 import json
 import logging
 from pathlib import Path
@@ -16,7 +18,28 @@ import threading
 import time
 from typing import Any
 
-from ha_mqtt_publisher.publisher import MQTTPublisher  # type: ignore
+# Attempt multiple import locations for the MQTTPublisher so the CLI works
+# whether the upstream `ha_mqtt_publisher` package is installed, or when
+# running from the monorepo where packages may live under different src/ paths.
+MQTTPublisher = None
+for candidate in (
+    "ha_mqtt_publisher.publisher",
+    "mqtt_publisher.ha_mqtt_publisher.publisher",
+    "mqtt_publisher.publisher",
+):
+    try:
+        mod = importlib.import_module(candidate)
+        MQTTPublisher = mod.MQTTPublisher
+        break
+    except Exception:
+        continue
+if MQTTPublisher is None:
+    # Last resort: provide a lightweight local stub that raises at runtime if used
+    class _MissingPublisherStub:
+        def __init__(self, *a, **kw):
+            raise RuntimeError("No MQTTPublisher implementation available")
+
+    MQTTPublisher = _MissingPublisherStub
 import paho.mqtt.client as mqtt
 
 from .ai_processor import AIProcessor
@@ -989,7 +1012,7 @@ def cmd_service(config: Config, args) -> int:
                 kwargs["callback_api_version"] = cbv_v2  # type: ignore[assignment]
         except Exception:
             pass
-        paho_client = mqtt.Client(**kwargs)
+        paho_client = mqtt.Client(**kwargs)  # type: ignore[arg-type]
     except Exception:
         # Fallback if very old paho
         paho_client = mqtt.Client(client_id=client_id)
@@ -1168,7 +1191,18 @@ def cmd_service(config: Config, args) -> int:
         requires_ai=False,
     )
 
-    def on_connect(client, userdata, flags, reason_code, properties):
+    # Use normalized helpers from upstream ha_mqtt_publisher package to avoid
+    # duplicate logic and keep behavior consistent with the publisher library.
+    try:
+        from ha_mqtt_publisher.mqtt_utils import extract_reason_code
+    except Exception:
+
+        def extract_reason_code(rc: int) -> str:  # fallback simple mapper
+            return str(rc)
+
+    def on_connect(client, userdata, *args, **kwargs):
+        # Support both v1 and v2 paho callback signatures. Extract reason_code
+        reason_code = extract_reason_code(*args, **kwargs)
         if last_connect_code["code"] == reason_code:
             return
         last_connect_code["code"] = reason_code
@@ -1217,7 +1251,7 @@ def cmd_service(config: Config, args) -> int:
                 "service connect failed rc=%s (will not publish discovery)", reason_code
             )
 
-    def on_message(client, userdata, msg):
+    def on_message(client, userdata, msg, *args, **kwargs):
         try:
             from .message_handler import handle_command_message
 
