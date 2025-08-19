@@ -228,6 +228,9 @@ def main(argv=None) -> int:  # pragma: no cover
     mqtt_count = None
     if mqtt_ok:
         try:
+            import os
+            import ssl
+
             import paho.mqtt.client as mqtt  # type: ignore
 
             try:
@@ -248,9 +251,23 @@ def main(argv=None) -> int:  # pragma: no cover
                         payload = json.loads(msg.payload.decode("utf-8"))
                     except Exception:  # pragma: no cover
                         return
-                    evs = payload.get("events")
-                    if isinstance(evs, list):
-                        _received["count"] = len(evs)
+                    # Prefer top-level count when available (current schema)
+                    try:
+                        if isinstance(payload, dict):
+                            if isinstance(payload.get("count"), int):
+                                _received["count"] = int(payload["count"])
+                            else:
+                                evs = payload.get("events")
+                                if isinstance(evs, list):
+                                    _received["count"] = len(evs)
+                                else:
+                                    evj = payload.get("events_json")
+                                    if isinstance(evj, dict) and isinstance(
+                                        evj.get("count"), int
+                                    ):
+                                        _received["count"] = int(evj["count"])
+                    except Exception:
+                        pass
                     _client.disconnect()
 
                 if CallbackAPIVersion is not None:
@@ -262,6 +279,40 @@ def main(argv=None) -> int:  # pragma: no cover
                     client = mqtt.Client(protocol=mqtt.MQTTv5)
                 client.on_connect = _on_connect
                 client.on_message = _on_message
+
+                # Configure auth if provided via args or env
+                _user = a.mqtt_username or os.getenv("MQTT_USERNAME")
+                _pass = a.mqtt_password or os.getenv("MQTT_PASSWORD")
+                if _user and _pass:
+                    try:
+                        client.username_pw_set(_user, _pass)
+                    except Exception:
+                        pass
+
+                # Configure TLS if using TLS port or explicitly requested by env
+                _force_tls_env = os.getenv("MQTT_USE_TLS")
+                _use_tls = a.mqtt_port == 8883 or (
+                    _force_tls_env
+                    and _force_tls_env.lower() in ("true", "1", "yes", "on")
+                )
+                if _use_tls:
+                    _tls_verify_env = os.getenv("TLS_VERIFY")
+                    _verify = True
+                    if _tls_verify_env and _tls_verify_env.lower() in (
+                        "false",
+                        "0",
+                        "no",
+                        "off",
+                    ):
+                        _verify = False
+                    try:
+                        if _verify:
+                            client.tls_set()  # default system CA
+                        else:
+                            client.tls_set(cert_reqs=ssl.CERT_NONE)
+                            client.tls_insecure_set(True)
+                    except Exception:
+                        pass
                 try:
                     client.connect(a.broker, a.mqtt_port, 30)
                 except Exception as e:  # pragma: no cover
@@ -277,9 +328,9 @@ def main(argv=None) -> int:  # pragma: no cover
                 # Grace period to allow retained delivery; slightly longer for some brokers/TLS
                 time.sleep(0.25)
                 start = time.time()
-                # Increase wait window slightly for slower brokers / TLS
+                # Increase wait window for slower brokers/TLS retained delivery
                 while (
-                    time.time() - start < 6
+                    time.time() - start < 10
                     and "count" not in received
                     and client.is_connected()
                 ):

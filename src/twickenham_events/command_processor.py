@@ -58,9 +58,10 @@ except ImportError:  # pragma: no cover - fallback path used in tests
             description: str = "",
             cooldown_seconds: int | None = None,
             requires_ai: bool = False,
+            **kwargs: Any,
         ) -> None:
             """Register a command handler."""
-            cmd_info = {
+            cmd_info: dict[str, Any] = {
                 "name": name,
                 "handler": handler,
                 "description": description,
@@ -68,6 +69,9 @@ except ImportError:  # pragma: no cover - fallback path used in tests
             }
             if cooldown_seconds is not None:
                 cmd_info["cooldown_seconds"] = cooldown_seconds
+            # Accept and store any additional metadata (e.g., outcome_codes)
+            for k, v in kwargs.items():
+                cmd_info[k] = v
             self.commands[name] = cmd_info
 
         def build_registry_payload(self) -> dict[str, Any]:
@@ -81,7 +85,20 @@ except ImportError:  # pragma: no cover - fallback path used in tests
                 "timestamp": _iso_now(),
             }
 
-        def publish_registry(self, topic: str) -> None:
+        def publish_registry(self, topic: str, *, retain: bool = True) -> None:
             """Publish the command registry to the specified topic."""
             payload = self.build_registry_payload()
-            self.client.publish(topic, json.dumps(payload))
+            try:
+                self.client.publish(topic, json.dumps(payload), retain=retain)
+            except TypeError:
+                # Some clients may not accept retain kw; fall back to positional
+                self.client.publish(topic, json.dumps(payload))
+
+        def enable_auto_registry_publish(self, topic: str) -> None:
+            """Record registry topic and publish immediately (minimal behavior)."""
+            setattr(self, "_registry_topic", topic)
+            try:
+                self.publish_registry(topic, retain=True)
+            except Exception:
+                # Non-fatal; just ensure the method exists to avoid AttributeError
+                pass

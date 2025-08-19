@@ -453,6 +453,14 @@ def main(argv: list[str]) -> int:
                 _force_tls_env and _force_tls_env.lower() in ("true", "1", "yes", "on")
             ):
                 tls_requested = False
+        # Honor TLS_VERIFY env var for validator behavior
+        tls_verify_env = os.getenv("TLS_VERIFY")
+        verify_flag = None
+        if tls_verify_env is not None:
+            try:
+                verify_flag = str(tls_verify_env).lower() in ("true", "1", "yes", "on")
+            except Exception:
+                verify_flag = None
         if tls_requested:
             # If config provided a dict of TLS options, prefer explicit cert paths
             cfg_tls = None
@@ -470,14 +478,22 @@ def main(argv: list[str]) -> int:
                     # Use provided certs if present
                     if ca or certfile:
                         client.tls_set(ca_certs=ca, certfile=certfile, keyfile=keyfile)
+                        if verify_flag is False:
+                            client.tls_insecure_set(True)
                     else:
                         # Permissive fallback for local validation (no CA available)
-                        client.tls_set(cert_reqs=ssl.CERT_NONE)
-                        client.tls_insecure_set(True)
+                        if verify_flag is True:
+                            client.tls_set()  # default verification
+                        else:
+                            client.tls_set(cert_reqs=ssl.CERT_NONE)
+                            client.tls_insecure_set(True)
                 else:
                     # Boolean/envar-driven TLS: use permissive mode for validation
-                    client.tls_set(cert_reqs=ssl.CERT_NONE)
-                    client.tls_insecure_set(True)
+                    if verify_flag is True:
+                        client.tls_set()
+                    else:
+                        client.tls_set(cert_reqs=ssl.CERT_NONE)
+                        client.tls_insecure_set(True)
             except Exception:
                 # Non-fatal; proceed without TLS if TLS setup fails for any reason
                 pass

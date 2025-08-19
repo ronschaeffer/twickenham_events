@@ -208,6 +208,8 @@ def publish_device_level_discovery(
             "state_topic": next_topic,
             "value_template": "{{ value_json.fixture if (value_json.fixture is defined and value_json.fixture) else '' }}",
             "json_attributes_topic": next_topic,
+            # Expose attributes without duplicating the 'fixture' (state) field
+            "json_attributes_template": "{{ {'start_time': (value_json.start_time | default(None)), 'date': (value_json.date | default(None)), 'fixture_short': (value_json.fixture_short | default(None)), 'crowd': (value_json.crowd | default(None)), 'emoji': (value_json.emoji | default(None)), 'icon': (value_json.icon | default(None)), 'event_index': (value_json.event_index | default(None)), 'event_count': (value_json.event_count | default(None))} | tojson }}",
             "icon": "mdi:calendar-clock",
         },
         "today": {

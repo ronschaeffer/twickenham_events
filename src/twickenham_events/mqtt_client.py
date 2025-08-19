@@ -179,6 +179,179 @@ class MQTTClient:
             )
 
         publish_errors = 0
+
+        # Opportunistic permissive-TLS direct publish path for self-signed brokers.
+        # If TLS is requested and verify is explicitly False, attempt a minimal
+        # one-shot publish using paho-mqtt with tls_insecure_set(True). If this
+        # succeeds, we can skip the upstream publisher path.
+        try:
+            _tls = mqtt_config.get("tls")
+            _auth = (
+                mqtt_config.get("auth")
+                if isinstance(mqtt_config.get("auth"), dict)
+                else None
+            )
+            if isinstance(_tls, dict) and _tls.get("verify") is False:
+                import json as _json
+                import ssl as _ssl
+
+                import paho.mqtt.client as _mqtt
+
+                # paho v2 exposes CallbackAPIVersion; handle v1 gracefully
+                _CBV = getattr(_mqtt, "CallbackAPIVersion", None)
+
+                if _CBV is not None:
+                    _client = _mqtt.Client(
+                        protocol=_mqtt.MQTTv5, callback_api_version=_CBV.VERSION2
+                    )
+                else:
+                    _client = _mqtt.Client(protocol=_mqtt.MQTTv5)
+                if _auth and _auth.get("username") and _auth.get("password"):
+                    _client.username_pw_set(_auth["username"], _auth["password"])  # type: ignore[arg-type]
+                # Permissive TLS for self-signed certs
+                _client.tls_set(cert_reqs=_ssl.CERT_NONE)
+                _client.tls_insecure_set(True)
+                _client.connect(
+                    host=str(mqtt_config.get("broker_url")),
+                    port=int(mqtt_config.get("broker_port") or 8883),
+                    keepalive=30,
+                )
+                _client.loop_start()
+                # Compose payloads inline (mirrors below)
+                ts = self._get_timestamp()
+                months_map_direct: dict[str, dict[str, Any]] = {}
+
+                def _safe_strptime_direct(d: str) -> Optional[_datetime]:
+                    try:
+                        return _datetime.strptime(d, "%Y-%m-%d")
+                    except Exception:
+                        return None
+
+                for ev in enhanced_events:
+                    d = ev.get("date")
+                    if not isinstance(d, str):
+                        continue
+                    dt = _safe_strptime_direct(d)
+                    if not dt:
+                        continue
+                    month_key = dt.strftime("%Y-%m")
+                    month_label = dt.strftime("%B %Y")
+                    day_label = dt.strftime("%a %d")
+                    if month_key not in months_map_direct:
+                        months_map_direct[month_key] = {
+                            "key": month_key,
+                            "label": month_label,
+                            "_days": {},
+                        }
+                    month = months_map_direct[month_key]
+                    days_map = month["_days"]
+                    if d not in days_map:
+                        days_map[d] = {"date": d, "label": day_label, "events": []}
+                    days_map[d]["events"].append(
+                        {
+                            "fixture": ev.get("fixture") or "",
+                            "start_time": ev.get("start_time"),
+                            "emoji": ev.get("emoji"),
+                            "icon": ev.get("icon"),
+                            "fixture_short": ev.get("fixture_short"),
+                            "crowd": ev.get("crowd")
+                            or ev.get("crowd_size")
+                            or ev.get("attendance"),
+                        }
+                    )
+                by_month_direct: list[dict[str, Any]] = []
+                for mk in sorted(months_map_direct.keys()):
+                    m = months_map_direct[mk]
+                    days = m.pop("_days")
+                    day_objs = [days[k] for k in sorted(days.keys())]
+                    by_month_direct.append({**m, "days": day_objs})
+                events_json_direct = {
+                    "count": len(enhanced_events),
+                    "last_updated": ts,
+                    "by_month": by_month_direct,
+                }
+                all_upcoming_payload_direct = {
+                    "count": len(enhanced_events),
+                    "last_updated": ts,
+                    "events_json": events_json_direct,
+                }
+                # Do not include 'next' in the all_upcoming payload; keep next event on its own topic
+                # Build next-event payload with flat attributes (no nested 'event')
+                next_payload_direct: dict[str, Any] = {"last_updated": ts}
+                if next_event:
+                    next_payload_direct.update(
+                        {
+                            "fixture": next_event.get("fixture"),
+                            "start_time": next_event.get("start_time"),
+                            "crowd": next_event.get("crowd")
+                            or next_event.get("crowd_size")
+                            or next_event.get("attendance"),
+                            "date": next_event.get("date"),
+                            "fixture_short": next_event.get("fixture_short"),
+                            "event_index": next_event.get("event_index"),
+                            "event_count": next_event.get("event_count"),
+                            "emoji": next_event.get("emoji"),
+                            "icon": next_event.get("icon"),
+                        }
+                    )
+                today_payload_direct: TodayPayload = {
+                    "date": ts.split("T")[0],
+                    "has_event_today": any(
+                        ev.get("date") == ts.split("T")[0] for ev in enhanced_events
+                    ),
+                    "events_today": sum(
+                        1
+                        for ev in enhanced_events
+                        if ev.get("date") == ts.split("T")[0]
+                    ),
+                    "last_updated": ts,
+                }
+                status_payload_direct: StatusPayload = {
+                    "status": "active" if enhanced_events else "no_events",
+                    "event_count": len(enhanced_events),
+                    "ai_error_count": ai_errors,
+                    "publish_error_count": 0,
+                    "ai_enabled": bool(ai_processor),
+                    "sw_version": PACKAGE_VERSION,
+                    "last_updated": ts,
+                }
+                if extra_status:
+                    try:
+                        for _k, _v in cast(dict[str, Any], extra_status).items():
+                            status_payload_direct[_k] = _v
+                    except Exception:
+                        pass
+                # Publish retained topics
+                _client.publish(
+                    topics.get("all_upcoming", "twickenham_events/events/all_upcoming"),
+                    _json.dumps(all_upcoming_payload_direct),
+                    retain=True,
+                )
+                _client.publish(
+                    topics.get("next", "twickenham_events/events/next"),
+                    _json.dumps(next_payload_direct),
+                    retain=True,
+                )
+                _client.publish(
+                    topics.get("status", "twickenham_events/status"),
+                    _json.dumps(status_payload_direct),
+                    retain=True,
+                )
+                _client.publish(
+                    topics.get("today", "twickenham_events/events/today"),
+                    _json.dumps(today_payload_direct),
+                    retain=True,
+                )
+                _client.loop_stop()
+                _client.disconnect()
+                logger.info(
+                    "Published via direct permissive TLS path (self-signed broker)"
+                )
+                return
+        except Exception:
+            # Fall back to upstream publisher path
+            pass
+
         # Use the module-level MQTTPublisher so tests can monkeypatch it.
         pub_ctx = MQTTPublisher(**mqtt_config)
         with pub_ctx as publisher:

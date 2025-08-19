@@ -11,8 +11,10 @@ from datetime import datetime
 import importlib
 import json
 import logging
+import os
 from pathlib import Path
 import signal
+import ssl
 import sys
 import threading
 import time
@@ -1052,6 +1054,67 @@ def cmd_service(config: Config, args) -> int:
         )
     except Exception as e:  # pragma: no cover
         logging.warning("Failed configuring MQTT LWT: %s", e)
+
+    # Configure TLS for the service command client (matches validator behavior)
+    try:
+        tls_requested = False
+        try:
+            tls_requested = bool(config.get("mqtt.tls"))
+        except Exception:
+            tls_requested = False
+        _tls_env = os.getenv("MQTT_USE_TLS")
+        if _tls_env and _tls_env.lower() in ("true", "1", "yes", "on"):
+            tls_requested = True
+        # Avoid enabling TLS implicitly on 1883 unless explicitly forced via env
+        if int(getattr(config, "mqtt_port", 1883) or 1883) == 1883 and not (
+            _tls_env and _tls_env.lower() in ("true", "1", "yes", "on")
+        ):
+            tls_requested = False
+        tls_verify_env = os.getenv("TLS_VERIFY")
+        verify_flag: bool | None = None
+        if tls_verify_env is not None:
+            try:
+                verify_flag = tls_verify_env.lower() in ("true", "1", "yes", "on")
+            except Exception:
+                verify_flag = None
+        if tls_requested:
+            cfg_tls = None
+            try:
+                cfg_tls = config.get("mqtt.tls")
+            except Exception:
+                cfg_tls = None
+            try:
+                if isinstance(cfg_tls, dict):
+                    ca = cfg_tls.get("ca_certs")
+                    certfile = cfg_tls.get("certfile")
+                    keyfile = cfg_tls.get("keyfile")
+                    if ca or certfile:
+                        paho_client.tls_set(
+                            ca_certs=ca, certfile=certfile, keyfile=keyfile
+                        )
+                        if verify_flag is False:
+                            paho_client.tls_insecure_set(True)
+                    else:
+                        if verify_flag is True:
+                            paho_client.tls_set()
+                        else:
+                            paho_client.tls_set(cert_reqs=ssl.CERT_NONE)
+                            paho_client.tls_insecure_set(True)
+                else:
+                    if verify_flag is True:
+                        paho_client.tls_set()
+                    else:
+                        paho_client.tls_set(cert_reqs=ssl.CERT_NONE)
+                        paho_client.tls_insecure_set(True)
+                logging.info(
+                    "service mqtt_client tls configured requested=%s verify=%s",
+                    tls_requested,
+                    verify_flag,
+                )
+            except Exception as e:
+                logging.warning("Failed configuring TLS for service MQTT client: %s", e)
+    except Exception:
+        pass
 
     last_connect_code = {"code": None}
 

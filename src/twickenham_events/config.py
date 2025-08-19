@@ -369,6 +369,43 @@ class Config:
                 # CA certificate has been configured. Users should supply
                 # CA/client certs in production.
                 cfg["tls"] = {"verify": False}
+
+        # Global override: TLS verification behavior controlled by env TLS_VERIFY
+        # - If TLS is configured and TLS_VERIFY is explicitly set to a falsey value
+        #   (false/0/no/off), force permissive verification (verify=False).
+        # - If explicitly set to a truthy value (true/1/yes/on) and tls dict present,
+        #   set verify=True unless caller already specified otherwise in config.
+        tls_verify_env = os.getenv("TLS_VERIFY")
+        if "tls" in cfg and tls_verify_env is not None:
+            val = str(tls_verify_env).lower()
+            if val in ("false", "0", "no", "off"):
+                try:
+                    if not isinstance(cfg["tls"], dict):
+                        cfg["tls"] = {}
+                except Exception:
+                    cfg["tls"] = {}
+                cfg["tls"]["verify"] = False
+            elif val in ("true", "1", "yes", "on"):
+                try:
+                    if isinstance(cfg["tls"], dict) and "verify" not in cfg["tls"]:
+                        cfg["tls"]["verify"] = True
+                except Exception:
+                    pass
+
+        # Optional override: TLS verification behavior via TLS_VERIFY env var
+        # TLS_VERIFY=false -> permissive (verify=False)
+        # TLS_VERIFY=true  -> strict verification (verify=True)
+        tls_verify_env = os.getenv("TLS_VERIFY")
+        if tls_verify_env is not None and cfg.get("tls") is not None:
+            try:
+                verify_flag = str(tls_verify_env).lower() in ("true", "1", "yes", "on")
+            except Exception:
+                verify_flag = False
+            # Ensure tls dict exists
+            if not isinstance(cfg["tls"], dict):
+                cfg["tls"] = {"verify": verify_flag}
+            else:
+                cfg["tls"]["verify"] = verify_flag
         if cfg["security"] == "username" and self.mqtt_username and self.mqtt_password:
             cfg["auth"] = {
                 "username": self.mqtt_username,
