@@ -62,12 +62,21 @@ poetry version "$BUMP_TYPE"
 new_version=$(poetry version --short)
 print_success "Version bumped to ${new_version}"
 
+
+print_status "Running documentation update/check via AI agent..."
+if command -v python3 &>/dev/null; then
+  python3 scripts/update_docs.py || true
+else
+  poetry run python scripts/update_docs.py || true
+fi
+
 print_status "Synchronizing version across files..."
 if command -v python3 &>/dev/null; then
   python3 scripts/sync_versions.py || true
 else
   poetry run python scripts/sync_versions.py || true
 fi
+
 
 tag_name="v${new_version}"
 print_status "Creating tag ${tag_name}"
@@ -77,11 +86,29 @@ git commit -m "chore: bump version to ${new_version}"
 git tag -a "${tag_name}" -m "Release ${tag_name}"
 print_success "Created tag: ${tag_name}"
 
+# Generate release notes using AI agent
+print_status "Generating release notes via AI agent..."
+if command -v python3 &>/dev/null; then
+  python3 scripts/generate_release_notes.py || true
+else
+  poetry run python scripts/generate_release_notes.py || true
+fi
+
+release_notes_file="release_notes.txt"
+release_title="Release ${tag_name}"
+
 if $PUSH; then
   print_status "Pushing ${current_branch} and ${tag_name} to origin..."
   git push origin "$current_branch"
   git push origin "$tag_name"
   print_success "Pushed tag ${tag_name}"
+  if command -v gh &>/dev/null; then
+    print_status "Creating GitHub release with AI-generated notes..."
+    gh release create "$tag_name" --title "$release_title" --notes-file "$release_notes_file"
+    print_success "GitHub release created: $tag_name"
+  else
+    print_warning "GitHub CLI (gh) not found. Release notes not published to GitHub."
+  fi
 else
   print_warning "Not pushing by default. To push now, re-run with --push"
   echo "git push origin ${current_branch} && git push origin ${tag_name}"
