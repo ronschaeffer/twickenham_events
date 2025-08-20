@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# ruff: noqa: E402
 """
 Twickenham Events CLI - Modern command-line interface.
 
@@ -8,7 +7,6 @@ Complete restoration of CLI functionality with modern architecture.
 
 import argparse
 from datetime import datetime
-import importlib
 import json
 import logging
 import os
@@ -20,28 +18,18 @@ import threading
 import time
 from typing import Any
 
-# Attempt multiple import locations for the MQTTPublisher so the CLI works
-# whether the upstream `ha_mqtt_publisher` package is installed, or when
-# running from the monorepo where packages may live under different src/ paths.
-MQTTPublisher = None
-for candidate in (
-    "ha_mqtt_publisher.publisher",
-    "mqtt_publisher.ha_mqtt_publisher.publisher",
-    "mqtt_publisher.publisher",
-):
-    try:
-        mod = importlib.import_module(candidate)
-        MQTTPublisher = mod.MQTTPublisher
-        break
-    except Exception:
-        continue
-if MQTTPublisher is None:
-    # Last resort: provide a lightweight local stub that raises at runtime if used
-    class _MissingPublisherStub:
+# Use only the local (or installed) ha_mqtt_publisher package for development.
+try:
+    from ha_mqtt_publisher.publisher import MQTTPublisher as LibMQTTPublisher
+except Exception:
+    # Provide a lightweight stub that fails clearly if the dependency isn't available.
+    class LibMQTTPublisher:  # type: ignore[no-redef]
         def __init__(self, *a, **kw):
-            raise RuntimeError("No MQTTPublisher implementation available")
+            raise RuntimeError(
+                "ha_mqtt_publisher not available. Install it or ensure the local path dependency is configured."
+            )
 
-    MQTTPublisher = _MissingPublisherStub
+
 import paho.mqtt.client as mqtt
 
 from .ai_processor import AIProcessor
@@ -695,8 +683,11 @@ def cmd_mqtt(args) -> int:
         try:
             AVAILABILITY_TOPIC = "twickenham_events/availability"
             cfg = config.get_mqtt_config()
-            with MQTTPublisher(**cfg) as publisher:
-                # Publish device-level discovery bundle using status/all_upcoming/next/today topics
+            publisher = LibMQTTPublisher(**cfg)  # type: ignore[call-arg]
+            try:
+                # Connect and publish discovery bundle
+                if hasattr(publisher, "connect"):
+                    publisher.connect()  # type: ignore[operator]
                 publish_device_level_discovery(
                     mqtt_client=publisher,
                     config=config,
@@ -709,6 +700,9 @@ def cmd_mqtt(args) -> int:
                     AvailabilityPublisher(publisher, AVAILABILITY_TOPIC).online()
                 except Exception:
                     pass
+            finally:
+                if hasattr(publisher, "disconnect"):
+                    publisher.disconnect()  # type: ignore[operator]
             print("📡 Published device discovery bundle (cmps)")
         except Exception as e:  # pragma: no cover
             if args.dry_run:
@@ -1018,7 +1012,7 @@ def cmd_service(config: Config, args) -> int:
     except Exception:
         # Fallback if very old paho
         paho_client = mqtt.Client(client_id=client_id)
-    availability._client = paho_client  # inject real client
+    availability._client = paho_client  # type: ignore[attr-defined]  # inject real client
 
     # Apply auth if configured (mirrors publisher settings)
     if (
@@ -1114,7 +1108,9 @@ def cmd_service(config: Config, args) -> int:
     except Exception:
         pass
 
-    last_connect_code = {"code": None}
+    from typing import Optional
+
+    last_connect_code: dict[str, Optional[int]] = {"code": None}
 
     def shutdown_sequence():  # pragma: no cover
         try:
@@ -1255,7 +1251,8 @@ def cmd_service(config: Config, args) -> int:
     # Use normalized helpers from upstream ha_mqtt_publisher package to avoid
     # duplicate logic and keep behavior consistent with the publisher library.
     try:
-        from ha_mqtt_publisher.mqtt_utils import extract_reason_code
+        # Local path dev import; ignore static checker if env isn't configured
+        from ha_mqtt_publisher.mqtt_utils import extract_reason_code  # type: ignore
     except Exception:
 
         def extract_reason_code(

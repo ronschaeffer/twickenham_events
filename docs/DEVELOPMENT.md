@@ -31,7 +31,7 @@ Use these commands to maintain code quality:
 | `make fix`      | Auto-fix all linting issues       | -                            |
 | `make format`   | Format code only                  | -                            |
 | `make ci-check` | Run the same checks as CI         | Full GitHub Actions pipeline |
-| `make clean`    | Clean cache files                 | -                            |
+| `make clean`    | Remove tool caches (`__pycache__`, .pytest_cache, .ruff_cache) | - |
 
 ## 📝 Pre-Commit Workflow
 

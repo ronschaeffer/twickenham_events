@@ -27,9 +27,9 @@ format:
 	@echo "🎨 Formatting code..."
 	poetry run ruff format .
 
-# Clean cache files
+# Clean tool caches (does not touch AI/output caches)
 clean:
-	@echo "🧹 Cleaning cache files..."
+	@echo "🧹 Cleaning tool caches..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	rm -rf .pytest_cache .ruff_cache .coverage 2>/dev/null || true
@@ -61,7 +61,7 @@ help:
 	@echo "  make fix           - Auto-fix linting issues"
 	@echo "  make lint          - Alias for fix"
 	@echo "  make format        - Format code only"
-	@echo "  make clean         - Clean cache files"
+	@echo "  make clean         - Remove tool caches (pycache, pytest, ruff)"
 	@echo "  make pre-commit-all - Run pre-commit on all files"
 	@echo "  make update-ha-cards - Regenerate HA cards links in README"
 	@echo "  make test          - Run tests"

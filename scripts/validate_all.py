@@ -168,13 +168,25 @@ def main(argv=None) -> int:  # pragma: no cover
 
     # MQTT (opt-in)
     if a.mqtt:
-        # Resolve broker from config if default left in place
-        if a.broker == "localhost" and Config is not None:
+        # Resolve broker/port/creds from config if defaults left in place
+        loaded_cfg = None
+        if Config is not None:
             try:
-                cfg = Config.from_file("config/config.yaml")
-                a.broker = cfg.mqtt_broker or a.broker
+                loaded_cfg = Config.from_file("config/config.yaml")
             except Exception as e:  # pragma: no cover
-                print(f"NOTE: unable to load config for broker: {e}")
+                print(f"NOTE: unable to load config for MQTT defaults: {e}")
+        if a.broker == "localhost" and loaded_cfg is not None:
+            a.broker = loaded_cfg.mqtt_broker or a.broker
+        if a.mqtt_port == 1883 and loaded_cfg is not None:
+            try:
+                a.mqtt_port = int(getattr(loaded_cfg, "mqtt_port", 1883) or 1883)
+            except Exception:  # pragma: no cover
+                pass
+        if not a.mqtt_username and loaded_cfg is not None and loaded_cfg.mqtt_username:
+            a.mqtt_username = loaded_cfg.mqtt_username
+        if not a.mqtt_password and loaded_cfg is not None and loaded_cfg.mqtt_password:
+            a.mqtt_password = loaded_cfg.mqtt_password
+
         if a.broker == "localhost":
             print("ERROR: broker still 'localhost' - specify --broker or set config")
             return 2
@@ -238,6 +250,25 @@ def main(argv=None) -> int:  # pragma: no cover
             except Exception:  # pragma: no cover
                 CallbackAPIVersion = None  # type: ignore
 
+            # Ensure loaded_cfg exists in this scope for static analysis
+            loaded_cfg = None  # type: ignore[assignment]
+            # Use same connection parameters as used above
+            resolved_broker = a.broker
+            resolved_port = a.mqtt_port
+            resolved_user = a.mqtt_username or os.getenv("MQTT_USERNAME")
+            resolved_pass = a.mqtt_password or os.getenv("MQTT_PASSWORD")
+            # Also detect TLS preference from config/env, not just port
+            cfg_tls_obj = None
+            if (
+                Config is not None
+                and "loaded_cfg" in locals()
+                and loaded_cfg is not None
+            ):
+                try:
+                    cfg_tls_obj = loaded_cfg.get("mqtt.tls")
+                except Exception:
+                    cfg_tls_obj = None
+
             for attempt in range(1, a.mqtt_count_retries + 1):
                 topic = "twickenham_events/events/all_upcoming"
                 received: dict[str, int] = {}
@@ -281,40 +312,61 @@ def main(argv=None) -> int:  # pragma: no cover
                 client.on_message = _on_message
 
                 # Configure auth if provided via args or env
-                _user = a.mqtt_username or os.getenv("MQTT_USERNAME")
-                _pass = a.mqtt_password or os.getenv("MQTT_PASSWORD")
-                if _user and _pass:
+                if resolved_user and resolved_pass:
                     try:
-                        client.username_pw_set(_user, _pass)
+                        client.username_pw_set(resolved_user, resolved_pass)
                     except Exception:
                         pass
 
                 # Configure TLS if using TLS port or explicitly requested by env
                 _force_tls_env = os.getenv("MQTT_USE_TLS")
-                _use_tls = a.mqtt_port == 8883 or (
-                    _force_tls_env
-                    and _force_tls_env.lower() in ("true", "1", "yes", "on")
+                _use_tls = (
+                    resolved_port == 8883
+                    or (
+                        _force_tls_env
+                        and _force_tls_env.lower() in ("true", "1", "yes", "on")
+                    )
+                    or bool(cfg_tls_obj)
                 )
                 if _use_tls:
+                    # Default to permissive TLS unless TLS_VERIFY explicitly requests verification
                     _tls_verify_env = os.getenv("TLS_VERIFY")
-                    _verify = True
-                    if _tls_verify_env and _tls_verify_env.lower() in (
-                        "false",
-                        "0",
-                        "no",
-                        "off",
-                    ):
-                        _verify = False
+                    verify_flag = None
+                    if _tls_verify_env is not None:
+                        try:
+                            verify_flag = _tls_verify_env.lower() in (
+                                "true",
+                                "1",
+                                "yes",
+                                "on",
+                            )
+                        except Exception:
+                            verify_flag = None
                     try:
-                        if _verify:
-                            client.tls_set()  # default system CA
+                        if isinstance(cfg_tls_obj, dict):
+                            ca = cfg_tls_obj.get("ca_certs")
+                            certfile = cfg_tls_obj.get("certfile")
+                            keyfile = cfg_tls_obj.get("keyfile")
+                            if ca or certfile:
+                                client.tls_set(
+                                    ca_certs=ca, certfile=certfile, keyfile=keyfile
+                                )
+                                if verify_flag is False:
+                                    client.tls_insecure_set(True)
+                            elif verify_flag is True:
+                                client.tls_set()  # strict verification
+                            else:
+                                client.tls_set(cert_reqs=ssl.CERT_NONE)  # permissive
+                                client.tls_insecure_set(True)
+                        elif verify_flag is True:
+                            client.tls_set()
                         else:
                             client.tls_set(cert_reqs=ssl.CERT_NONE)
                             client.tls_insecure_set(True)
                     except Exception:
                         pass
                 try:
-                    client.connect(a.broker, a.mqtt_port, 30)
+                    client.connect(resolved_broker, resolved_port, 30)
                 except Exception as e:  # pragma: no cover
                     if attempt == a.mqtt_count_retries:
                         print(f"NOTE: MQTT count connect failed final attempt: {e}")

@@ -3,7 +3,6 @@ import types
 import pytest
 
 from twickenham_events.ai_processor import AIProcessor
-from twickenham_events.ai_shortener import AIShortener
 
 
 class DotConfig:
@@ -63,19 +62,22 @@ def base_ai_config():
 
 @pytest.fixture
 def base_shortener_config():
+    """Legacy alias kept for backwards compatibility; maps to AIProcessor config."""
     return DotConfig(
         {
-            "ai_shortener": {
+            "ai_processor": {
                 "api_key": "test_key",
-                "enabled": True,
-                "cache_enabled": False,
-                "model": "gemini-2.5-pro",
-                "max_length": 16,
-                "flags_enabled": False,
-                "standardize_spacing": True,
-                "prompt_template": "Shorten to {char_limit}: {event_name}\n{flag_instructions}\n{flag_examples}",
-            },
-            "ai_type_detection": {"enabled": False, "cache_enabled": False},
+                "shortening": {
+                    "enabled": True,
+                    "cache_enabled": False,
+                    "model": "gemini-2.5-pro",
+                    "max_length": 16,
+                    "flags_enabled": False,
+                    "standardize_spacing": True,
+                    "prompt_template": "Shorten to {char_limit}: {event_name}\n{flag_instructions}\n{flag_examples}",
+                },
+                "type_detection": {"enabled": False, "cache_enabled": False},
+            }
         }
     )
 
@@ -153,12 +155,12 @@ def test_ai_shortener_circuit_breaks_on_429(monkeypatch, base_shortener_config):
 
     dummy = DummyGenAI(behaviour)
 
-    import twickenham_events.ai_shortener as mod
+    import twickenham_events.ai_processor as mod
 
     monkeypatch.setattr(mod, "GENAI_AVAILABLE", True, raising=True)
     monkeypatch.setattr(mod, "genai", dummy, raising=True)
 
-    shortener = AIShortener(base_shortener_config)
+    shortener = AIProcessor(base_shortener_config)
     name = "England vs Australia"
     result, had_error, _ = shortener.get_short_name(name)
     assert result == name
@@ -180,12 +182,12 @@ def test_ai_shortener_circuit_is_per_instance(monkeypatch, base_shortener_config
 
     dummy = DummyGenAI(behaviour_ok)
 
-    import twickenham_events.ai_shortener as mod
+    import twickenham_events.ai_processor as mod
 
     monkeypatch.setattr(mod, "GENAI_AVAILABLE", True, raising=True)
     monkeypatch.setattr(mod, "genai", dummy, raising=True)
 
-    shortener = AIShortener(base_shortener_config)
+    shortener = AIProcessor(base_shortener_config)
     name = "England vs Australia"
     result, had_error, msg = shortener.get_short_name(name)
     assert result == "ENG v AUS"

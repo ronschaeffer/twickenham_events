@@ -6,6 +6,8 @@ Provides a modern, type-safe configuration system with validation.
 
 import os
 from pathlib import Path
+import random
+import string
 from typing import Any, Optional
 
 from dotenv import dotenv_values
@@ -253,8 +255,14 @@ class Config:
 
     @property
     def mqtt_client_id(self) -> str:
-        """Get MQTT client ID."""
-        return self.get("mqtt.client_id", "twickenham_events")
+        """Get MQTT client ID. If not set, generate a random one."""
+        val = self.get("mqtt.client_id", None)
+        if val and isinstance(val, str) and val.strip():
+            return val
+        rand_id = "twickenham_events_" + "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=8)
+        )
+        return rand_id
 
     @property
     def calendar_enabled(self) -> bool:

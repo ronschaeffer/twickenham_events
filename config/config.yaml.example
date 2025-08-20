@@ -26,7 +26,7 @@ mqtt:
   broker_url: "${MQTT_BROKER_URL}" # Environment variable: your-broker.example.com
   broker_port: "${MQTT_BROKER_PORT}" # Environment variable: 8883 or 1883
   client_id: "${MQTT_CLIENT_ID}" # Environment variable: your_client_id
-  security: "username"
+  security: "${MQTT_SECURITY}"
 
   # Authentication settings
   auth:
@@ -35,10 +35,10 @@ mqtt:
 
   # TLS settings
   tls:
-    ca_cert: null # Path to CA certificate if needed
-    client_cert: null # Path to client certificate if needed
-    client_key: null # Path to client key if needed
-    verify: false # Set to true for production
+    ca_cert: "${TLS_CA_CERT}"
+    client_cert: "${TLS_CLIENT_CERT}"
+    client_key: "${TLS_CLIENT_KEY}"
+    verify: "${TLS_VERIFY}"
 
   topics:
     next: "twickenham_events/events/next"
@@ -56,12 +56,12 @@ mqtt:
 
 # Home Assistant Integration
 home_assistant:
-  enabled: true
+  enabled: "${HOME_ASSISTANT_ENABLED}"
   discovery_prefix: "homeassistant" # Default Home Assistant discovery topic
 
 # ICS Calendar Export
 calendar:
-  enabled: true
+  enabled: "${CALENDAR_ENABLED}"
   filename: "twickenham_events.ics"
   output_format: "ics" # Options: "ics", "json", "both"
   scope:
@@ -78,18 +78,18 @@ ai_processor:
 
   # Event Type Detection (for icons and categorization)
   type_detection:
-    enabled: false # Set to true to use AI for event type detection
+    enabled: "${TYPE_DETECTION_ENABLED}"
     cache_enabled: true
     model: "gemini-2.5-pro"
     cache_dir: "output/cache"
 
   # Event Name Shortening
   shortening:
-    enabled: true
+    enabled: "${SHORTENING_ENABLED}"
     cache_enabled: true
     model: "gemini-2.5-pro"
     max_length: 25
-    flags_enabled: true
+    flags_enabled: "${FLAGS_ENABLED}"
     standardize_spacing: true
     cache_dir: "output/cache"
     prompt_template: >
@@ -123,7 +123,7 @@ service:
   enable_buttons: true
   discovery_prefix: "homeassistant"
   systemd:
-    auto_launch: true        # Start the systemd unit when restart is requested
+    auto_launch: true # Start the systemd unit when restart is requested
     unit: "twickenham-events.service"
-    user: true               # Use --user systemd (per-user service)
-    delay_seconds: 2         # Small delay before exit to allow start
+    user: true # Use --user systemd (per-user service)
+    delay_seconds: 2 # Small delay before exit to allow start

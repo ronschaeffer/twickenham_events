@@ -137,6 +137,7 @@ output/
 ###############################
 # Local archives & transient workspace artifacts
 .archive/
+archive/
 .workspace/
 
 # Tool caches beyond base template
