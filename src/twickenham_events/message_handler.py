@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import time
 from typing import Any
+import uuid
 
 
 def handle_command_message(
@@ -68,11 +69,12 @@ def handle_command_message(
         cmd_name = topic[len(cmd_prefix) :].strip().lower()
         # If payload is "PRESS" (standard HA button) or empty, infer command from topic
         if text == "" or text.upper() == "PRESS":
+            now = time.time()
             try:
                 _ack = {
                     "status": "busy",
                     "command": cmd_name,
-                    "received_ts": time.time(),
+                    "received_ts": now,
                 }
                 client.publish(ack_topic, json.dumps(_ack), qos=0, retain=False)
                 # Mirror retained last ack
@@ -82,20 +84,35 @@ def handle_command_message(
                     pass
             except Exception:
                 pass
-            processor.handle_raw(cmd_name)
+            # Build a minimal JSON command envelope for the processor
+            cmd_obj = {
+                "id": str(uuid.uuid4()),
+                "command": cmd_name,
+                "requested_ts": now,
+                "received_ts": now,
+                "source": "ha_button",
+            }
+            try:
+                processor.handle_raw(json.dumps(cmd_obj))
+            except Exception:
+                # Last resort: send a bare command structure
+                processor.handle_raw(json.dumps({"command": cmd_name}))
             return
-        # Otherwise, pass through payload (may be JSON with args/ids)
+        # Otherwise, pass through payload (may be JSON with args/ids). If not JSON, wrap it.
+        _obj = None
         try:
+            now = time.time()
             _cmd = text
             try:
                 _obj = json.loads(text)
                 _cmd = _obj.get("name") or _obj.get("command") or text
             except Exception:
-                pass
+                # Not JSON; wrap as a command name
+                _obj = {"command": str(text).strip().lower()}
             _ack = {
                 "status": "busy",
                 "command": str(_cmd).lower(),
-                "received_ts": time.time(),
+                "received_ts": now,
             }
             client.publish(ack_topic, json.dumps(_ack), qos=0, retain=False)
             try:
@@ -104,7 +121,12 @@ def handle_command_message(
                 pass
         except Exception:
             pass
-        processor.handle_raw(text)
+        # Always forward JSON to the processor
+        try:
+            payload_for_processor = json.dumps(_obj) if isinstance(_obj, dict) else text
+        except Exception:
+            payload_for_processor = text
+        processor.handle_raw(payload_for_processor)
         return
 
     # Non-command topics (defensive; we only subscribe to cmd/#)

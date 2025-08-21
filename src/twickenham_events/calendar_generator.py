@@ -3,9 +3,10 @@ ICS calendar generation for Twickenham Events.
 Updated to work with proper legacy event structure.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from uuid import uuid4
 
 from icalendar import Calendar, Event
 
@@ -75,8 +76,12 @@ class CalendarGenerator:
 
                 ical_event = Event()
                 ical_event.add("summary", summary)
+                # Add a UID for each event to satisfy validator
+                ical_event.add("uid", str(uuid4()))
                 if dtstart:
-                    ical_event.add("dtstart", dtstart)
+                    # Convert to UTC-aware datetime so icalendar serializes with 'Z' and full timestamp
+                    dt_utc = dtstart.replace(tzinfo=timezone.utc)
+                    ical_event.add("dtstart", dt_utc)
                 ical_event.add("location", venue)
                 if desc:
                     ical_event.add("description", desc)

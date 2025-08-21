@@ -92,9 +92,6 @@ MQTT_PASSWORD=${MQTT_PASSWORD}
 
 # AI Processing (optional)
 GEMINI_API_KEY=${GEMINI_API_KEY}
-
-# Calendar URL Override (optional)
-CALENDAR_URL_OVERRIDE=${CALENDAR_URL_OVERRIDE}
 ```
 
 ### Configuration File

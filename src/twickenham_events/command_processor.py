@@ -40,6 +40,35 @@ try:
               client with a publish() method provided at construction time.
         """
 
+        def __init__(
+            self,
+            client: Any,
+            ack_topic: str,
+            result_topic: str,
+            *args: Any,
+            **kwargs: Any,
+        ) -> None:
+            """Initialize and record client and topics for consistent publishing.
+
+            We don't rely on the upstream constructor signature. Instead, we
+            store references used by our helper methods and then best-effort
+            call the upstream __init__ with no arguments (or passed-through
+            args) to keep compatibility if needed.
+            """
+            # Record attributes used by our _publish_json and registry helpers
+            self.client = client
+            self.ack_topic = ack_topic
+            self.result_topic = result_topic
+            try:
+                # Try to call upstream init with provided args; ignore if incompatible
+                super().__init__(*args, **kwargs)  # type: ignore[misc]
+            except Exception:
+                try:
+                    super().__init__()  # type: ignore[misc]
+                except Exception:
+                    # Upstream init might require specific params; it's optional for us
+                    pass
+
         # --- Local registry management -------------------------------------------------
         def register(  # type: ignore[override]
             self,

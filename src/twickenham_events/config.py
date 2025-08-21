@@ -133,7 +133,15 @@ class Config:
                     "prompt_template": "",
                 },
             },
-            "web_server": {"enabled": False, "host": "0.0.0.0", "port": 8080},
+            "web_server": {
+                "enabled": False,
+                "host": "0.0.0.0",
+                "port": 8080,
+                "external_url_base": None,
+                "access_log": False,
+                "reload": False,
+                "cors": {"enabled": False, "origins": "*"},
+            },
         }
 
         instance = cls(defaults)
@@ -297,17 +305,73 @@ class Config:
     @property
     def web_enabled(self) -> bool:
         """Check if web server is enabled."""
-        return self.get("web_server.enabled", False)
+        enabled = self.get("web_server.enabled", False)
+        # Support environment variable override
+        env_val = os.getenv("WEB_SERVER_ENABLED")
+        if env_val is not None:
+            return str(env_val).lower() in ("true", "1", "yes", "on")
+        return bool(enabled)
 
     @property
     def web_host(self) -> str:
         """Get web server host."""
-        return self.get("web_server.host", "0.0.0.0")
+        host = self.get("web_server.host", "0.0.0.0")
+        return os.getenv("WEB_SERVER_HOST", host)
 
     @property
     def web_port(self) -> int:
         """Get web server port."""
-        return self.get("web_server.port", 8080)
+        port = self.get("web_server.port", 8080)
+        env_port = os.getenv("WEB_SERVER_PORT")
+        if env_port:
+            try:
+                return int(env_port)
+            except ValueError:
+                pass
+        return int(port)
+
+    @property
+    def web_external_url_base(self) -> Optional[str]:
+        """Get external URL base for web server (for external access)."""
+        url = self.get("web_server.external_url_base")
+        return os.getenv("WEB_SERVER_EXTERNAL_URL", url)
+
+    @property
+    def web_access_log(self) -> bool:
+        """Check if web server access logging is enabled."""
+        enabled = self.get("web_server.access_log", False)
+        env_val = os.getenv("WEB_SERVER_ACCESS_LOG")
+        if env_val is not None:
+            return str(env_val).lower() in ("true", "1", "yes", "on")
+        return bool(enabled)
+
+    @property
+    def web_reload(self) -> bool:
+        """Check if web server auto-reload is enabled (development)."""
+        return bool(self.get("web_server.reload", False))
+
+    @property
+    def web_cors_enabled(self) -> bool:
+        """Check if CORS is enabled for web server."""
+        enabled = self.get("web_server.cors.enabled", False)
+        env_val = os.getenv("WEB_SERVER_CORS_ENABLED")
+        if env_val is not None:
+            return str(env_val).lower() in ("true", "1", "yes", "on")
+        return bool(enabled)
+
+    @property
+    def web_cors_origins(self) -> list[str]:
+        """Get CORS origins for web server."""
+        origins = self.get("web_server.cors.origins", "*")
+        env_origins = os.getenv("WEB_SERVER_CORS_ORIGINS")
+        if env_origins:
+            # Parse comma-separated origins
+            return [origin.strip() for origin in env_origins.split(",")]
+        if isinstance(origins, str):
+            return [origins]
+        elif isinstance(origins, list):
+            return origins
+        return ["*"]
 
     # Service (daemon) settings
     @property

@@ -177,6 +177,50 @@ Examples:
         "reprocess", help="reprocess cached items with current configuration"
     )
 
+    # Validate command group
+    validate_parser = subparsers.add_parser(
+        "validate", help="validate system components"
+    )
+    validate_subparsers = validate_parser.add_subparsers(
+        dest="validate_command", help="validation operations"
+    )
+
+    # Web server validation
+    web_validate_parser = validate_subparsers.add_parser(
+        "web", help="validate web server configuration and connectivity"
+    )
+    web_validate_parser.add_argument(
+        "--host", help="web server host to test (overrides config)"
+    )
+    web_validate_parser.add_argument(
+        "--port", type=int, help="web server port to test (overrides config)"
+    )
+    web_validate_parser.add_argument(
+        "--timeout", type=float, default=10.0, help="request timeout in seconds"
+    )
+    web_validate_parser.add_argument(
+        "--start-server",
+        action="store_true",
+        help="start the web server before validation (for testing)",
+    )
+    web_validate_parser.add_argument(
+        "--check-files",
+        action="store_true",
+        help="validate that expected output files are served correctly",
+    )
+    web_validate_parser.add_argument(
+        "--external-url",
+        help="external URL base to test (overrides host:port, useful for Docker/proxy)",
+    )
+
+    # Config validation
+    config_validate_parser = validate_subparsers.add_parser(
+        "config", help="validate configuration file and environment variables"
+    )
+    config_validate_parser.add_argument(
+        "--strict", action="store_true", help="enable strict validation mode"
+    )
+
     # Commands (registry) introspection
     commands_parser = subparsers.add_parser(
         "commands", help="print supported command registry (discovery metadata)"
@@ -697,21 +741,36 @@ def cmd_mqtt(args) -> int:
         # Publish to MQTT
         mqtt_client = MQTTClient(config)
         mqtt_client.publish_events(events, ai_processor)
-        # Publish unified device-level discovery bundle via library helpers
+        # Publish Home Assistant discovery (device bundle format)
         try:
             AVAILABILITY_TOPIC = "twickenham_events/availability"
             cfg = config.get_mqtt_config()
+
+            # Clean up undefined TLS certificate paths for ha-mqtt-publisher
+            if "tls" in cfg and isinstance(cfg["tls"], dict):
+                tls_cfg = cfg["tls"].copy()
+                # Remove certificate file paths if they're undefined env vars
+                for cert_key in ["ca_cert", "client_cert", "client_key"]:
+                    if cert_key in tls_cfg:
+                        cert_path = tls_cfg[cert_key]
+                        if isinstance(cert_path, str) and cert_path.startswith("${"):
+                            # Remove undefined environment variable references
+                            del tls_cfg[cert_key]
+                cfg = cfg.copy()
+                cfg["tls"] = tls_cfg
+
             publisher = LibMQTTPublisher(**cfg)  # type: ignore[call-arg]
             try:
-                # Connect and publish discovery bundle
+                # Connect and publish discovery
                 if hasattr(publisher, "connect"):
                     publisher.connect()  # type: ignore[operator]
+
+                # Publish device bundle discovery (original format)
                 publish_device_level_discovery(
                     mqtt_client=publisher,
                     config=config,
                     availability_topic=AVAILABILITY_TOPIC,
                     include_event_count_component=True,
-                    migrate_from_per_entity=True,
                 )
                 # Immediately mark device online for HA availability
                 try:
@@ -721,7 +780,7 @@ def cmd_mqtt(args) -> int:
             finally:
                 if hasattr(publisher, "disconnect"):
                     publisher.disconnect()  # type: ignore[operator]
-            print("📡 Published device discovery bundle (cmps)")
+            print("📡 Published Home Assistant device bundle discovery")
         except Exception as e:  # pragma: no cover
             if args.dry_run:
                 print(f"(dry-run) would publish device discovery: {e}")
@@ -1179,26 +1238,89 @@ def cmd_service(config: Config, args) -> int:
             return "fatal_error", f"refresh failed: {e}", {}
 
     def clear_cache_executor(ctx: dict[str, Any]):
-        if not ai_processor:
-            return "validation_failed", "AI cache not enabled", {}
+        # Always publish a result and idle ack so HA clears busy, even if AI is disabled
         try:
-            ai_processor.clear_cache()
-            logging.info("AI cache cleared via command")
+            if not ai_processor:
+                outcome = "validation_failed"
+                message = "AI cache not enabled"
+            else:
+                ai_processor.clear_cache()
+                logging.info("AI cache cleared via command")
+                outcome = "success"
+                message = "AI cache cleared"
             meta = {
-                "id": ctx["id"],
-                "name": ctx["command"],
+                "id": ctx.get("id"),
+                "name": ctx.get("command"),
                 "requested_ts": ctx.get("requested_ts"),
                 "received_ts": ctx.get("received_ts"),
                 "completed_ts": time.time(),
             }
+            # Try to reflect last_command in status payload (best-effort)
             try:
                 mqtt_pub.publish_events(
                     [], ai_processor, extra_status={"last_command": meta}
                 )
-            except Exception:  # pragma: no cover
+            except Exception:
                 pass
-            return "success", "AI cache cleared", {}
+            # Explicitly publish result and mirrors
+            payload = {
+                "id": meta["id"],
+                "command": ctx.get("command", "clear_cache"),
+                "outcome": outcome,
+                "message": message,
+                "completed_ts": meta["completed_ts"],
+            }
+            try:
+                paho_client.publish(RESULT_TOPIC, json.dumps(payload), retain=False)
+                try:
+                    paho_client.publish(
+                        LAST_RESULT_TOPIC, json.dumps(payload), retain=True
+                    )
+                except Exception:
+                    pass
+                # Flip ack to idle as final state
+                ack_payload = {
+                    "status": "idle",
+                    "command": "idle",
+                    "id": meta["id"],
+                    "completed_ts": time.time(),
+                }
+                paho_client.publish(ACK_TOPIC, json.dumps(ack_payload), retain=False)
+                try:
+                    paho_client.publish(
+                        LAST_ACK_TOPIC, json.dumps(ack_payload), retain=True
+                    )
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            return outcome, message, {}
         except Exception as e:  # pragma: no cover
+            # Publish fatal error result as well to clear busy
+            try:
+                err_payload = {
+                    "id": ctx.get("id"),
+                    "command": ctx.get("command", "clear_cache"),
+                    "outcome": "fatal_error",
+                    "message": f"cache clear failed: {e}",
+                    "completed_ts": time.time(),
+                }
+                paho_client.publish(RESULT_TOPIC, json.dumps(err_payload), retain=False)
+                paho_client.publish(
+                    LAST_RESULT_TOPIC, json.dumps(err_payload), retain=True
+                )
+                ack_payload = {
+                    "status": "idle",
+                    "command": "idle",
+                    "id": ctx.get("id"),
+                    "completed_ts": time.time(),
+                }
+                paho_client.publish(ACK_TOPIC, json.dumps(ack_payload), retain=False)
+                paho_client.publish(
+                    LAST_ACK_TOPIC, json.dumps(ack_payload), retain=True
+                )
+            except Exception:
+                pass
             return "fatal_error", f"cache clear failed: {e}", {}
 
     processor.register(
@@ -1220,19 +1342,59 @@ def cmd_service(config: Config, args) -> int:
 
     def restart_executor(ctx: dict[str, Any]):
         try:
-            # Publish a quick result and then exit so service manager can restart
-            # We let the CommandProcessor handle result publication; here we just signal shutdown.
-            # Small delay to allow result/idle ack to flush before exiting.
+            # Publish a quick result/idle ack ourselves to guarantee HA clears busy
             logging.info("Restart requested via command")
-            time.sleep(0.5)
+            try:
+                payload = {
+                    "id": ctx.get("id"),
+                    "command": ctx.get("command", "restart"),
+                    "outcome": "success",
+                    "message": "service restarting",
+                    "completed_ts": time.time(),
+                }
+                paho_client.publish(RESULT_TOPIC, json.dumps(payload), retain=False)
+                # Also mirror retained last_result for visibility post-restart
+                try:
+                    paho_client.publish(
+                        LAST_RESULT_TOPIC, json.dumps(payload), retain=True
+                    )
+                except Exception:
+                    pass
+                # Send final idle ack and mirror retained
+                ack_payload = {
+                    "status": "idle",
+                    "command": "idle",
+                    "id": ctx.get("id"),
+                    "completed_ts": time.time(),
+                }
+                paho_client.publish(ACK_TOPIC, json.dumps(ack_payload), retain=False)
+                try:
+                    paho_client.publish(
+                        LAST_ACK_TOPIC, json.dumps(ack_payload), retain=True
+                    )
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            # Small delay to allow messages to flush
+            time.sleep(0.2)
             # Optional: proactively start/enable systemd service so it comes back
             try:
                 sysd = config.get("service.systemd", {}) or {}
+                spawned = False
                 if sysd.get("auto_launch", False):
                     unit = sysd.get("unit", "twickenham-events.service")
                     is_user = bool(sysd.get("user", True))
                     delay = int(sysd.get("delay_seconds", 2))
                     cmd_prefix = ["systemctl", "--user"] if is_user else ["systemctl"]
+                    # If no D-Bus runtime is available, skip user-mode systemctl to avoid noisy errors
+                    if is_user and not (
+                        os.environ.get("DBUS_SESSION_BUS_ADDRESS")
+                        and os.environ.get("XDG_RUNTIME_DIR")
+                    ):
+                        raise RuntimeError(
+                            "Skipping user systemctl: no D-Bus session available"
+                        )
                     # Start (and optionally enable) the service; best-effort only
                     import subprocess
 
@@ -1243,6 +1405,7 @@ def cmd_service(config: Config, args) -> int:
                     # Start the unit after a slight delay; we cannot sleep long here
                     try:
                         subprocess.Popen([*cmd_prefix, "start", unit])
+                        spawned = True
                     except Exception:
                         pass
                     if delay and delay > 0:
@@ -1250,9 +1413,68 @@ def cmd_service(config: Config, args) -> int:
                             time.sleep(min(delay, 3))
                         except Exception:
                             pass
+                # Fallback: self-restart by spawning a detached child process
+                if not spawned and bool(sysd.get("fallback_self_restart", True)):
+                    from pathlib import Path
+                    import subprocess
+                    import sys
+
+                    try:
+                        proj_root = Path(__file__).resolve().parents[2]
+                    except Exception:
+                        from os import getcwd
+
+                        proj_root = Path(getcwd())
+                    cmd = [sys.executable, "-m", "twickenham_events", "service"]
+                    try:
+                        with open(os.devnull, "wb") as devnull:
+                            subprocess.Popen(
+                                cmd,
+                                cwd=str(proj_root),
+                                env=os.environ.copy(),
+                                stdout=devnull,
+                                stderr=devnull,
+                                preexec_fn=(
+                                    os.setpgrp if hasattr(os, "setpgrp") else None
+                                ),
+                                close_fds=True,
+                            )
+                            spawned = True
+                    except Exception:
+                        pass
             except Exception as _e:
                 logging.debug("systemd auto_launch skipped: %s", _e)
-            shutdown_sequence()
+            # Final, robust path: spawn a detached child (if none spawned yet) and exit parent
+            try:
+                from pathlib import Path
+                import subprocess
+                import sys
+
+                try:
+                    proj_root = Path(__file__).resolve().parents[2]
+                except Exception:
+                    from os import getcwd
+
+                    proj_root = Path(getcwd())
+                if not locals().get("spawned", False):
+                    cmd = [sys.executable, "-m", "twickenham_events", "service"]
+                    logging.info("Spawning detached child for restart: %s", cmd)
+                    with open(os.devnull, "wb") as devnull:
+                        subprocess.Popen(
+                            cmd,
+                            cwd=str(proj_root),
+                            env=os.environ.copy(),
+                            stdout=devnull,
+                            stderr=devnull,
+                            start_new_session=True,
+                            close_fds=True,
+                        )
+                # Brief pause to improve chances child is up before parent exits
+                time.sleep(0.2)
+                os._exit(0)
+            except Exception as _exec_e:
+                logging.warning("spawn+exit restart failed: %s", _exec_e)
+                shutdown_sequence()
             return "success", "service restarting", {}
         except Exception as e:  # pragma: no cover
             return "fatal_error", f"restart failed: {e}", {}
@@ -1328,15 +1550,16 @@ def cmd_service(config: Config, args) -> int:
                     btn_topic = f"{config.service_discovery_prefix}/button/{uid}/config"
                     client.publish(btn_topic, "", retain=True)
                 try:
+                    # Create device and entities for standard discovery
+                    # Publish device bundle discovery (original format)
                     publish_device_level_discovery(
                         mqtt_client=client,
                         config=config,
                         availability_topic=AVAILABILITY_TOPIC,
                         include_event_count_component=True,
-                        migrate_from_per_entity=True,
                     )
                 except Exception as e:
-                    logging.warning("Failed to publish device-level discovery: %s", e)
+                    logging.warning("Failed to publish device discovery: %s", e)
                 # Publish command registry discovery (retained)
                 try:
                     processor.publish_registry("twickenham_events/commands/registry")
@@ -1344,9 +1567,7 @@ def cmd_service(config: Config, args) -> int:
                 except Exception as e:  # pragma: no cover
                     logging.warning("Failed publishing command registry: %s", e)
                 availability.online()
-                logging.info(
-                    "Published device-level discovery (cmps) and set device online"
-                )
+                logging.info("Published entity discovery and set device online")
             except Exception as e:  # pragma: no cover
                 logging.warning("Failed discovery/availability: %s", e)
         else:
@@ -1453,6 +1674,142 @@ def cmd_commands(config: Config, args) -> int:
     return 0
 
 
+def cmd_validate(config: Config, args) -> int:
+    """Handle validation commands."""
+    if not hasattr(args, "validate_command") or args.validate_command is None:
+        print(
+            "❌ No validation subcommand specified. Use 'validate --help' for options."
+        )
+        return 1
+
+    if args.validate_command == "web":
+        return cmd_validate_web(config, args)
+    elif args.validate_command == "config":
+        return cmd_validate_config(config, args)
+    else:
+        print(f"❌ Unknown validation command: {args.validate_command}")
+        return 1
+
+
+def cmd_validate_web(config: Config, args) -> int:
+    """Validate web server configuration and connectivity."""
+    try:
+        # Import the web validator
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
+        from web_validate import main as web_validate_main
+
+        # Build arguments for the web validator
+        web_args = []
+
+        # Override host if provided
+        if hasattr(args, "host") and args.host:
+            web_args.extend(["--host", args.host])
+
+        # Override port if provided
+        if hasattr(args, "port") and args.port:
+            web_args.extend(["--port", str(args.port)])
+
+        # Add timeout
+        if hasattr(args, "timeout") and args.timeout:
+            web_args.extend(["--timeout", str(args.timeout)])
+
+        # Add config file path
+        web_args.extend(["--config", config.config_path])
+
+        # Add optional flags
+        if hasattr(args, "start_server") and args.start_server:
+            web_args.append("--start-server")
+
+        if hasattr(args, "check_files") and args.check_files:
+            web_args.append("--check-files")
+
+        if hasattr(args, "external_url") and args.external_url:
+            web_args.extend(["--external-url", args.external_url])
+
+        print("🔍 Validating web server configuration and connectivity...")
+        return web_validate_main(web_args)
+
+    except ImportError as e:
+        print(f"❌ Web validation not available: {e}")
+        print("💡 Install httpx: poetry add httpx")
+        return 1
+    except Exception as e:
+        print(f"❌ Web validation failed: {e}")
+        return 1
+
+
+def cmd_validate_config(config: Config, args) -> int:
+    """Validate configuration file and environment variables."""
+    print("🔍 Validating configuration...")
+
+    errors = []
+    warnings = []
+
+    # Basic configuration validation
+    try:
+        # Test critical configuration sections
+        print("✅ Configuration file loaded successfully")
+
+        # Validate MQTT configuration if enabled
+        if config.mqtt_enabled:
+            if not config.mqtt_broker:
+                errors.append("MQTT enabled but no broker URL configured")
+            if not config.mqtt_username and not config.mqtt_password:
+                warnings.append("MQTT enabled but no authentication configured")
+
+        # Validate calendar configuration if enabled
+        if config.calendar_enabled and not config.calendar_filename:
+            errors.append("Calendar enabled but no filename configured")
+
+        # Validate AI configuration if enabled
+        if config.ai_enabled and not config.ai_api_key:
+            errors.append("AI processing enabled but no API key configured")
+
+        # Validate web server configuration if enabled
+        if config.web_enabled:
+            if config.web_port < 1 or config.web_port > 65535:
+                errors.append(f"Invalid web server port: {config.web_port}")
+            if config.web_port < 1024:
+                warnings.append(
+                    f"Web server port {config.web_port} is privileged (< 1024)"
+                )
+
+        # Report results
+        if warnings:
+            print("\n⚠️  Configuration warnings:")
+            for warning in warnings:
+                print(f"  - {warning}")
+
+        if errors:
+            print("\n❌ Configuration errors:")
+            for error in errors:
+                print(f"  - {error}")
+            return 1
+        else:
+            print("\n✅ Configuration validation passed!")
+
+            # Show key settings summary
+            print("\n📋 Active Configuration:")
+            print(f"  MQTT: {'✅ enabled' if config.mqtt_enabled else '❌ disabled'}")
+            print(
+                f"  Calendar: {'✅ enabled' if config.calendar_enabled else '❌ disabled'}"
+            )
+            print(
+                f"  AI Processing: {'✅ enabled' if config.ai_enabled else '❌ disabled'}"
+            )
+            print(
+                f"  Web Server: {'✅ enabled' if config.web_enabled else '❌ disabled'}"
+            )
+            if config.web_enabled:
+                print(f"    └─ http://{config.web_host}:{config.web_port}")
+
+            return 0
+
+    except Exception as e:
+        print(f"❌ Configuration validation failed: {e}")
+        return 1
+
+
 def main() -> int:
     """Main CLI entry point."""
     parser = create_parser()
@@ -1494,6 +1851,8 @@ def main() -> int:
             return cmd_cache(config, args)
         elif args.command == "service":
             return cmd_service(config, args)
+        elif args.command == "validate":
+            return cmd_validate(config, args)
         elif args.command == "commands":
             return cmd_commands(config, args)
         else:

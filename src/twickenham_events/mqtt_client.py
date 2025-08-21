@@ -13,6 +13,7 @@ import logging
 from typing import Any, Optional, TypedDict, cast
 
 from .config import Config
+from .network_utils import build_smart_external_url
 
 try:  # version import (safe fallback if not installed as package)
     from . import __version__ as PACKAGE_VERSION
@@ -26,14 +27,15 @@ class StatusPayload(TypedDict, total=False):
     Fields:
         status: active | no_events | error
         event_count: number of future events (0 when none or on error)
-    ai_error_count: AI icon/shortening errors for this publish cycle
+        ai_error_count: AI icon/shortening errors for this publish cycle
         publish_error_count: MQTT publish attempt failures (network, auth)
-    ai_enabled: Whether AI enrichment is active
-    sw_version: Software version string (e.g., "0.1.2")
+        ai_enabled: Whether AI enrichment is active
+        sw_version: Software version string (e.g., "0.1.2")
         last_updated: ISO timestamp of publish
         errors: (optional) list of scrape / processing error strings (bounded upstream)
         error_count: (optional) convenience numeric length of errors list
         last_command: (optional) summary of most recent command (id/name/outcome)
+        web_server: (optional) web server status and URLs for Home Assistant integration
     """
 
     status: str
@@ -50,6 +52,8 @@ class StatusPayload(TypedDict, total=False):
     ai_status: str
     ai_retry_at: str
     ai_retry_in_seconds: int
+    # Optional web server information
+    web_server: dict[str, Any]
 
 
 class TodayPayload(TypedDict):
@@ -101,6 +105,41 @@ except Exception:
 
 # Public alias expected by tests and call sites
 MQTTPublisher = PublisherImpl
+
+
+def _get_web_server_status(config: Config) -> dict[str, Any]:
+    """Get web server status and URL information for MQTT publishing.
+
+    This function checks if the web server is enabled and attempts to gather
+    URL information that can be used by Home Assistant for calendar integration.
+
+    Args:
+        config: Application configuration
+
+    Returns:
+        Dictionary with web server status and URLs, or empty dict if disabled
+    """
+    if not config.web_enabled:
+        return {}
+
+    try:
+        # Build URL information using smart external URL detection
+        base_url = build_smart_external_url(
+            config.web_host,
+            config.web_port,
+            external_url_base=config.web_external_url_base,
+        )
+
+        # Only include essential URLs for Home Assistant integration
+        return {
+            "enabled": True,
+            "base_url": base_url,
+            "calendar_url": f"{base_url}/calendar",
+            "events_url": f"{base_url}/events",
+        }
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning("Failed to build web server status: %s", e)
+        return {"enabled": True, "error": str(e)}
 
 
 class MQTTClient:
@@ -175,6 +214,17 @@ class MQTTClient:
                     e["icon"] = mdi_icon
                 except Exception:  # pragma: no cover - non-fatal
                     ai_errors += 1
+
+            # Ensure sensible defaults so downstream attributes are always present
+            # and consistent for Home Assistant templates/cards.
+            if not e.get("emoji"):
+                e["emoji"] = "🏟️"
+            icon_val = e.get("icon")
+            if not icon_val or not isinstance(icon_val, str):
+                e["icon"] = "mdi:calendar-clock"
+            elif not icon_val.startswith("mdi:"):
+                # If AI returned a bare icon name, normalize to mdi: prefix
+                e["icon"] = f"mdi:{icon_val}"
 
             enhanced_events.append(e)
 
@@ -322,6 +372,11 @@ class MQTTClient:
                     "sw_version": PACKAGE_VERSION,
                     "last_updated": ts,
                 }
+
+                # Add web server status to direct path as well
+                web_server_info = _get_web_server_status(self.config)
+                if web_server_info:
+                    status_payload_direct["web_server"] = web_server_info
                 if extra_status:
                     try:
                         for _k, _v in cast(dict[str, Any], extra_status).items():
@@ -479,6 +534,8 @@ class MQTTClient:
                         "emoji": next_event.get("emoji"),
                         # Icon standardized; ensure mdi: prefix value
                         "icon": next_event.get("icon"),
+                        # Provide a duplicate attribute for HA display convenience
+                        "mdi_icon": next_event.get("icon"),
                     }
                 )
             if "next" in topics:
@@ -497,6 +554,11 @@ class MQTTClient:
                 "sw_version": PACKAGE_VERSION,
                 "last_updated": ts,
             }
+
+            # Add web server status and URLs for Home Assistant integration
+            web_server_info = _get_web_server_status(self.config)
+            if web_server_info:
+                status_payload["web_server"] = web_server_info
             # If AI circuit breaker is open, include explicit AI backoff info
             try:
                 if ai_processor and hasattr(ai_processor, "get_shortener_backoff_info"):

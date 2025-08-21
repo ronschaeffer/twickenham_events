@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..config import Config
+from ..network_utils import build_smart_external_url
 from .base_server import BaseFileServer
 
 logger = logging.getLogger(__name__)
@@ -96,17 +97,55 @@ class TwickenhamEventsServer(BaseFileServer):
                     else None,
                 }
 
+            # Build URL information
+            urls_info = self._build_urls_info()
+
             return {
                 **base_health,
                 "service": "twickenham_events",
                 "mqtt_enabled": self.config.mqtt_enabled,
-                "web_config": {
+                "web_server": {
                     "enabled": self.config.web_enabled,
-                    "host": self.config.web_host,
-                    "port": self.config.web_port,
+                    "internal_binding": f"http://{self.config.web_host}:{self.config.web_port}",
+                    "external_url_base": self.config.web_external_url_base,
+                    "urls": urls_info,
                 },
                 "files": files_status,
             }
+
+    def _build_urls_info(self) -> dict:
+        """Build comprehensive URL information for all endpoints."""
+        # Use smart external URL detection with automatic local IP discovery
+        base_url = build_smart_external_url(
+            self.config.web_host,
+            self.config.web_port,
+            self.config.web_external_url_base,
+        )
+
+        # Build endpoint URLs
+        endpoints = {
+            "api_docs": f"{base_url}/docs",
+            "api_redoc": f"{base_url}/redoc",
+            "openapi_json": f"{base_url}/openapi.json",
+            "health": f"{base_url}/health",
+            "status": f"{base_url}/status",
+            "files_list": f"{base_url}/files",
+            "calendar": f"{base_url}/calendar",
+            "calendar_direct": f"{base_url}/twickenham_events.ics",
+            "events": f"{base_url}/events",
+            "events_direct": f"{base_url}/upcoming_events.json",
+            "scrape_results": f"{base_url}/scrape-results",
+        }
+
+        return {
+            "base": base_url,
+            "endpoints": endpoints,
+            "home_assistant": {
+                "calendar_url": endpoints["calendar"],
+                "events_json_url": endpoints["events"],
+                "webhook_ready": True,
+            },
+        }
 
     async def _get_base_health(self):
         """Get base health information."""

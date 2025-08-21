@@ -69,8 +69,6 @@ calendar:
     include_future_days: 365 # Include events for next year
   duration_estimation:
     default_hours: 2.5 # Duration for all events
-  # Optional: Override URL for external access (handles Docker/proxy issues)
-  calendar_url_override: "${CALENDAR_URL_OVERRIDE}"
 
 # Event Name Processing (AI-powered)
 ai_processor:
@@ -116,6 +114,22 @@ ai_processor:
       Now, shorten this event name:
       fixture: {event_name}
       fixture_short:
+
+# Web Server Configuration
+web_server:
+  enabled: "${WEB_SERVER_ENABLED}" # Environment variable: true/false
+  host: "${WEB_SERVER_HOST}" # Environment variable: 0.0.0.0 (all interfaces) or 127.0.0.1 (localhost only)
+  port: "${WEB_SERVER_PORT}" # Environment variable: 8080 (or any available port like 47476)
+  # Optional: Auto-discovery base URL for external access (handles Docker/proxy issues)
+  external_url_base: "${WEB_SERVER_EXTERNAL_URL}" # e.g., "https://your-domain.com/twickenham"
+  # Access logging and debug settings
+  access_log: "${WEB_SERVER_ACCESS_LOG}" # Environment variable: true/false (default: false)
+  # Development settings
+  reload: false # Enable auto-reload for development (not recommended for production)
+  # Security headers and CORS (if needed for browser access)
+  cors:
+    enabled: "${WEB_SERVER_CORS_ENABLED}" # Environment variable: true/false
+    origins: "${WEB_SERVER_CORS_ORIGINS}" # Environment variable: comma-separated origins
 
 # Service/daemon settings
 service:
