@@ -37,7 +37,7 @@ beautifulsoup4 = "^4.12.0"
 paho-mqtt = "^2.1.0"
 pyyaml = "^6.0.1"
 python-dotenv = "^1.1.1"
-ha-mqtt-publisher = { path = "../ha_mqtt_publisher", develop = true }
+ha-mqtt-publisher = "^0.3.3"
 ronschaeffer-ics-calendar-utils = "^0.2.2"
 icalendar = ">=5.0.0"
 
