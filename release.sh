@@ -64,11 +64,7 @@ print_success "Version bumped to ${new_version}"
 
 
 print_status "Running documentation update/check via AI agent..."
-if command -v python3 &>/dev/null; then
-  python3 scripts/update_docs.py || true
-else
-  poetry run python scripts/update_docs.py || true
-fi
+python /home/ron/projects/ai-scripts/update_docs.py . || true
 
 print_status "Synchronizing version across files..."
 if command -v python3 &>/dev/null; then
@@ -88,11 +84,7 @@ print_success "Created tag: ${tag_name}"
 
 # Generate release notes using AI agent
 print_status "Generating release notes via AI agent..."
-if command -v python3 &>/dev/null; then
-  python3 scripts/generate_release_notes.py || true
-else
-  poetry run python scripts/generate_release_notes.py || true
-fi
+python /home/ron/projects/ai-scripts/generate_release_notes.py . || true
 
 release_notes_file="release_notes.txt"
 release_title="Release ${tag_name}"
