@@ -38,22 +38,8 @@ class TestMQTTWebServerIntegration:
 
             assert status["enabled"] is True
             assert status["base_url"] == "http://localhost:8080"
-            assert status["internal_binding"] == "http://localhost:8080"
-            assert status["external_url_base"] is None
-
-            # Check URLs
-            urls = status["urls"]
-            assert urls["calendar"] == "http://localhost:8080/calendar"
-            assert urls["events"] == "http://localhost:8080/events"
-            assert (
-                urls["calendar_direct"] == "http://localhost:8080/twickenham_events.ics"
-            )
-
-            # Check Home Assistant specific fields
-            ha = status["home_assistant"]
-            assert ha["calendar_url"] == "http://localhost:8080/calendar"
-            assert ha["events_json_url"] == "http://localhost:8080/events"
-            assert ha["webhook_ready"] is True
+            assert status["calendar_url"] == "http://localhost:8080/calendar"
+            assert status["events_url"] == "http://localhost:8080/events"
 
     def test_web_server_status_external_url(self):
         """Test web server status with external URL base."""
@@ -71,13 +57,8 @@ class TestMQTTWebServerIntegration:
 
             assert status["enabled"] is True
             assert status["base_url"] == "https://twickenham.example.com"
-            assert status["internal_binding"] == "http://0.0.0.0:8080"
-            assert status["external_url_base"] == "https://twickenham.example.com"
-
-            # URLs should use external base
-            urls = status["urls"]
-            assert urls["calendar"] == "https://twickenham.example.com/calendar"
-            assert urls["events"] == "https://twickenham.example.com/events"
+            assert status["calendar_url"] == "https://twickenham.example.com/calendar"
+            assert status["events_url"] == "https://twickenham.example.com/events"
 
     def test_web_server_status_localhost_binding(self):
         """Test that 0.0.0.0 binding auto-detects the best IP address."""
@@ -151,8 +132,5 @@ class TestMQTTWebServerIntegration:
         web_server = status_payload["web_server"]
         assert web_server["enabled"] is True
         assert web_server["base_url"] == "https://test.example.com"
-        assert "home_assistant" in web_server
-        assert (
-            web_server["home_assistant"]["calendar_url"]
-            == "https://test.example.com/calendar"
-        )
+        assert web_server["calendar_url"] == "https://test.example.com/calendar"
+        assert web_server["events_url"] == "https://test.example.com/events"
