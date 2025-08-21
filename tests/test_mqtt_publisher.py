@@ -1,19 +1,12 @@
 """MQTT publisher integration tests."""
 
-from pathlib import Path
-import sys
 from unittest.mock import MagicMock, patch
 
 import paho.mqtt.client as mqtt
 
-# Ensure ha_mqtt_publisher is importable
-_sibling_src = Path("/home/ron/projects/ha_mqtt_publisher/src")
-if _sibling_src.exists() and str(_sibling_src) not in sys.path:
-    sys.path.insert(0, str(_sibling_src))
-
 
 def test_mqtt_publisher_import():
-    """Test that we can import the MQTT publisher from the sibling package."""
+    """Test that we can import the MQTT publisher from the PyPI package."""
     try:
         from ha_mqtt_publisher.publisher import MQTTPublisher
 

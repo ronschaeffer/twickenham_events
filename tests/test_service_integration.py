@@ -3,14 +3,16 @@
 This test simulates a minimal service run (startup + one interval cycle)
 by invoking the internal run_cycle logic through a simplified harness.
 We avoid spinning real threads; instead we patch MQTT and directly call
-publish_all_discovery and AvailabilityPublisher.
+publish_enhanced_device_discovery and AvailabilityPublisher.
 """
 
 from unittest.mock import MagicMock, patch
 
 from twickenham_events.config import Config
 from twickenham_events.constants import AVAILABILITY_TOPIC
-from twickenham_events.discovery_helper import publish_all_discovery
+from twickenham_events.enhanced_discovery import (
+    publish_enhanced_device_discovery as publish_all_discovery,
+)
 from twickenham_events.mqtt_client import MQTTClient
 from twickenham_events.service_support import AvailabilityPublisher
 
@@ -62,26 +64,13 @@ def test_service_startup_and_availability(monkeypatch):
     ]
     assert any(c.args[1] == "online" for c in avail_publishes)
 
-    # Discovery topics published (at least 3: two buttons + binary sensor)
+    # Discovery topics published - new enhanced discovery publishes a single device config
     discovery_topics = [
         c.args[0] for c in fake_paho.publish.call_args_list if "/config" in c.args[0]
     ]
-    # Accept either legacy short prefix (tw_events_*) or new standardized (twickenham_events_*)
-    assert any(
-        "button/twickenham_events_refresh" in t or "button/tw_events_refresh" in t
-        for t in discovery_topics
-    )
-    assert any(
-        "button/twickenham_events_clear_cache" in t
-        or "button/tw_events_clear_cache" in t
-        for t in discovery_topics
-    )
-    # Availability binary sensor now standardized to full prefix unique_id
-    assert any(
-        "binary_sensor/twickenham_events_availability" in t
-        or "binary_sensor/tw_events_availability" in t
-        for t in discovery_topics
-    )
+    # Should have exactly one device-level discovery topic
+    assert len(discovery_topics) == 1
+    assert discovery_topics[0] == "homeassistant/device/twickenham_events/config"
 
     # Status publish included last_run_ts
     status_payloads = [

@@ -4,6 +4,7 @@ Handles sophisticated date/time normalization, event grouping, and processing.
 """
 
 from datetime import date, datetime, time as time_obj, timedelta
+import logging
 import re
 import time
 from typing import Any, Optional
@@ -301,16 +302,19 @@ class EventScraper:
         self, raw_events: list[dict[str, str]]
     ) -> list[dict[str, Any]]:
         """
-        Summarizes and filters a list of raw event data - full legacy implementation.
+        Summarizes and filters a list of raw event data - optimized with batch AI processing.
         - Normalizes date and time formats.
         - Filters out events that have already passed.
         - Groups events by date with metadata.
+        - Uses batch AI processing for maximum quota efficiency (1 API call for all events).
         """
         from .ai_processor import AIProcessor
 
         # Initialize AI processor if enabled
         processor = None
-        if self.config.get("ai_processor.shortening.enabled", False):
+        if self.config.get("ai_processor.shortening.enabled", False) or self.config.get(
+            "ai_processor.type_detection.enabled", False
+        ):
             try:
                 processor = AIProcessor(self.config)
             except Exception as e:
@@ -318,6 +322,10 @@ class EventScraper:
 
         today = datetime.now().date()
         summarized_by_date: dict[str, dict[str, Any]] = {}
+
+        # STEP 1: First pass - collect all valid events and unique fixture names
+        valid_events = []
+        unique_fixtures = set()
 
         for event in raw_events:
             event_date_str = self.normalize_date_range(event["date"])
@@ -331,22 +339,64 @@ class EventScraper:
                 continue
             if event_date < today:
                 continue
-            event_date_iso = event_date.isoformat()
+
+            # This event is valid - store it and collect fixture name
+            fixture_name = event["title"]
+            unique_fixtures.add(fixture_name)
+            valid_events.append(
+                {
+                    "original_event": event,
+                    "fixture_name": fixture_name,
+                    "event_date": event_date,
+                    "event_date_iso": event_date.isoformat(),
+                }
+            )
+
+        # STEP 2: Batch AI processing for ALL unique fixtures in one API call
+        ai_results = {}
+        if processor and unique_fixtures:
+            try:
+                ai_results = processor.get_batch_ai_info(list(unique_fixtures))
+                logging.info(
+                    "Batch AI processing completed for %d unique fixtures",
+                    len(unique_fixtures),
+                )
+            except Exception as e:
+                self.error_log.append(f"Batch AI processing failed: {e}")
+                logging.warning(
+                    "Batch AI processing failed, falling back to individual processing: %s",
+                    e,
+                )
+
+        # STEP 3: Second pass - build events using pre-computed AI results
+        for valid_event in valid_events:
+            event = valid_event["original_event"]
+            fixture_name = valid_event["fixture_name"]
+            event_date_iso = valid_event["event_date_iso"]
+
             day_bucket = summarized_by_date.setdefault(
                 event_date_iso,
                 {"date": event_date_iso, "events": [], "earliest_start": None},
             )
+
             start_times = self.normalize_time(event.get("time"))
             crowd_size = self.validate_crowd_size(event.get("crowd"))
-            fixture_name = event["title"]
+
+            # Get AI results from batch processing
             short_name = fixture_name
-            if processor:
+            ai_info = ai_results.get(fixture_name)
+            if ai_info and not ai_info.get("had_error"):
+                short_name = ai_info["short_name"]
+            elif processor and not ai_results:
+                # Fallback to individual processing if batch failed
                 try:
                     short_name, _, _ = processor.get_short_name(fixture_name)
                 except Exception as e:
                     self.error_log.append(
                         f"AI shortening failed for '{fixture_name}': {e}"
                     )
+
+            # Build event data with AI info
             if start_times:
                 for st in start_times:
                     ev = {
@@ -357,6 +407,13 @@ class EventScraper:
                     }
                     if short_name != fixture_name:
                         ev["fixture_short"] = short_name
+
+                    # Add AI type/icon info if available
+                    if ai_info and not ai_info.get("had_error"):
+                        ev["ai_event_type"] = ai_info["event_type"]
+                        ev["ai_emoji"] = ai_info["emoji"]
+                        ev["ai_mdi_icon"] = ai_info["mdi_icon"]
+
                     day_bucket["events"].append(ev)
             else:
                 ev = {
@@ -367,6 +424,13 @@ class EventScraper:
                 }
                 if short_name != fixture_name:
                     ev["fixture_short"] = short_name
+
+                # Add AI type/icon info if available
+                if ai_info and not ai_info.get("had_error"):
+                    ev["ai_event_type"] = ai_info["event_type"]
+                    ev["ai_emoji"] = ai_info["emoji"]
+                    ev["ai_mdi_icon"] = ai_info["mdi_icon"]
+
                 day_bucket["events"].append(ev)
 
         for date_summary in summarized_by_date.values():

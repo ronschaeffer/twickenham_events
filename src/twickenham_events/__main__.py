@@ -18,7 +18,7 @@ import threading
 import time
 from typing import Any
 
-# Use only the local (or installed) ha_mqtt_publisher package for development.
+# Import ha_mqtt_publisher from PyPI package
 try:
     from ha_mqtt_publisher.publisher import MQTTPublisher as LibMQTTPublisher
 except Exception:
@@ -26,7 +26,7 @@ except Exception:
     class LibMQTTPublisher:  # type: ignore[no-redef]
         def __init__(self, *a, **kw):
             raise RuntimeError(
-                "ha_mqtt_publisher not available. Install it or ensure the local path dependency is configured."
+                "ha_mqtt_publisher not available. Install it with: pip install ha-mqtt-publisher"
             )
 
 
@@ -35,7 +35,9 @@ import paho.mqtt.client as mqtt
 from .ai_processor import AIProcessor
 from .calendar_generator import CalendarGenerator
 from .config import Config
-from .discovery_helper import publish_device_level_discovery
+from .enhanced_discovery import (
+    publish_enhanced_device_discovery as publish_device_level_discovery,
+)
 from .mqtt_client import MQTTClient
 from .scraper import EventScraper
 from .service_support import AvailabilityPublisher, install_global_signal_handler
@@ -412,10 +414,15 @@ def cmd_list(args):
 
             for event in day_summary["events"]:
                 fixture = event["fixture"]
-                # Get dynamic icon based on event type
-                event_type, emoji, mdi_icon = ai_processor.get_event_type_and_icons(
-                    fixture
-                )
+                # Use pre-computed AI data if available, otherwise fallback to AI processor
+                if "ai_emoji" in event:
+                    emoji = event["ai_emoji"]
+                elif ai_processor:
+                    event_type, emoji, mdi_icon = ai_processor.get_event_type_and_icons(
+                        fixture
+                    )
+                else:
+                    emoji = "🏟️"  # Default emoji
 
                 time_str = event.get("start_time") or "TBC"
                 print(f"   {emoji} {fixture} ({time_str})")
@@ -437,10 +444,15 @@ def cmd_list(args):
 
             for event in day_summary["events"]:
                 fixture = event["fixture"]
-                # Get dynamic icon based on event type
-                event_type, emoji, mdi_icon = ai_processor.get_event_type_and_icons(
-                    fixture
-                )
+                # Use pre-computed AI data if available, otherwise fallback to AI processor
+                if "ai_emoji" in event:
+                    emoji = event["ai_emoji"]
+                elif ai_processor:
+                    event_type, emoji, mdi_icon = ai_processor.get_event_type_and_icons(
+                        fixture
+                    )
+                else:
+                    emoji = "🏟️"  # Default emoji
 
                 short_name = event.get("fixture_short")
                 time_str = event.get("start_time") or "TBC"
@@ -550,8 +562,14 @@ def cmd_next(args):
         print()
 
         fixture = next_event["fixture"]
-        # Get dynamic icon based on event type
-        event_type, emoji, mdi_icon = ai_processor.get_event_type_and_icons(fixture)
+        # Use pre-computed AI data if available, otherwise fallback to AI processor
+        if "ai_emoji" in next_event:
+            emoji = next_event["ai_emoji"]
+        elif ai_processor:
+            event_type, emoji, mdi_icon = ai_processor.get_event_type_and_icons(fixture)
+        else:
+            emoji = "🏟️"  # Default emoji
+
         short_name = next_event.get("fixture_short")
         time_str = next_event.get("start_time") or "TBC"
         crowd = next_event.get("crowd")

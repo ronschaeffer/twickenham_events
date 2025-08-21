@@ -554,14 +554,14 @@ protobuf = ">=5.26.1,<6.0dev"
 
 [[package]]
 name = "ha-mqtt-publisher"
-version = "0.3.3"
+version = "0.3.4"
 description = "An MQTT publisher package"
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
 files = [
-    {file = "ha_mqtt_publisher-0.3.3-py3-none-any.whl", hash = "sha256:eea232c53535f2446d7e647457a62276ab2cde68f03148074eb33e8bc5caeaf7"},
-    {file = "ha_mqtt_publisher-0.3.3.tar.gz", hash = "sha256:cfbdb2b2921c76e1f070fb1fb996d8e70cb89dbf59d13e1f36a9c16a4f16ff6f"},
+    {file = "ha_mqtt_publisher-0.3.4-py3-none-any.whl", hash = "sha256:28f2c6e0a6ba781169e1c6e5f6bd644f862069e017cf5956041868dd94471bf9"},
+    {file = "ha_mqtt_publisher-0.3.4.tar.gz", hash = "sha256:72db25c28905ab009afb2c5098db57f5d1eaab2444e24f17c63dc4fe986eb13b"},
 ]
 
 [package.dependencies]
@@ -1327,4 +1327,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "7c6c40d6dc511625ad215d626f124d6f1e0721b4f89017cc3d13e9fcb7c3bbb8"
+content-hash = "fa4e3ebab849cdbbddc8ffc5f647e10f88954b580313143db24328a6bc31cf0a"

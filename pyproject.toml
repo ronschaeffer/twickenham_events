@@ -15,7 +15,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "python-dotenv>=1.1.1",
     # Use PyPI release in CI; local dev can override via Poetry if needed
-    "ha-mqtt-publisher>=0.3.3",
+    "ha-mqtt-publisher>=0.3.4",
     "ronschaeffer-ics-calendar-utils>=0.2.2",
     "icalendar>=5.0.0",
 ]

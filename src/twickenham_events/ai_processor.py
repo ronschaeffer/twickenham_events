@@ -96,6 +96,704 @@ class AIProcessor:
             info["retry_in_seconds"] = remaining
         return info
 
+    def get_combined_ai_info(self, event_name: str) -> dict:
+        """
+        Get shortened name, event type, and icons in a single AI API call.
+
+        This method combines shortening, type detection, and flag generation
+        into one request to reduce API quota usage.
+
+        Args:
+            event_name: The event name to process
+
+        Returns:
+            Dict containing:
+            - short_name: Shortened version or original if shortening disabled/failed
+            - event_type: "trophy", "rugby", "concert", or "generic"
+            - emoji: Unicode emoji for display
+            - mdi_icon: Material Design Icon name for MQTT
+            - had_error: Boolean indicating if processing failed
+            - error_message: Error details if had_error is True
+        """
+        # Check if AI features are enabled
+        shortening_enabled = self.config.get("ai_processor.shortening.enabled", False)
+        type_detection_enabled = self.config.get(
+            "ai_processor.type_detection.enabled", False
+        )
+
+        # If neither is enabled, use fallback methods
+        if not shortening_enabled and not type_detection_enabled:
+            event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+            return {
+                "short_name": event_name,
+                "event_type": event_type,
+                "emoji": emoji,
+                "mdi_icon": mdi_icon,
+                "had_error": False,
+                "error_message": "",
+            }
+
+        # Check if only one feature is enabled - use individual methods
+        if shortening_enabled and not type_detection_enabled:
+            short_name, had_error, error_msg = self.get_short_name(event_name)
+            event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+            return {
+                "short_name": short_name,
+                "event_type": event_type,
+                "emoji": emoji,
+                "mdi_icon": mdi_icon,
+                "had_error": had_error,
+                "error_message": error_msg,
+            }
+
+        if type_detection_enabled and not shortening_enabled:
+            event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+            return {
+                "short_name": event_name,
+                "event_type": event_type,
+                "emoji": emoji,
+                "mdi_icon": mdi_icon,
+                "had_error": False,
+                "error_message": "",
+            }
+
+        # Both features enabled - use combined AI call
+        return self._get_combined_ai_info_impl(event_name)
+
+    def _get_combined_ai_info_impl(self, event_name: str) -> dict:
+        """Implementation of combined AI processing."""
+        # Check cache first for both shortening and type detection
+        cache_key = f"combined_{event_name}"
+        if (
+            self.config.get("ai_processor.shortening.cache_enabled", True)
+            and cache_key in self.cache
+        ):
+            cached_entry = self.cache[cache_key]
+            return {
+                "short_name": cached_entry.get("short_name", event_name),
+                "event_type": cached_entry.get("event_type", "generic"),
+                "emoji": cached_entry.get("emoji", "🏟️"),
+                "mdi_icon": cached_entry.get("mdi_icon", "mdi:stadium"),
+                "had_error": False,
+                "error_message": "",
+            }
+
+        # Check if dependencies are available
+        if not GENAI_AVAILABLE:
+            event_type, emoji, mdi_icon = self._get_icons_for_type(
+                self._detect_event_type_fallback(event_name)
+            )
+            return {
+                "short_name": event_name,
+                "event_type": event_type,
+                "emoji": emoji,
+                "mdi_icon": mdi_icon,
+                "had_error": True,
+                "error_message": "google.generativeai library not available - install with 'poetry install --with ai'",
+            }
+
+        # Check circuit breaker
+        if self.shortener_circuit_open():
+            event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+            return {
+                "short_name": event_name,
+                "event_type": event_type,
+                "emoji": emoji,
+                "mdi_icon": mdi_icon,
+                "had_error": False,
+                "error_message": "",
+            }
+
+        try:
+            # Configure the API
+            api_key = self.config.get("ai_processor.api_key")
+            if not api_key:
+                event_type, emoji, mdi_icon = self._get_icons_for_type(
+                    self._detect_event_type_fallback(event_name)
+                )
+                return {
+                    "short_name": event_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": True,
+                    "error_message": "AI processor enabled but no API key provided - check ai_processor.api_key in config",
+                }
+
+            assert GENAI_AVAILABLE
+            genai.configure(api_key=api_key)
+
+            # Get configuration values
+            model_name = self.config.get(
+                "ai_processor.shortening.model", "gemini-2.5-pro"
+            )
+            char_limit = self.config.get("ai_processor.shortening.max_length", 16)
+            flags_enabled = self.config.get(
+                "ai_processor.shortening.flags_enabled", False
+            )
+            standardize_spacing = self.config.get(
+                "ai_processor.shortening.standardize_spacing", True
+            )
+
+            # Create combined prompt
+            combined_prompt = self._build_combined_prompt(
+                event_name, char_limit, flags_enabled
+            )
+
+            # Make the API call
+            import time
+
+            model = genai.GenerativeModel(model_name)
+            time.sleep(2)  # Rate limiting
+
+            response = model.generate_content(combined_prompt)
+
+            if response and response.text:
+                # Parse the response
+                result = self._parse_combined_response(
+                    response.text.strip(),
+                    event_name,
+                    char_limit,
+                    flags_enabled,
+                    standardize_spacing,
+                )
+
+                # Cache the result
+                if self.config.get("ai_processor.shortening.cache_enabled", True):
+                    self.cache[cache_key] = {
+                        "short_name": result["short_name"],
+                        "event_type": result["event_type"],
+                        "emoji": result["emoji"],
+                        "mdi_icon": result["mdi_icon"],
+                        "created": datetime.now().isoformat(),
+                        "original": event_name,
+                    }
+                    self._save_cache()
+
+                return result
+            else:
+                # Empty response - fallback
+                event_type, emoji, mdi_icon = self._get_icons_for_type(
+                    self._detect_event_type_fallback(event_name)
+                )
+                return {
+                    "short_name": event_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": True,
+                    "error_message": "Empty response received from Gemini API",
+                }
+
+        except Exception as e:
+            error_str = str(e)
+            # Check for quota/rate limit
+            quota_hit = (
+                "429" in error_str
+                or "quota" in error_str.lower()
+                or "rate" in error_str.lower()
+            )
+            if quota_hit and not self._shortener_circuit_open:
+                self._shortener_circuit_open = True
+                import time as _time
+
+                self._shortener_circuit_open_ts = _time.time()
+                logging.warning(
+                    "AI quota/rate limit encountered; backing off further AI processing"
+                )
+
+            # Use fallback
+            event_type, emoji, mdi_icon = self._get_icons_for_type(
+                self._detect_event_type_fallback(event_name)
+            )
+            return {
+                "short_name": event_name,
+                "event_type": event_type,
+                "emoji": emoji,
+                "mdi_icon": mdi_icon,
+                "had_error": not quota_hit,  # quota hit is not an error, just a limitation
+                "error_message": "" if quota_hit else f"API error: {e}",
+            }
+
+    def _build_combined_prompt(
+        self, event_name: str, char_limit: int, flags_enabled: bool
+    ) -> str:
+        """Build a combined prompt for shortening and type detection."""
+        flag_instructions = ""
+        flag_examples = ""
+
+        if flags_enabled:
+            flag_instructions = """When there's space and the event involves countries, add Unicode flag emojis
+        with EXACTLY ONE SPACE between flag and country code.
+
+        Flag examples: 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG (St George's Cross), 🇦🇺 AUS, 🇳🇿 NZ, 🇦🇷 ARG, 🇿🇦 RSA,
+        🇫🇷 FRA, 🇮🇹 ITA, 🏴󠁧󠁢󠁷󠁬󠁳󠁿 WAL, 🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO, 🇮🇪 IRE, 🇫🇯 FIJ"""
+            flag_examples = """England v Australia -> 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG v 🇦🇺 AUS
+        Argentina V South Africa -> 🇦🇷 ARG V 🇿🇦 RSA"""
+        else:
+            flag_instructions = "Keep text-only format without flag emojis."
+            flag_examples = """England v Australia -> ENG v AUS
+        Argentina V South Africa -> ARG V RSA"""
+
+        return f"""Analyze this event and provide both a shortened name and event classification.
+
+Event: "{event_name}"
+
+Task 1 - Shorten the name:
+- Maximum {char_limit} characters (count flag emojis as 2 characters each)
+- Keep essential information like team names, key words
+- Use standard abbreviations (England->ENG, Australia->AUS, etc.)
+- {flag_instructions}
+
+Task 2 - Classify the event type:
+- "trophy" - for finals, championships, cup finals, major tournament finals, or other prestigious competitions
+- "rugby" - for regular rugby matches, internationals, Six Nations, World Cup (non-final), etc.
+- "concert" - for musical performances, artists, bands, tours, etc.
+- "generic" - for anything else (conferences, corporate events, other sports, etc.)
+
+Examples:
+{flag_examples}
+World Cup Final -> World Cup Final (trophy)
+Ed Sheeran Tour -> Ed Sheeran (concert)
+
+Format your response as:
+SHORT: [shortened name]
+TYPE: [trophy/rugby/concert/generic]
+
+Response:"""
+
+    def _parse_combined_response(
+        self,
+        response_text: str,
+        original_name: str,
+        char_limit: int,
+        flags_enabled: bool,
+        standardize_spacing: bool,
+    ) -> dict:
+        """Parse the combined AI response."""
+        lines = [line.strip() for line in response_text.split("\n") if line.strip()]
+
+        short_name = original_name
+        event_type = "generic"
+
+        for line in lines:
+            if line.startswith("SHORT:"):
+                potential_short = line[6:].strip()
+                if flags_enabled and standardize_spacing:
+                    potential_short = self._standardize_flag_spacing(potential_short)
+
+                visual_width = self._calculate_visual_width(potential_short)
+                if visual_width <= char_limit and potential_short:
+                    short_name = potential_short
+            elif line.startswith("TYPE:"):
+                potential_type = line[5:].strip().lower()
+                if potential_type in ["trophy", "rugby", "concert", "generic"]:
+                    event_type = potential_type
+
+        # Get icons for the detected type
+        event_type, emoji, mdi_icon = self._get_icons_for_type(event_type)
+
+        return {
+            "short_name": short_name,
+            "event_type": event_type,
+            "emoji": emoji,
+            "mdi_icon": mdi_icon,
+            "had_error": False,
+            "error_message": "",
+        }
+
+    def get_batch_ai_info(self, event_names: list[str]) -> dict[str, dict]:
+        """
+        Process multiple events in a single AI API call for maximum quota efficiency.
+
+        This is the ultimate optimization - processes ALL events with just 1 API call
+        instead of 1 call per event.
+
+        Args:
+            event_names: List of event names to process
+
+        Returns:
+            Dict mapping event names to their AI info:
+            {
+                "event_name": {
+                    "short_name": str,
+                    "event_type": str,
+                    "emoji": str,
+                    "mdi_icon": str,
+                    "had_error": bool,
+                    "error_message": str
+                },
+                ...
+            }
+        """
+        if not event_names:
+            return {}
+
+        # Check if AI features are enabled
+        shortening_enabled = self.config.get("ai_processor.shortening.enabled", False)
+        type_detection_enabled = self.config.get(
+            "ai_processor.type_detection.enabled", False
+        )
+
+        # If neither is enabled, use fallback methods for all
+        if not shortening_enabled and not type_detection_enabled:
+            results = {}
+            for event_name in event_names:
+                event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+                results[event_name] = {
+                    "short_name": event_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": False,
+                    "error_message": "",
+                }
+            return results
+
+        # If only one feature is enabled, use individual methods
+        if shortening_enabled and not type_detection_enabled:
+            results = {}
+            for event_name in event_names:
+                short_name, had_error, error_msg = self.get_short_name(event_name)
+                event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+                results[event_name] = {
+                    "short_name": short_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": had_error,
+                    "error_message": error_msg,
+                }
+            return results
+
+        if type_detection_enabled and not shortening_enabled:
+            results = {}
+            for event_name in event_names:
+                event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+                results[event_name] = {
+                    "short_name": event_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": False,
+                    "error_message": "",
+                }
+            return results
+
+        # Both features enabled - use batch AI call
+        return self._get_batch_ai_info_impl(event_names)
+
+    def _get_batch_ai_info_impl(self, event_names: list[str]) -> dict[str, dict]:
+        """Implementation of batch AI processing."""
+        # Check batch cache first
+        cache_key = f"batch_{hash(tuple(sorted(event_names)))}"
+        if (
+            self.config.get("ai_processor.shortening.cache_enabled", True)
+            and cache_key in self.cache
+        ):
+            cached_entry = self.cache[cache_key]
+            return cached_entry.get("results", {})
+
+        # Check if dependencies are available
+        if not GENAI_AVAILABLE:
+            results = {}
+            for event_name in event_names:
+                event_type, emoji, mdi_icon = self._get_icons_for_type(
+                    self._detect_event_type_fallback(event_name)
+                )
+                results[event_name] = {
+                    "short_name": event_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": True,
+                    "error_message": "google.generativeai library not available - install with 'poetry install --with ai'",
+                }
+            return results
+
+        # Check circuit breaker
+        if self.shortener_circuit_open():
+            results = {}
+            for event_name in event_names:
+                event_type, emoji, mdi_icon = self.get_event_type_and_icons(event_name)
+                results[event_name] = {
+                    "short_name": event_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": False,
+                    "error_message": "",
+                }
+            return results
+
+        try:
+            # Configure the API
+            api_key = self.config.get("ai_processor.api_key")
+            if not api_key:
+                results = {}
+                for event_name in event_names:
+                    event_type, emoji, mdi_icon = self._get_icons_for_type(
+                        self._detect_event_type_fallback(event_name)
+                    )
+                    results[event_name] = {
+                        "short_name": event_name,
+                        "event_type": event_type,
+                        "emoji": emoji,
+                        "mdi_icon": mdi_icon,
+                        "had_error": True,
+                        "error_message": "AI processor enabled but no API key provided - check ai_processor.api_key in config",
+                    }
+                return results
+
+            assert GENAI_AVAILABLE
+            genai.configure(api_key=api_key)
+
+            # Get configuration values
+            model_name = self.config.get(
+                "ai_processor.shortening.model", "gemini-2.5-pro"
+            )
+            char_limit = self.config.get("ai_processor.shortening.max_length", 16)
+            flags_enabled = self.config.get(
+                "ai_processor.shortening.flags_enabled", False
+            )
+            standardize_spacing = self.config.get(
+                "ai_processor.shortening.standardize_spacing", True
+            )
+
+            # Create batch prompt
+            batch_prompt = self._build_batch_prompt(
+                event_names, char_limit, flags_enabled
+            )
+
+            # Make the API call
+            import time
+
+            model = genai.GenerativeModel(model_name)
+            time.sleep(2)  # Rate limiting
+
+            response = model.generate_content(batch_prompt)
+
+            if response and response.text:
+                # Parse the batch response
+                results = self._parse_batch_response(
+                    response.text.strip(),
+                    event_names,
+                    char_limit,
+                    flags_enabled,
+                    standardize_spacing,
+                )
+
+                # Cache the results
+                if self.config.get("ai_processor.shortening.cache_enabled", True):
+                    self.cache[cache_key] = {
+                        "results": results,
+                        "created": datetime.now().isoformat(),
+                        "event_count": len(event_names),
+                    }
+                    self._save_cache()
+
+                return results
+            else:
+                # Empty response - fallback
+                results = {}
+                for event_name in event_names:
+                    event_type, emoji, mdi_icon = self._get_icons_for_type(
+                        self._detect_event_type_fallback(event_name)
+                    )
+                    results[event_name] = {
+                        "short_name": event_name,
+                        "event_type": event_type,
+                        "emoji": emoji,
+                        "mdi_icon": mdi_icon,
+                        "had_error": True,
+                        "error_message": "Empty response received from Gemini API",
+                    }
+                return results
+
+        except Exception as e:
+            error_str = str(e)
+            # Check for quota/rate limit
+            quota_hit = (
+                "429" in error_str
+                or "quota" in error_str.lower()
+                or "rate" in error_str.lower()
+            )
+            if quota_hit and not self._shortener_circuit_open:
+                self._shortener_circuit_open = True
+                import time as _time
+
+                self._shortener_circuit_open_ts = _time.time()
+                logging.warning(
+                    "AI quota/rate limit encountered; backing off further AI processing"
+                )
+
+            # Use fallback for all events
+            results = {}
+            for event_name in event_names:
+                event_type, emoji, mdi_icon = self._get_icons_for_type(
+                    self._detect_event_type_fallback(event_name)
+                )
+                results[event_name] = {
+                    "short_name": event_name,
+                    "event_type": event_type,
+                    "emoji": emoji,
+                    "mdi_icon": mdi_icon,
+                    "had_error": not quota_hit,  # quota hit is not an error, just a limitation
+                    "error_message": "" if quota_hit else f"API error: {e}",
+                }
+            return results
+
+    def _build_batch_prompt(
+        self, event_names: list[str], char_limit: int, flags_enabled: bool
+    ) -> str:
+        """Build a batch prompt for processing multiple events."""
+        flag_instructions = ""
+        flag_examples = ""
+
+        if flags_enabled:
+            flag_instructions = """When there's space and the event involves countries, add Unicode flag emojis
+        with EXACTLY ONE SPACE between flag and country code.
+
+        Flag examples: 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG (St George's Cross), 🇦🇺 AUS, 🇳🇿 NZ, 🇦🇷 ARG, 🇿🇦 RSA,
+        🇫🇷 FRA, 🇮🇹 ITA, 🏴󠁧󠁢󠁷󠁬󠁳󠁿 WAL, 🏴󠁧󠁢󠁳󠁣󠁴󠁿 SCO, 🇮🇪 IRE, 🇫🇯 FIJ"""
+            flag_examples = """England v Australia -> 🏴󠁧󠁢󠁥󠁮󠁧󠁿 ENG v 🇦🇺 AUS
+        Argentina V South Africa -> 🇦🇷 ARG V 🇿🇦 RSA"""
+        else:
+            flag_instructions = "Keep text-only format without flag emojis."
+            flag_examples = """England v Australia -> ENG v AUS
+        Argentina V South Africa -> ARG V RSA"""
+
+        events_list = "\n".join(
+            f"{i + 1}. {event}" for i, event in enumerate(event_names)
+        )
+
+        return f"""Analyze these events and provide both shortened names and event classifications for ALL events.
+
+Events to process:
+{events_list}
+
+Task 1 - Shorten each event name:
+- Maximum {char_limit} characters (count flag emojis as 2 characters each)
+- Keep essential information like team names, key words
+- Use standard abbreviations (England->ENG, Australia->AUS, etc.)
+- {flag_instructions}
+
+Task 2 - Classify each event type:
+- "trophy" - for finals, championships, cup finals, major tournament finals, or other prestigious competitions
+- "rugby" - for regular rugby matches, internationals, Six Nations, World Cup (non-final), etc.
+- "concert" - for musical performances, artists, bands, tours, etc.
+- "generic" - for anything else (conferences, corporate events, other sports, etc.)
+
+Examples:
+{flag_examples}
+World Cup Final -> World Cup Final (trophy)
+Ed Sheeran Tour -> Ed Sheeran (concert)
+
+Format your response EXACTLY like this for each event:
+EVENT 1:
+SHORT: [shortened name]
+TYPE: [trophy/rugby/concert/generic]
+
+EVENT 2:
+SHORT: [shortened name]
+TYPE: [trophy/rugby/concert/generic]
+
+[Continue for all events...]
+
+Response:"""
+
+    def _parse_batch_response(
+        self,
+        response_text: str,
+        event_names: list[str],
+        char_limit: int,
+        flags_enabled: bool,
+        standardize_spacing: bool,
+    ) -> dict[str, dict]:
+        """Parse the batch AI response."""
+        results = {}
+
+        # Initialize all events with defaults
+        for event_name in event_names:
+            event_type, emoji, mdi_icon = self._get_icons_for_type("generic")
+            results[event_name] = {
+                "short_name": event_name,
+                "event_type": event_type,
+                "emoji": emoji,
+                "mdi_icon": mdi_icon,
+                "had_error": False,
+                "error_message": "",
+            }
+
+        # Parse the response
+        lines = [line.strip() for line in response_text.split("\n") if line.strip()]
+        current_event_index = None
+        current_short = None
+        current_type = None
+
+        for line in lines:
+            if line.startswith("EVENT "):
+                # Save previous event if we have data
+                if current_event_index is not None and current_event_index < len(
+                    event_names
+                ):
+                    event_name = event_names[current_event_index]
+                    if current_short:
+                        if flags_enabled and standardize_spacing:
+                            current_short = self._standardize_flag_spacing(
+                                current_short
+                            )
+                        visual_width = self._calculate_visual_width(current_short)
+                        if visual_width <= char_limit:
+                            results[event_name]["short_name"] = current_short
+                    if current_type and current_type in [
+                        "trophy",
+                        "rugby",
+                        "concert",
+                        "generic",
+                    ]:
+                        event_type, emoji, mdi_icon = self._get_icons_for_type(
+                            current_type
+                        )
+                        results[event_name]["event_type"] = event_type
+                        results[event_name]["emoji"] = emoji
+                        results[event_name]["mdi_icon"] = mdi_icon
+
+                # Start new event
+                try:
+                    current_event_index = int(line.split()[1].rstrip(":")) - 1
+                    current_short = None
+                    current_type = None
+                except (ValueError, IndexError):
+                    continue
+
+            elif line.startswith("SHORT:"):
+                current_short = line[6:].strip()
+            elif line.startswith("TYPE:"):
+                current_type = line[5:].strip().lower()
+
+        # Save the last event
+        if current_event_index is not None and current_event_index < len(event_names):
+            event_name = event_names[current_event_index]
+            if current_short:
+                if flags_enabled and standardize_spacing:
+                    current_short = self._standardize_flag_spacing(current_short)
+                visual_width = self._calculate_visual_width(current_short)
+                if visual_width <= char_limit:
+                    results[event_name]["short_name"] = current_short
+            if current_type and current_type in [
+                "trophy",
+                "rugby",
+                "concert",
+                "generic",
+            ]:
+                event_type, emoji, mdi_icon = self._get_icons_for_type(current_type)
+                results[event_name]["event_type"] = event_type
+                results[event_name]["emoji"] = emoji
+                results[event_name]["mdi_icon"] = mdi_icon
+
+        return results
+
     def get_event_type_and_icons(self, event_name: str) -> tuple[str, str, str]:
         """
         Determine the event type and return appropriate icons.

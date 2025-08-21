@@ -1,7 +1,9 @@
 import json
 
 from twickenham_events.config import Config
-from twickenham_events.discovery_helper import publish_device_level_discovery
+from twickenham_events.enhanced_discovery import (
+    publish_enhanced_device_discovery as publish_device_level_discovery,
+)
 
 
 class FakeClient:
@@ -35,24 +37,32 @@ def test_device_level_discovery_includes_expire_after_and_retained_topics():
     payload = _extract_device_payload(client)
     cmps = payload["cmps"]
 
-    # Ack has expire_after
-    assert cmps["cmd_ack"]["expire_after"] == 120
+    # Ack has expire_after (using full component name)
+    assert cmps["twickenham_events_cmd_ack"]["expire_after"] == 120
 
     # Retained mirrors exist with expected topics
-    assert cmps["last_ack"]["state_topic"] == "twickenham_events/commands/last_ack"
     assert (
-        cmps["last_result"]["state_topic"] == "twickenham_events/commands/last_result"
+        cmps["twickenham_events_last_ack"]["state_topic"]
+        == "twickenham_events/commands/last_ack"
+    )
+    assert (
+        cmps["twickenham_events_last_result"]["state_topic"]
+        == "twickenham_events/commands/last_result"
     )
 
     # Ack value_template maps 'received' -> busy
-    vt = cmps["cmd_ack"]["value_template"]
+    vt = cmps["twickenham_events_cmd_ack"]["value_template"]
     assert "received" in vt and "busy" in vt
 
     # Buttons publish expected command topics and names
-    assert cmps["refresh"]["command_topic"].endswith("twickenham_events/cmd/refresh")
-    assert cmps["clear_cache"]["command_topic"].endswith(
+    assert cmps["twickenham_events_refresh"]["command_topic"].endswith(
+        "twickenham_events/cmd/refresh"
+    )
+    assert cmps["twickenham_events_clear_cache"]["command_topic"].endswith(
         "twickenham_events/cmd/clear_cache"
     )
-    assert cmps["restart"]["command_topic"].endswith("twickenham_events/cmd/restart")
-    assert cmps["clear_cache"]["name"] == "Clear All"
-    assert cmps["restart"]["name"].lower().startswith("restart")
+    assert cmps["twickenham_events_restart"]["command_topic"].endswith(
+        "twickenham_events/cmd/restart"
+    )
+    assert cmps["twickenham_events_clear_cache"]["name"] == "Clear All"
+    assert cmps["twickenham_events_restart"]["name"].lower().startswith("restart")

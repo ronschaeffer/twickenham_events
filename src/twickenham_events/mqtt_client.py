@@ -61,7 +61,7 @@ class TodayPayload(TypedDict):
 
 logger = logging.getLogger(__name__)
 
-try:  # Local development dependency (path) for ha-mqtt-publisher
+try:  # Import ha_mqtt_publisher from PyPI package
     import importlib
 
     _pub_mod = importlib.import_module("ha_mqtt_publisher.publisher")
@@ -154,21 +154,28 @@ class MQTTClient:
             # Drop any legacy/display-only keys that should not be exposed via MQTT attributes
             # (e.g., 'title' can conflict with HA card/title usages). Keep only meaningful fields.
             e = {k: v for k, v in raw.items() if k != "title"}
-            # Prefer AI emoji, but the published key should always be 'emoji'
-            raw_emoji = e.get("emoji")
-            if ai_processor and "fixture" in e:
+
+            # Prefer pre-computed AI data from batch processing (stored during scraping)
+            if "ai_emoji" in e and "ai_mdi_icon" in e:
+                e["emoji"] = e["ai_emoji"]
+                e["icon"] = e["ai_mdi_icon"]
+                # Remove the temporary AI keys
+                e.pop("ai_emoji", None)
+                e.pop("ai_mdi_icon", None)
+                e.pop("ai_event_type", None)
+            elif ai_processor and "fixture" in e:
+                # Fallback to individual AI call only if no pre-computed data exists
                 try:
                     _etype, emoji_ai, mdi_icon = ai_processor.get_event_type_and_icons(
                         e["fixture"]
                     )
                     if emoji_ai:
                         e["emoji"] = emoji_ai
-                    elif raw_emoji:
-                        e["emoji"] = raw_emoji
                     # Standardize icon key
                     e["icon"] = mdi_icon
                 except Exception:  # pragma: no cover - non-fatal
                     ai_errors += 1
+
             enhanced_events.append(e)
 
         next_event = enhanced_events[0] if enhanced_events else None
