@@ -187,9 +187,7 @@ def basic_schema_checks(topic: str, payload: Any) -> list[str]:
                 if key not in payload:
                     errors.append(f"status: missing {key}")
     elif topic.endswith("/all_upcoming"):
-        if not isinstance(payload, dict):
-            errors.append("all_upcoming: payload not a dict")
-        else:
+        if isinstance(payload, dict):
             if "count" not in payload:
                 errors.append("all_upcoming: missing count")
             if "last_updated" not in payload:
@@ -247,6 +245,8 @@ def basic_schema_checks(topic: str, payload: Any) -> list[str]:
                                                 errors.append(
                                                     f"all_upcoming: by_month[{mi}].days[{di}].events[{ei}] missing {rk}"
                                                 )
+        else:
+            errors.append("all_upcoming: payload not a dict")
     elif topic.endswith("/next"):
         if not isinstance(payload, dict) or "last_updated" not in payload:
             errors.append("next: missing last_updated")
@@ -258,9 +258,7 @@ def basic_schema_checks(topic: str, payload: Any) -> list[str]:
     # Device-level discovery topic heuristic: contains /device/ and ends with /config and payload is dict
     elif "/device/" in topic and topic.endswith("/config"):
         # Device-level discovery bundle must now ONLY use 'cmps' (legacy ents/entities rejected)
-        if not isinstance(payload, dict):
-            errors.append("discovery: payload not dict")
-        else:
+        if isinstance(payload, dict):
             if "dev" not in payload:
                 errors.append("discovery: missing dev")
             # Reject legacy keys outright if present
@@ -285,6 +283,8 @@ def basic_schema_checks(topic: str, payload: Any) -> list[str]:
                         errors.append(f"discovery: component {name} missing 'p'")
                     if name in ("refresh", "clear_cache") and comp.get("p") != "button":
                         errors.append(f"discovery: component {name} expected button")
+        else:
+            errors.append("discovery: payload not dict")
     return errors
 
 

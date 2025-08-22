@@ -372,3 +372,12 @@ MIT License (see `LICENSE`).
 - systemd/README.md – deployment with systemd
 - docs/AI_PROCESSING.md – AI features, configuration, and cache management
   "last_run_iso": "2025-11-27T18:20:05Z",
+
+<!-- BEGIN: ha_cards_list (auto-managed) -->
+
+- md twickenham events upcoming: [ha_card/md_twickenham_events_upcoming.yaml](ha_card/md_twickenham_events_upcoming.yaml)
+  - Renders `events_json.by_month[].days[].events[]` with `ev.start_time`, `ev.emoji`, `ev.fixture`, `ev.crowd`.
+- mshrm twickenham events short card: [ha_card/mshrm_twickenham_events_short_card.yaml](ha_card/mshrm_twickenham_events_short_card.yaml)
+  - Uses `sensor.twickenham_events_next` with flat attributes (date, start_time, fixture_short, emoji, event_index, event_count); state is the full `fixture`.
+
+<!-- END: ha_cards_list -->
