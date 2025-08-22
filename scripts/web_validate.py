@@ -14,10 +14,11 @@ import time
 from typing import Any, Optional
 
 try:
-    import httpx
+    import httpx  # type: ignore[import-not-found]
 
     WEB_VALIDATION_AVAILABLE = True
 except ImportError:
+    httpx = None  # type: ignore[assignment]
     WEB_VALIDATION_AVAILABLE = False
 
 # Add src to path for imports
@@ -94,6 +95,9 @@ class WebServerValidator:
         url = f"{self.base_url}{endpoint}"
 
         try:
+            assert (
+                httpx is not None
+            )  # For type checkers; guarded by WEB_VALIDATION_AVAILABLE
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.get(url)
 
@@ -129,13 +133,12 @@ class WebServerValidator:
                                                 f"{endpoint}: Missing required field '{field}'"
                                             )
                                             return False
-                                else:
+                                elif field not in data:
                                     # Simple field check
-                                    if field not in data:
-                                        self.errors.append(
-                                            f"{endpoint}: Missing required field '{field}'"
-                                        )
-                                        return False
+                                    self.errors.append(
+                                        f"{endpoint}: Missing required field '{field}'"
+                                    )
+                                    return False
                         except json.JSONDecodeError:
                             self.errors.append(f"{endpoint}: Invalid JSON response")
                             return False
@@ -153,13 +156,14 @@ class WebServerValidator:
                 print(f"✅ {endpoint}: OK ({response.status_code})")
                 return True
 
-        except httpx.TimeoutException:
-            self.errors.append(f"{endpoint}: Request timeout after {self.timeout}s")
-            return False
-        except httpx.ConnectError:
-            self.errors.append(f"{endpoint}: Connection failed to {url}")
-            return False
         except Exception as e:
+            # Handle httpx-specific errors without referencing possibly-unavailable types
+            if httpx is not None and isinstance(e, httpx.TimeoutException):
+                self.errors.append(f"{endpoint}: Request timeout after {self.timeout}s")
+                return False
+            if httpx is not None and isinstance(e, httpx.ConnectError):
+                self.errors.append(f"{endpoint}: Connection failed to {url}")
+                return False
             self.errors.append(f"{endpoint}: Unexpected error: {e}")
             return False
 
