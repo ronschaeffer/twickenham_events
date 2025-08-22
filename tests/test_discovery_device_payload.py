@@ -37,32 +37,24 @@ def test_device_level_discovery_includes_expire_after_and_retained_topics():
     payload = _extract_device_payload(client)
     cmps = payload["cmps"]
 
-    # Ack has expire_after (using full component name)
-    assert cmps["twickenham_events_cmd_ack"]["expire_after"] == 120
+    # Ack has expire_after (using abbreviated key)
+    assert cmps["cmd_ack"]["expire_after"] == 120
 
-    # Retained mirrors exist with expected topics
+    # Retained mirrors exist with expected topics (abbreviated keys)
+    assert cmps["last_ack"]["state_topic"] == "twickenham_events/commands/last_ack"
     assert (
-        cmps["twickenham_events_last_ack"]["state_topic"]
-        == "twickenham_events/commands/last_ack"
-    )
-    assert (
-        cmps["twickenham_events_last_result"]["state_topic"]
-        == "twickenham_events/commands/last_result"
+        cmps["last_result"]["state_topic"] == "twickenham_events/commands/last_result"
     )
 
     # Ack value_template maps 'received' -> busy
-    vt = cmps["twickenham_events_cmd_ack"]["value_template"]
+    vt = cmps["cmd_ack"]["value_template"]
     assert "received" in vt and "busy" in vt
 
     # Buttons publish expected command topics and names
-    assert cmps["twickenham_events_refresh"]["command_topic"].endswith(
-        "twickenham_events/cmd/refresh"
-    )
-    assert cmps["twickenham_events_clear_cache"]["command_topic"].endswith(
+    assert cmps["refresh"]["command_topic"].endswith("twickenham_events/cmd/refresh")
+    assert cmps["clear_cache"]["command_topic"].endswith(
         "twickenham_events/cmd/clear_cache"
     )
-    assert cmps["twickenham_events_restart"]["command_topic"].endswith(
-        "twickenham_events/cmd/restart"
-    )
-    assert cmps["twickenham_events_clear_cache"]["name"] == "Clear All"
-    assert cmps["twickenham_events_restart"]["name"].lower().startswith("restart")
+    assert cmps["restart"]["command_topic"].endswith("twickenham_events/cmd/restart")
+    assert cmps["clear_cache"]["name"] == "Clear All"
+    assert cmps["restart"]["name"].lower().startswith("restart")

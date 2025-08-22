@@ -59,23 +59,36 @@ def test_service_startup_and_availability(monkeypatch):
         )
 
     # Assertions: availability online published
-    avail_publishes = [
-        c for c in fake_paho.publish.call_args_list if c.args[0] == AVAILABILITY_TOPIC
-    ]
-    assert any(c.args[1] == "online" for c in avail_publishes)
+    avail_publishes = []
+    for c in fake_paho.publish.call_args_list:
+        # Support both positional and keyword args
+        topic = None
+        if c.args:
+            topic = c.args[0]
+        elif "topic" in c.kwargs:
+            topic = c.kwargs["topic"]
+        if topic == AVAILABILITY_TOPIC:
+            avail_publishes.append(c)
+    assert any(c[0][1] == "online" for c in avail_publishes)
 
     # Discovery topics published - new enhanced discovery publishes a single device config
-    discovery_topics = [
-        c.args[0] for c in fake_paho.publish.call_args_list if "/config" in c.args[0]
-    ]
+    discovery_topics = []
+    for c in fake_paho.publish.call_args_list:
+        topic = None
+        if c.args:
+            topic = c.args[0]
+        elif "topic" in c.kwargs:
+            topic = c.kwargs["topic"]
+        if topic and "/config" in topic:
+            discovery_topics.append(topic)
     # Should have exactly one device-level discovery topic
     assert len(discovery_topics) == 1
     assert discovery_topics[0] == "homeassistant/device/twickenham_events/config"
 
     # Status publish included last_run_ts
     status_payloads = [
-        c.args[1]
+        c[0][1]
         for c in mock_pub_instance.publish.call_args_list
-        if c.args[0] == "twickenham_events/status"
+        if c[0][0] == "twickenham_events/status"
     ]
     assert status_payloads and status_payloads[0]["last_run_ts"] == 1
