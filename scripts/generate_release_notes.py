@@ -1,14 +1,23 @@
-import subprocess
 from pathlib import Path
+import subprocess
+
 
 def get_latest_tag():
-    result = subprocess.run(["git", "tag", "--sort=-creatordate"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "tag", "--sort=-creatordate"], capture_output=True, text=True
+    )
     tags = result.stdout.strip().split("\n")
     return tags[0] if tags else None
 
+
 def get_commits_since(tag):
-    result = subprocess.run(["git", "log", f"{tag}..HEAD", "--oneline", "--no-merges"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", "log", f"{tag}..HEAD", "--oneline", "--no-merges"],
+        capture_output=True,
+        text=True,
+    )
     return result.stdout.strip().split("\n")
+
 
 def ai_generate_release_notes(commits):
     """
@@ -16,7 +25,9 @@ def ai_generate_release_notes(commits):
     Requires: pip install google-generativeai
     """
     import os
+
     import google.generativeai as genai
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         print("GEMINI_API_KEY not set. Falling back to raw commit list.")
@@ -36,6 +47,7 @@ def ai_generate_release_notes(commits):
         print(f"Gemini API call failed: {e}. Falling back to raw commit list.")
         return "\n".join([f"- {c[8:]}" if len(c) > 8 else f"- {c}" for c in commits])
 
+
 def main():
     tag = get_latest_tag()
     if not tag:
@@ -47,6 +59,7 @@ def main():
     with open(notes_path, "w", encoding="utf-8") as f:
         f.write(notes)
     print(f"Release notes generated at {notes_path}")
+
 
 if __name__ == "__main__":
     main()

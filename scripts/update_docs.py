@@ -1,20 +1,26 @@
 from pathlib import Path
 
 # Path to the consolidated guide
-GUIDE_PATH = Path(__file__).parent.parent / "docs/development/CONSOLIDATED_README_GUIDE.md"
+GUIDE_PATH = (
+    Path(__file__).parent.parent / "docs/development/CONSOLIDATED_README_GUIDE.md"
+)
 README_PATH = Path(__file__).parent.parent / "twickenham_events/README.md"
 
 # Helper: Read file
+
 
 def read_file(path):
     with open(path, encoding="utf-8") as f:
         return f.read()
 
+
 def write_file(path, content):
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
 
+
 # Helper: Use Copilot/AI agent for doc update
+
 
 def ai_update_readme(readme, guide, context):
     """
@@ -22,7 +28,9 @@ def ai_update_readme(readme, guide, context):
     Requires: pip install google-generativeai
     """
     import os
+
     import google.generativeai as genai
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         print("GEMINI_API_KEY not set. Skipping AI update.")
@@ -47,7 +55,9 @@ def ai_update_readme(readme, guide, context):
         print(f"Gemini API call failed: {e}. Skipping AI update.")
         return readme
 
+
 # Main logic
+
 
 def main():
     guide = read_file(GUIDE_PATH)
@@ -61,6 +71,7 @@ def main():
         print("README.md updated by AI agent.")
     else:
         print("README.md is already up to date.")
+
 
 if __name__ == "__main__":
     main()
