@@ -1,0 +1,39 @@
+# Flights CLI Configuration
+# Adapted from twickenham_events configuration structure
+
+flights:
+  api_enabled: true
+  tracking_enabled: true
+  alerts_enabled: false
+  # Add your flight API settings here
+  api:
+    provider: "mock"  # mock, flightaware, aviationstack, etc.
+    api_key: ""  # Set via environment variable FLIGHTS_API_KEY
+    timeout: 30
+
+mqtt:
+  enabled: false
+  broker: "localhost"
+  port: 1883
+  topics:
+    status: "flights/status"
+    departures: "flights/departures" 
+    arrivals: "flights/arrivals"
+    alerts: "flights/alerts"
+    next: "flights/next"
+  # TLS settings (optional)
+  tls:
+    enabled: false
+    ca_cert: ""
+
+output:
+  directory: "output"
+  formats:
+    - "json"
+    - "csv"
+  
+# Home Assistant Integration (if using MQTT)
+home_assistant:
+  enabled: false
+  device_name: "Flights CLI"
+  device_id: "flights_cli"

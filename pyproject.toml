@@ -22,10 +22,12 @@ dependencies = [
 
 [project.scripts]
 twick-events = "twickenham_events.__main__:main"
+flights-cli = "flights.__main__:main"
 
 [tool.poetry]
 packages = [
     { include = "twickenham_events", from = "src" },
+    { include = "flights", from = "src" },
     { include = "tests", format = "sdist" }
 ]
 package-mode = true
