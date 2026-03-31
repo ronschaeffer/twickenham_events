@@ -1,0 +1,75 @@
+# Version control
+.git/
+.github/
+.gitignore
+
+# Virtual environments
+.venv/
+venv/
+
+# Testing
+tests/
+pytest.ini
+.pytest_cache/
+coverage.xml
+htmlcov/
+.coverage
+
+# Documentation
+docs/
+LICENSE
+# Exclude most markdown but keep README.md (needed for Poetry build)
+CLAUDE.md
+CHANGELOG.md
+CLEANUP_SUMMARY.md
+AI_OPTIMIZATION_SUMMARY.md
+MQTT_ENHANCEMENT_SUMMARY.md
+MQTT_WEB_SERVER_INTEGRATION.md
+SMART_URL_DETECTION_SUMMARY.md
+TEST_COVERAGE_SUMMARY.md
+VALIDATION_REPORT.md
+
+# Development tools
+.dev-scripts/
+.pre-commit-config.yaml
+.ruff_cache/
+.mypy_cache/
+Makefile
+scripts/
+
+# Deployment configs (not needed in image)
+systemd/
+ha_card/
+unraid/
+
+# Archive and output
+archive/
+output/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment files (secrets)
+.env
+.env.*
+
+# Config (mounted at runtime, not baked in)
+config/config.yaml
+config/*.secrets.yaml
+config/*.local.yaml
+config/*.override.yaml
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Project root dev shim
+__init__.py
+
+# Misc
+*.ics

@@ -8,12 +8,11 @@ particularly useful for Docker deployments and dynamic external URL generation.
 import logging
 import os
 import socket
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
-def get_local_ipv4() -> Optional[str]:
+def get_local_ipv4() -> str | None:
     """
     Get the local IPv4 address of this machine.
 
@@ -39,7 +38,7 @@ def get_local_ipv4() -> Optional[str]:
         return None
 
 
-def get_docker_host_ip() -> Optional[str]:
+def get_docker_host_ip() -> str | None:
     """
     Get the Docker host IP address when running inside a container.
 
@@ -116,7 +115,7 @@ def get_docker_host_ip() -> Optional[str]:
     return None
 
 
-def _probe_for_host_ip() -> Optional[str]:
+def _probe_for_host_ip() -> str | None:
     """
     Probe common private network ranges to auto-detect the Docker host IP.
 
@@ -214,7 +213,7 @@ def build_smart_external_url(
     host: str,
     port: int,
     protocol: str = "http",
-    external_url_base: Optional[str] = None,
+    external_url_base: str | None = None,
 ) -> str:
     """
     Build a smart external URL that works in both Docker and non-Docker environments.

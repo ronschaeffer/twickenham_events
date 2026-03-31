@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>TwickenhamEvents</Name>
+  <Repository>ghcr.io/ronschaeffer/twickenham_events:latest</Repository>
+  <Registry>https://github.com/ronschaeffer/twickenham_events/pkgs/container/twickenham_events</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/ronschaeffer/twickenham_events/issues</Support>
+  <Project>https://github.com/ronschaeffer/twickenham_events</Project>
+  <Overview>Twickenham Stadium events scraper with MQTT publishing and Home Assistant integration. Scrapes event listings from Richmond Council, publishes retained MQTT topics, and advertises a device via Home Assistant discovery. Optional AI event name shortening and ICS calendar export.</Overview>
+  <Category>HomeAutomation: Tools:</Category>
+  <WebUI/>
+  <Icon>https://raw.githubusercontent.com/ronschaeffer/twickenham_events/main/icon.png</Icon>
+  <ExtraParams>--add-host=host.docker.internal:host-gateway</ExtraParams>
+  <DonateImg/>
+  <DonateLink/>
+  <Requires/>
+
+  <!-- MQTT Configuration -->
+  <Config Name="MQTT Broker URL" Target="MQTT_BROKER_URL" Default="" Mode="" Description="MQTT broker hostname or IP address" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="MQTT Broker Port" Target="MQTT_BROKER_PORT" Default="1883" Mode="" Description="MQTT broker port" Type="Variable" Display="always" Required="true" Mask="false">1883</Config>
+  <Config Name="MQTT Security" Target="MQTT_SECURITY" Default="none" Mode="" Description="MQTT security mode: none or username" Type="Variable" Display="always" Required="false" Mask="false">none</Config>
+  <Config Name="MQTT Username" Target="MQTT_USERNAME" Default="" Mode="" Description="MQTT username (if security is 'username')" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="MQTT Password" Target="MQTT_PASSWORD" Default="" Mode="" Description="MQTT password" Type="Variable" Display="always" Required="false" Mask="true"/>
+
+  <!-- Home Assistant -->
+  <Config Name="Home Assistant Enabled" Target="HOME_ASSISTANT_ENABLED" Default="true" Mode="" Description="Enable Home Assistant MQTT discovery" Type="Variable" Display="always" Required="false" Mask="false">true</Config>
+
+  <!-- Calendar -->
+  <Config Name="Calendar Enabled" Target="CALENDAR_ENABLED" Default="true" Mode="" Description="Enable ICS calendar generation" Type="Variable" Display="always" Required="false" Mask="false">true</Config>
+
+  <!-- AI Processing (Advanced) -->
+  <Config Name="Gemini API Key" Target="GEMINI_API_KEY" Default="" Mode="" Description="Google Gemini API key for AI event name shortening (optional)" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="AI Type Detection" Target="TYPE_DETECTION_ENABLED" Default="false" Mode="" Description="Enable AI event type detection" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="AI Name Shortening" Target="SHORTENING_ENABLED" Default="false" Mode="" Description="Enable AI event name shortening" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="AI Flags" Target="FLAGS_ENABLED" Default="false" Mode="" Description="Enable flag emojis in shortened names" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+
+  <!-- Volumes -->
+  <Config Name="Config Directory" Target="/app/config" Default="/mnt/user/appdata/twickenham-events/config" Mode="rw" Description="Configuration files (config.yaml)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/twickenham-events/config</Config>
+  <Config Name="Data Directory" Target="/app/data" Default="/mnt/user/appdata/twickenham-events/data" Mode="rw" Description="Data storage (calendars, AI cache)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/twickenham-events/data</Config>
+</Container>

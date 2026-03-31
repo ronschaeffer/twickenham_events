@@ -7,7 +7,6 @@ specific files (ICS calendar, JSON events, status information).
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from ..config import Config
 from ..network_utils import build_smart_external_url
@@ -24,7 +23,7 @@ class TwickenhamEventsServer(BaseFileServer):
     Extends the generic BaseFileServer for project-specific functionality.
     """
 
-    def __init__(self, config: Config, output_dir: Optional[Path] = None):
+    def __init__(self, config: Config, output_dir: Path | None = None):
         """
         Initialize Twickenham Events server.
 
@@ -174,9 +173,8 @@ class TwickenhamWebServer:
         # Create the FastAPI server instance
         output_dir = Path("output")
         if not output_dir.is_absolute():
-            # Make relative to project root
-            project_root = Path(__file__).parent.parent.parent.parent
-            output_dir = project_root / output_dir
+            # Make relative to current working directory (works in both dev and Docker)
+            output_dir = Path.cwd() / output_dir
 
         self.fastapi_server = TwickenhamEventsServer(config, output_dir)
 

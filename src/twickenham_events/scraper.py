@@ -7,7 +7,7 @@ from datetime import date, datetime, time as time_obj, timedelta
 import logging
 import re
 import time
-from typing import Any, Optional
+from typing import Any
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -138,7 +138,7 @@ class EventScraper:
 
         return raw_events
 
-    def normalize_time(self, time_str: Optional[str]) -> Optional[list[str]]:
+    def normalize_time(self, time_str: str | None) -> list[str] | None:
         """Normalize time format, returning a list of sorted times - full legacy implementation."""
         if not time_str or time_str.lower() == "tbc":
             return None
@@ -214,16 +214,16 @@ class EventScraper:
         ]
         return sorted(converted_times) if converted_times else None
 
-    def normalize_date_range(self, date_str: Optional[str]) -> Optional[str]:
+    def normalize_date_range(self, date_str: str | None) -> str | None:
         """Normalizes a variety of date string formats to 'YYYY-MM-DD' - full legacy implementation."""
         if not date_str or not isinstance(date_str, str):
             return None
 
         # Pre-process the string to handle various formats
         cleaned_str = date_str.lower()
-        # Remove day names, ordinals, and 'weekend' markers
+        # Remove day names, ordinals, 'weekend' markers, and trailing prepositions
         cleaned_str = re.sub(
-            r"\b(mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|wknd)\b",
+            r"\b(mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|wknd|of|the)\b",
             "",
             cleaned_str,
         ).strip()
@@ -233,9 +233,9 @@ class EventScraper:
             cleaned_str,
         )
 
-        # Handle date ranges like '16/17 May 2025' by taking the first day part
+        # Handle date ranges like '16/17 May 2025' or '26-27 May 2025' by taking the first day
         cleaned_str = re.sub(
-            r"(\d{1,2})\s*/\s*\d{1,2}(\s+[a-zA-Z]+\s+\d{2,4})",
+            r"(\d{1,2})\s*[/\-]\s*\d{1,2}(\s+[a-zA-Z]+\s+\d{2,4})",
             r"\1\2",
             cleaned_str,
         )
@@ -265,7 +265,7 @@ class EventScraper:
 
         return None
 
-    def validate_crowd_size(self, crowd_str: Optional[str]) -> Optional[str]:
+    def validate_crowd_size(self, crowd_str: str | None) -> str | None:
         """Validates and formats the crowd size string - full legacy implementation."""
         if not crowd_str or not isinstance(crowd_str, str):
             return None
@@ -448,7 +448,7 @@ class EventScraper:
 
     def find_next_event_and_summary(
         self, summarized_events: list[dict[str, Any]]
-    ) -> tuple[Optional[dict], Optional[dict]]:
+    ) -> tuple[dict | None, dict | None]:
         """Find the next upcoming event and its day summary."""
         now = datetime.now()
         today = now.date()

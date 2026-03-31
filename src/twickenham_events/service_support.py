@@ -5,7 +5,8 @@ This preserves existing imports while delegating to the shared library.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 _lib_install_signal_handlers = None
 try:

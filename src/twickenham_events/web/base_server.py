@@ -8,7 +8,7 @@ projects. It's designed to be extracted into a separate web_host library.
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
@@ -30,7 +30,7 @@ class BaseFileServer:
         title: str = "File Server",
         description: str = "Simple file serving API",
         version: str = "1.0.0",
-        base_path: Optional[Union[str, Path]] = None,
+        base_path: Union[str, Path] | None = None,
     ):
         """
         Initialize the base file server.

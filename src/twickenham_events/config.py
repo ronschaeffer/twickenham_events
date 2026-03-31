@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import random
 import string
-from typing import Any, Optional
+from typing import Any
 
 from dotenv import dotenv_values
 import yaml
@@ -51,7 +51,7 @@ def _load_env_once() -> None:
 class Config:
     """Configuration manager with validation and defaults."""
 
-    config_path: Optional[str] = None
+    config_path: str | None = None
 
     def __init__(self, config_data: dict):
         _load_env_once()
@@ -252,12 +252,12 @@ class Config:
         return self.get("mqtt.tls", False)
 
     @property
-    def mqtt_username(self) -> Optional[str]:
+    def mqtt_username(self) -> str | None:
         """Get MQTT username."""
         return self.get("mqtt.auth.username")
 
     @property
-    def mqtt_password(self) -> Optional[str]:
+    def mqtt_password(self) -> str | None:
         """Get MQTT password."""
         return self.get("mqtt.auth.password")
 
@@ -298,7 +298,7 @@ class Config:
         return self.get("ai_processor.shortening.max_length", 16)
 
     @property
-    def ai_api_key(self) -> Optional[str]:
+    def ai_api_key(self) -> str | None:
         """Get AI API key."""
         return self.get("ai_processor.api_key") or os.getenv("GEMINI_API_KEY")
 
@@ -331,7 +331,7 @@ class Config:
         return int(port)
 
     @property
-    def web_external_url_base(self) -> Optional[str]:
+    def web_external_url_base(self) -> str | None:
         """Get external URL base for web server (for external access)."""
         url = self.get("web_server.external_url_base")
         return os.getenv("WEB_SERVER_EXTERNAL_URL", url)

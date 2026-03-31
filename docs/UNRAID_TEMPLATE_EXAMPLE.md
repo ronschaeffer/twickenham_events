@@ -1,5 +1,7 @@
 # Unraid Docker Template Example
 
+> **Note:** The actual Unraid template XML is at [`unraid/twickenham-events.xml`](../unraid/twickenham-events.xml). The examples below are for reference.
+
 This guide shows how to deploy Twickenham Events on Unraid with optimal Docker networking configuration.
 
 ## 🎯 **Recommended Unraid Configuration**

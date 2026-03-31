@@ -8,15 +8,16 @@ that exposes the minimal API the tests expect. If the real
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 import json
-from typing import Any, Callable
+from typing import Any
 
 
 def _iso_now() -> str:
     """Return current UTC time in ISO 8601 (Z) format without microseconds."""
     try:
-        return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+        return datetime.now(UTC).replace(microsecond=0).isoformat()
     except Exception:
         # Fallback in unlikely environments without timezone; still ISO-like
         return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
