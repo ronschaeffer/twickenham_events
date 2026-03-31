@@ -1,4 +1,28 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.7
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.6
+    hooks:
+      - id: codespell
+        args: ["--write-changes"]
+
   - repo: local
     hooks:
       - id: update-ha-cards-links
@@ -8,23 +32,11 @@ repos:
         pass_filenames: false
         files: ^(ha_card/.*\.yaml|README\.md)$
         stages: [pre-commit]
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0 # Use the latest version
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.7 # Use the same version as installed
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.5 # Use the latest version
-    hooks:
-      - id: codespell
-        args: ["--write-changes"] # Enable auto-fix
+      - id: pytest-push
+        name: pytest (pre-push)
+        entry: poetry run pytest -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
