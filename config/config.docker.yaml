@@ -1,0 +1,84 @@
+# Docker-optimized configuration for Twickenham Events
+# All settings are controlled via environment variables.
+# Mount a custom config.yaml to /app/config/config.yaml to override.
+
+scraping:
+  url: "https://www.richmond.gov.uk/services/parking/cpz/twickenham_events"
+  max_retries: 3
+  retry_delay: 5
+  timeout: 10
+
+app:
+  unique_id_prefix: "twickenham_events"
+  name: "Twickenham Events"
+  manufacturer: "ronschaeffer"
+  model: "Twick Events"
+  sw_version: "0.2.0"
+  url: "https://github.com/ronschaeffer/twickenham_events"
+
+mqtt:
+  enabled: true
+  broker_url: "${MQTT_BROKER_URL}"
+  broker_port: "${MQTT_BROKER_PORT}"
+  client_id: "${MQTT_CLIENT_ID}"
+  security: "${MQTT_SECURITY}"
+  auth:
+    username: "${MQTT_USERNAME}"
+    password: "${MQTT_PASSWORD}"
+  topics:
+    next: "twickenham_events/events/next"
+    next_day_summary: "twickenham_events/events/next_day_summary"
+    all_upcoming: "twickenham_events/events/all_upcoming"
+    status: "twickenham_events/status"
+    today: "twickenham_events/events/today"
+  last_will:
+    topic: "twickenham_events/status"
+    payload: '{"status": "offline", "last_seen": "unexpected_disconnect", "event_count": 0, "error_count": 1, "errors": ["Client disconnected unexpectedly"]}'
+    qos: 1
+    retain: true
+
+home_assistant:
+  enabled: "${HOME_ASSISTANT_ENABLED}"
+  discovery_prefix: "homeassistant"
+
+calendar:
+  enabled: "${CALENDAR_ENABLED}"
+  filename: "twickenham_events.ics"
+  output_format: "ics"
+  scope:
+    include_past_days: 30
+    include_future_days: 365
+  duration_estimation:
+    default_hours: 2.5
+
+ai_processor:
+  api_key: "${GEMINI_API_KEY}"
+  type_detection:
+    enabled: "${TYPE_DETECTION_ENABLED}"
+    cache_enabled: true
+    model: "gemini-2.5-pro"
+    cache_dir: "/app/data/cache"
+  shortening:
+    enabled: "${SHORTENING_ENABLED}"
+    cache_enabled: true
+    model: "gemini-2.5-pro"
+    max_length: 25
+    flags_enabled: "${FLAGS_ENABLED}"
+    standardize_spacing: true
+    cache_dir: "/app/data/cache"
+
+web_server:
+  enabled: "${WEB_SERVER_ENABLED}"
+  host: "${WEB_SERVER_HOST}"
+  port: "${WEB_SERVER_PORT}"
+  external_url_base: "${WEB_SERVER_EXTERNAL_URL}"
+  access_log: "${WEB_SERVER_ACCESS_LOG}"
+  reload: false
+  cors:
+    enabled: "${WEB_SERVER_CORS_ENABLED}"
+    origins: "${WEB_SERVER_CORS_ORIGINS}"
+
+service:
+  interval_seconds: 14400
+  enable_buttons: true
+  discovery_prefix: "homeassistant"

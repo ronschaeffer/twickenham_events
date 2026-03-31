@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import sys
 import time
-from typing import Any, Optional
+from typing import Any
 
 try:
     import httpx  # type: ignore[import-not-found]
@@ -77,7 +77,7 @@ class WebServerValidator:
         self,
         base_url: str,
         timeout: float = 10.0,
-        config: Optional[Any] = None,
+        config: Any | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
@@ -89,7 +89,7 @@ class WebServerValidator:
         self,
         endpoint: str,
         expected_status: int = 200,
-        content_checks: Optional[dict[str, Any]] = None,
+        content_checks: dict[str, Any] | None = None,
     ) -> bool:
         """Validate a single endpoint."""
         url = f"{self.base_url}{endpoint}"
@@ -287,7 +287,7 @@ def validate_config(config: Any) -> bool:
     return True
 
 
-def start_test_server(config: Any) -> Optional[Any]:
+def start_test_server(config: Any) -> Any | None:
     """Start web server for testing (returns server instance or None)."""
     try:
         from twickenham_events.web.twickenham_server import TwickenhamWebServer

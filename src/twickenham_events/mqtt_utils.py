@@ -5,10 +5,11 @@ helpers extract commonly-needed pieces (like reason_code/properties) from the
 variable args/kwargs so application callbacks can be simpler and robust.
 """
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 
-def extract_reason_code(*args: tuple[Any, ...], **kwargs: dict) -> Optional[Any]:
+def extract_reason_code(*args: tuple[Any, ...], **kwargs: dict) -> Any | None:
     """Extract a likely reason_code from positional args or kwargs.
 
     Rules (best-effort):
@@ -37,7 +38,7 @@ def extract_reason_code(*args: tuple[Any, ...], **kwargs: dict) -> Optional[Any]
     return None
 
 
-def extract_properties(*args: tuple[Any, ...], **kwargs: dict) -> Optional[Any]:
+def extract_properties(*args: tuple[Any, ...], **kwargs: dict) -> Any | None:
     """Extract MQTT v5 properties object from args/kwargs if present.
 
     Best-effort: prefer explicit kw 'properties', else take the last positional

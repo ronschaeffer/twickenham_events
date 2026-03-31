@@ -14,7 +14,7 @@ Richmond Council website, publishes to MQTT (Home Assistant), and generates ICS 
 ## Dependencies
 
 - `ha-mqtt-publisher` (ronschaeffer/ha_mqtt_publisher)
-- `ronschaeffer-ics-calendar-utils` (ronschaeffer/ics_calendar_utils)
+- `icalendar` (for ICS calendar generation)
 
 ## Toolchain
 

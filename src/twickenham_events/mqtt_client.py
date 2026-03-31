@@ -8,9 +8,9 @@ Enhancements:
  - Structured debug logging summary
 """
 
-from datetime import datetime as _datetime
+from datetime import UTC, datetime as _datetime
 import logging
-from typing import Any, Optional, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from .config import Config
 from .network_utils import build_smart_external_url
@@ -278,7 +278,7 @@ class MQTTClient:
                 ts = self._get_timestamp()
                 months_map_direct: dict[str, dict[str, Any]] = {}
 
-                def _safe_strptime_direct(d: str) -> Optional[_datetime]:
+                def _safe_strptime_direct(d: str) -> _datetime | None:
                     try:
                         return _datetime.strptime(d, "%Y-%m-%d")
                     except Exception:
@@ -440,7 +440,7 @@ class MQTTClient:
             #       }
             #   ]
             # }
-            def _safe_strptime(d: str) -> Optional[_datetime]:
+            def _safe_strptime(d: str) -> _datetime | None:
                 try:
                     return _datetime.strptime(d, "%Y-%m-%d")
                 except Exception:
@@ -639,12 +639,9 @@ class MQTTClient:
 
     def _get_timestamp(self) -> str:
         """Get current timestamp."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         # Use UTC and seconds precision; HA timestamp device_class expects RFC3339 / ISO8601 with tzinfo
         return (
-            datetime.now(timezone.utc)
-            .replace(microsecond=0)
-            .isoformat()
-            .replace("+00:00", "Z")
+            datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         )

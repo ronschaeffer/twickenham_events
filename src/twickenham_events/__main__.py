@@ -1032,6 +1032,10 @@ def cmd_service(config: Config, args) -> int:
 
     last_events_count = {"count": None}
 
+    output_dir = Path("output")
+    output_dir.mkdir(exist_ok=True)
+    cal_gen = CalendarGenerator(config) if config.calendar_enabled else None
+
     def run_cycle(trigger: str, command_meta: dict | None = None) -> dict[str, Any]:
         nonlocal last_run
         with lock:
@@ -1060,6 +1064,20 @@ def cmd_service(config: Config, args) -> int:
                 last_events_count["count"] = len(flat)  # type: ignore[assignment]
                 no_changes = prev is not None and prev == len(flat)
                 mqtt_pub.publish_events(flat, ai_processor, extra_status=extra_status)
+
+                # Write output files for web server
+                try:
+                    (output_dir / "upcoming_events.json").write_text(
+                        json.dumps({"events": flat}, indent=2, default=str)
+                    )
+                except Exception as e:
+                    logging.debug("Failed to write upcoming_events.json: %s", e)
+                if cal_gen:
+                    try:
+                        cal_gen.generate_ics_calendar(summarized, output_dir)
+                    except Exception as e:
+                        logging.debug("Failed to generate ICS: %s", e)
+
                 logging.info(
                     "service cycle completed trigger=%s events=%s", trigger, len(flat)
                 )
@@ -1185,9 +1203,7 @@ def cmd_service(config: Config, args) -> int:
     except Exception:
         pass
 
-    from typing import Optional
-
-    last_connect_code: dict[str, Optional[int]] = {"code": None}
+    last_connect_code: dict[str, int | None] = {"code": None}
 
     def shutdown_sequence():  # pragma: no cover
         try:
@@ -1608,6 +1624,24 @@ def cmd_service(config: Config, args) -> int:
         paho_client.disconnect()
         return 0
 
+    # Start web server in a background thread if enabled
+    web_server = None
+    if config.web_enabled:
+        try:
+            from .web_server import TwickenhamWebServer
+
+            web_server = TwickenhamWebServer(config)
+            web_thread = threading.Thread(
+                target=web_server.start, daemon=True, name="web-server"
+            )
+            web_thread.start()
+            logging.info(
+                "web server started on %s:%s", config.web_host, config.web_port
+            )
+        except Exception as e:
+            logging.warning("Failed to start web server: %s", e)
+            web_server = None
+
     print(
         f"🚀 Service started interval={interval}s (refresh topic: twickenham_events/cmd/refresh)"
     )
@@ -1619,6 +1653,8 @@ def cmd_service(config: Config, args) -> int:
     except KeyboardInterrupt:  # pragma: no cover
         print("Stopping service...")
     finally:
+        if web_server:
+            web_server.stop()
         availability.offline()
         paho_client.loop_stop()
         paho_client.disconnect()

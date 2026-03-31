@@ -11,7 +11,7 @@ Let the system automatically detect your host IP:
 docker run -d \
   --name twickenham-events \
   -p 47476:47476 \
-  twickenham-events:latest
+  ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
 **Pros:** No configuration needed, works in many setups
@@ -24,7 +24,7 @@ docker run -d \
 docker run -d \
   --name twickenham-events \
   -p 47476:47476 \
-  twickenham-events:latest
+  ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
 #### For Docker on Linux:
@@ -33,7 +33,7 @@ docker run -d \
   --name twickenham-events \
   --add-host=host.docker.internal:host-gateway \
   -p 47476:47476 \
-  twickenham-events:latest
+  ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
 **Pros:** Official Docker feature, always correct
@@ -49,7 +49,7 @@ docker run -d \
   --name twickenham-events \
   -e DOCKER_HOST_IP=${HOST_IP} \
   -p 47476:47476 \
-  twickenham-events:latest
+  ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
 **Pros:** Guaranteed accuracy, explicit control
@@ -60,7 +60,7 @@ docker run -d \
 docker run -d \
   --name twickenham-events \
   --network host \
-  twickenham-events:latest
+  ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
 **Pros:** No port mapping, direct host access
@@ -73,7 +73,7 @@ docker run -d \
 version: '3.8'
 services:
   twickenham-events:
-    image: twickenham-events:latest
+    image: ghcr.io/ronschaeffer/twickenham_events:latest
     container_name: twickenham-events
     ports:
       - "47476:47476"
@@ -87,7 +87,7 @@ services:
 version: '3.8'
 services:
   twickenham-events:
-    image: twickenham-events:latest
+    image: ghcr.io/ronschaeffer/twickenham_events:latest
     container_name: twickenham-events
     ports:
       - "47476:47476"
@@ -101,7 +101,7 @@ services:
 version: '3.8'
 services:
   twickenham-events:
-    image: twickenham-events:latest
+    image: ghcr.io/ronschaeffer/twickenham_events:latest
     container_name: twickenham-events
     network_mode: host
     restart: unless-stopped
@@ -163,7 +163,7 @@ These URLs will be accessible from Home Assistant for calendar integration and a
    docker run -d \
      -e DOCKER_HOST_IP=YOUR_ACTUAL_HOST_IP \
      -p 47476:47476 \
-     twickenham-events:latest
+     ghcr.io/ronschaeffer/twickenham_events:latest
    ```
 
 ### Auto-Detection Finds Wrong IP

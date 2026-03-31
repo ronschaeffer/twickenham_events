@@ -2,7 +2,7 @@
 AI-powered event processing including type detection, icon mapping, and name shortening using Google Gemini API.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
 from pathlib import Path
@@ -89,9 +89,7 @@ class AIProcessor:
         # still open if remaining > 0
         info["open"] = remaining > 0
         if remaining > 0:
-            dt = datetime.fromtimestamp(retry_at_epoch, tz=timezone.utc).replace(
-                microsecond=0
-            )
+            dt = datetime.fromtimestamp(retry_at_epoch, tz=UTC).replace(microsecond=0)
             info["retry_at"] = dt.isoformat().replace("+00:00", "Z")
             info["retry_in_seconds"] = remaining
         return info
