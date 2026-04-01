@@ -118,7 +118,7 @@ class TwickenhamEventsServer(BaseFileServer):
         base_url = build_smart_external_url(
             self.config.web_host,
             self.config.web_port,
-            self.config.web_external_url_base,
+            external_url_base=self.config.web_external_url_base,
         )
 
         # Build endpoint URLs
