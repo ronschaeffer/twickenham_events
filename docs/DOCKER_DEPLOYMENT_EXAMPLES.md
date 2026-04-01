@@ -131,11 +131,11 @@ Once deployed, the MQTT status payloads will include URLs like:
 {
   "web_server": {
     "enabled": true,
-    "base_url": "http://10.10.10.20:47478",
+    "base_url": "http://192.168.1.100:47478",
     "urls": {
-      "calendar": "http://10.10.10.20:47478/calendar",
-      "events": "http://10.10.10.20:47478/events",
-      "status": "http://10.10.10.20:47478/status"
+      "calendar": "http://192.168.1.100:47478/calendar",
+      "events": "http://192.168.1.100:47478/events",
+      "status": "http://192.168.1.100:47478/status"
     }
   }
 }
@@ -172,7 +172,7 @@ If auto-detection finds a different IP than expected:
 
 1. **Use environment variable for precision:**
    ```bash
-   docker run -d -e DOCKER_HOST_IP=10.10.10.20 -p 47478:47478 twickevents
+   docker run -d -e DOCKER_HOST_IP=192.168.1.100 -p 47478:47478 twickevents
    ```
 
 2. **Use host.docker.internal on Linux:**

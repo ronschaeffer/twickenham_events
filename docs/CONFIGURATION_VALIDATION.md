@@ -38,7 +38,7 @@ Based on your latest validation:
   - `WEB_SERVER_ENABLED=true`
   - `WEB_SERVER_HOST=0.0.0.0`
   - `WEB_SERVER_PORT=47478`
-  - `WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478`
+  - `WEB_SERVER_EXTERNAL_URL=http://192.168.1.100:47478`
 
 ### ❌ **Components Needing Configuration**
 
@@ -77,7 +77,7 @@ To enable Home Assistant integration, add these to your `.env`:
 
 ```bash
 # Add to .env file
-MQTT_BROKER_URL=10.10.10.20  # Your MQTT broker IP
+MQTT_BROKER_URL=192.168.1.100  # Your MQTT broker IP
 MQTT_BROKER_PORT=1883
 MQTT_USERNAME=homeassistant
 MQTT_PASSWORD=your_password

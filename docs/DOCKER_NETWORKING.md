@@ -32,7 +32,7 @@ The enhanced system now automatically probes common private network ranges to fi
 - **172.16.0.x** - Docker custom networks
 
 **Benefits:**
-- ✅ Finds actual host LAN IP (e.g., `10.10.10.20`) instead of Docker bridge IP (`172.17.0.1`)
+- ✅ Finds actual host LAN IP (e.g., `192.168.1.100`) instead of Docker bridge IP (`172.17.0.1`)
 - ✅ Works automatically without configuration in many setups
 - ✅ Fast scanning with threading (typically completes in 1-2 seconds)
 - ✅ Falls back gracefully to gateway detection if auto-detection fails
@@ -51,12 +51,12 @@ Set your complete external URL - this handles both URL generation and host IP de
 ```bash
 # Single configuration that serves both purposes
 docker run -d \
-  -e WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478 \
+  -e WEB_SERVER_EXTERNAL_URL=http://192.168.1.100:47478 \
   -p 47478:47478 \
   twickevents
 
 # For Unraid users - add to template's environment variables:
-# WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478
+# WEB_SERVER_EXTERNAL_URL=http://192.168.1.100:47478
 ```
 
 **Benefits:**

@@ -6,7 +6,7 @@ broker forgets them (retain deletion). Run before or after deploying the new
 single device-level discovery.
 
 Usage:
-  poetry run python scripts/mqtt_purge_legacy_discovery.py --broker 10.10.10.21 --port 1883 \
+  poetry run python scripts/mqtt_purge_legacy_discovery.py --broker YOUR_BROKER_IP --port 1883 \
       --username USER --password PASS
 
 If credentials / TLS handled via env/config you can omit username/password.

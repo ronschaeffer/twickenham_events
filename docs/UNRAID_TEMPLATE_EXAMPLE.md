@@ -29,7 +29,7 @@ This guide shows how to deploy Twickenham Events on Unraid with optimal Docker n
   <Config Name="Web Server Port" Target="47478" Default="47478" Mode="tcp" Description="Web server port" Type="Port" Display="always" Required="true" Mask="false">47478</Config>
 
   <!-- Environment Variables -->
-  <Config Name="External URL" Target="WEB_SERVER_EXTERNAL_URL" Default="" Mode="" Description="Complete external URL (e.g., http://10.10.10.20:47478)" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="External URL" Target="WEB_SERVER_EXTERNAL_URL" Default="" Mode="" Description="Complete external URL (e.g., http://192.168.1.100:47478)" Type="Variable" Display="always" Required="true" Mask="false"/>
 
   <!-- MQTT Configuration -->
   <Config Name="MQTT Enabled" Target="MQTT_ENABLED" Default="false" Mode="" Description="Enable MQTT integration" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
@@ -55,7 +55,7 @@ This guide shows how to deploy Twickenham Events on Unraid with optimal Docker n
    ```
    http://YOUR_UNRAID_IP:47478
    ```
-   Example: `http://10.10.10.20:47478`
+   Example: `http://192.168.1.100:47478`
 
 2. **Enable Extra Parameters**: The template includes:
    ```
@@ -76,10 +76,10 @@ Once deployed, the container will automatically publish MQTT messages with prope
 {
   "web_server": {
     "status": "running",
-    "url": "http://10.10.10.20:47478",
+    "url": "http://192.168.1.100:47478",
     "endpoints": {
-      "events": "http://10.10.10.20:47478/events",
-      "health": "http://10.10.10.20:47478/health"
+      "events": "http://192.168.1.100:47478/events",
+      "health": "http://192.168.1.100:47478/health"
     }
   }
 }
@@ -101,13 +101,13 @@ Once deployed, the container will automatically publish MQTT messages with prope
 
 ## 📋 **Example Working Configuration**
 
-For a typical Unraid setup on `10.10.10.20`:
+For a typical Unraid setup on `192.168.1.100`:
 
 ```bash
 # Environment Variables
-WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478
+WEB_SERVER_EXTERNAL_URL=http://192.168.1.100:47478
 MQTT_ENABLED=true
-MQTT_BROKER_URL=10.10.10.20
+MQTT_BROKER_URL=192.168.1.100
 MQTT_BROKER_PORT=1883
 HOME_ASSISTANT_ENABLED=true
 

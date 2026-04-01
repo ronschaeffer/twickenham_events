@@ -16,8 +16,12 @@
   <DonateLink/>
   <Requires/>
 
-  <!-- Web Server Port -->
+  <!-- Web Server -->
   <Config Name="Web Server Port" Target="47478" Default="47478" Mode="tcp" Description="Web server port for status and calendar endpoints" Type="Port" Display="always" Required="true" Mask="false">47478</Config>
+  <Config Name="Web Server Enabled" Target="WEB_SERVER_ENABLED" Default="true" Mode="" Description="Enable built-in web server" Type="Variable" Display="always" Required="false" Mask="false">true</Config>
+  <Config Name="Web Server Host" Target="WEB_SERVER_HOST" Default="0.0.0.0" Mode="" Description="Web server bind address" Type="Variable" Display="advanced" Required="false" Mask="false">0.0.0.0</Config>
+  <Config Name="Web Server Port (App)" Target="WEB_SERVER_PORT" Default="47478" Mode="" Description="Web server port (must match port mapping)" Type="Variable" Display="advanced" Required="false" Mask="false">47478</Config>
+  <Config Name="External URL" Target="WEB_SERVER_EXTERNAL_URL" Default="" Mode="" Description="External URL for HA integration (e.g. http://YOUR_HOST_IP:47478)" Type="Variable" Display="always" Required="false" Mask="false"/>
 
   <!-- MQTT Configuration -->
   <Config Name="MQTT Broker URL" Target="MQTT_BROKER_URL" Default="" Mode="" Description="MQTT broker hostname or IP address" Type="Variable" Display="always" Required="true" Mask="false"/>
@@ -25,6 +29,8 @@
   <Config Name="MQTT Security" Target="MQTT_SECURITY" Default="none" Mode="" Description="MQTT security mode: none or username" Type="Variable" Display="always" Required="false" Mask="false">none</Config>
   <Config Name="MQTT Username" Target="MQTT_USERNAME" Default="" Mode="" Description="MQTT username (if security is 'username')" Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="MQTT Password" Target="MQTT_PASSWORD" Default="" Mode="" Description="MQTT password" Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="MQTT Use TLS" Target="MQTT_USE_TLS" Default="false" Mode="" Description="Enable TLS for MQTT connection (true/false)" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
+  <Config Name="TLS Verify" Target="TLS_VERIFY" Default="true" Mode="" Description="Verify TLS certificates (set false for self-signed)" Type="Variable" Display="always" Required="false" Mask="false">true</Config>
 
   <!-- Home Assistant -->
   <Config Name="Home Assistant Enabled" Target="HOME_ASSISTANT_ENABLED" Default="true" Mode="" Description="Enable Home Assistant MQTT discovery" Type="Variable" Display="always" Required="false" Mask="false">true</Config>

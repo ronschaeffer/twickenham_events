@@ -8,7 +8,7 @@ Purpose:
   4. Validate presence + basic schema of each payload and report discrepancies.
 
 Usage:
-  poetry run python scripts/mqtt_validate.py --broker 10.10.10.21 --port 8883 \
+  poetry run python scripts/mqtt_validate.py --broker YOUR_BROKER_IP --port 8883 \
       --topics twickenham_events/status twickenham_events/events/all_upcoming \
       twickenham_events/events/next twickenham_events/events/today twickenham_events/availability
 
