@@ -31,12 +31,15 @@ RUN pip install --no-cache-dir -r requirements.txt && rm requirements.txt
 COPY --from=builder /build/dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 
-# Copy config example and Docker-optimized default config
-COPY config/config.yaml.example /app/config/config.yaml.example
-COPY config/config.docker.yaml /app/config/config.yaml
+# Copy config defaults to a separate dir (entrypoint copies to /app/config on first run)
+COPY config/config.yaml.example /app/config-defaults/config.yaml.example
+COPY config/config.docker.yaml /app/config-defaults/config.yaml
 
-# Create data and output directories
-RUN mkdir -p /app/data /app/output
+# Create data, output, and config directories
+RUN mkdir -p /app/data /app/output /app/config
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # Expose web server port
 EXPOSE 47478
@@ -46,6 +49,6 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:47478/health')" \
   || python -c "import os, signal; os.kill(1, 0)" || exit 1
 
-# Default: run the long-running service (requires MQTT_ENABLED=true)
-ENTRYPOINT ["twick-events"]
+# Entrypoint seeds config on first run, then hands off to the command
+ENTRYPOINT ["/app/docker-entrypoint.sh", "twick-events"]
 CMD ["service"]
