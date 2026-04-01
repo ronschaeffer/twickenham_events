@@ -404,6 +404,10 @@ class MQTTClient:
                     _json.dumps(today_payload_direct),
                     retain=True,
                 )
+                # Allow time for messages to be flushed to broker before disconnecting
+                import time
+
+                time.sleep(1)
                 _client.loop_stop()
                 _client.disconnect()
                 logger.info(
