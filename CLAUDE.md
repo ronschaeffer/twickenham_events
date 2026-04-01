@@ -7,8 +7,9 @@ Richmond Council website, publishes to MQTT (Home Assistant), and generates ICS 
 
 ## Type: App (not a library)
 
-- Not published to PyPI
-- Runs as a Docker container on Unraid
+- Public repo: `ronschaeffer/twickenham_events`
+- Runs as a Docker container on Unraid (`twickevents`)
+- Docker image: `ghcr.io/ronschaeffer/twickenham_events`
 - Entry point: `src/twickenham_events/__main__.py` via `twick-events` script
 
 ## Dependencies
@@ -38,13 +39,16 @@ tests/                   pytest tests
 config/                  YAML config files
 docs/                    documentation
 ha_card/                 Home Assistant Lovelace card YAML
+unraid/                  Unraid Docker template XML
 .dev-scripts/            dev helper scripts
 ```
 
 ## CI
 
 `ci.yml`: lint + test on Python 3.11 and 3.12.
-Version bumps: `version-bump.yml`.
+`docker-publish.yml`: build and push to GHCR on `v*` tag.
+`code-quality.yml`: pre-commit and ruff analysis.
+`version-bump.yml`: automated version bumps.
 
 ## Docker / Unraid
 
