@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-MQTT publishing of Twickenham Stadium events for Home Assistant. Scrapes public event pages, normalizes data, publishes retained topics, and advertises a device via Home Assistant discovery. Optional AI processing shortens event names and suggests types.
+MQTT publishing of Twickenham Stadium events for Home Assistant as well as ICS creation with web server. Scrapes public event pages, normalizes data, publishes retained topics, and advertises a device via Home Assistant discovery. Optional AI processing shortens event names and suggests types.
 
 ---
 
