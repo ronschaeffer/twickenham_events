@@ -10,7 +10,7 @@ This document explains the GitHub Actions workflows and their consistency with l
 - **Triggers**: Push to main/develop, Pull requests
 - **Jobs**:
   - `lint`: Ruff linting and formatting checks (Python 3.11)
-  - `test`: Full test suite across Python 3.9-3.12
+  - `test`: Full test suite across Python 3.11 and 3.12
 
 ### 2. **code-quality.yml** - Comprehensive Quality Checks
 

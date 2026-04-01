@@ -1,6 +1,6 @@
 # Unraid Docker Template Example
 
-> **Note:** The actual Unraid template XML is at [`unraid/twickenham-events.xml`](../unraid/twickenham-events.xml). The examples below are for reference.
+> **Note:** The actual Unraid template XML is at [`unraid/twickevents.xml`](../unraid/twickevents.xml). The examples below are for reference.
 
 This guide shows how to deploy Twickenham Events on Unraid with optimal Docker networking configuration.
 
@@ -11,8 +11,8 @@ This guide shows how to deploy Twickenham Events on Unraid with optimal Docker n
 ```xml
 <?xml version="1.0"?>
 <Container version="2">
-  <Name>TwickenhamEvents</Name>
-  <Repository>twickenham-events:latest</Repository>
+  <Name>twickevents</Name>
+  <Repository>twickevents:latest</Repository>
   <Network>bridge</Network>
   <Mode/>
   <Privileged>false</Privileged>
@@ -20,16 +20,16 @@ This guide shows how to deploy Twickenham Events on Unraid with optimal Docker n
   <Project>https://github.com/ronschaeffer/twickenham_events</Project>
   <Overview>Rugby events scraper with MQTT and Home Assistant integration</Overview>
   <Category>Tools:</Category>
-  <WebUI>http://[IP]:[PORT:47476]/</WebUI>
+  <WebUI>http://[IP]:[PORT:47478]/</WebUI>
   <TemplateURL/>
   <Icon>https://raw.githubusercontent.com/ronschaeffer/twickenham_events/main/icon.png</Icon>
   <ExtraParams>--add-host=host.docker.internal:host-gateway</ExtraParams>
 
   <!-- Port Mapping -->
-  <Config Name="Web Server Port" Target="47476" Default="47476" Mode="tcp" Description="Web server port" Type="Port" Display="always" Required="true" Mask="false">47476</Config>
+  <Config Name="Web Server Port" Target="47478" Default="47478" Mode="tcp" Description="Web server port" Type="Port" Display="always" Required="true" Mask="false">47478</Config>
 
   <!-- Environment Variables -->
-  <Config Name="External URL" Target="WEB_SERVER_EXTERNAL_URL" Default="" Mode="" Description="Complete external URL (e.g., http://10.10.10.20:47476)" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="External URL" Target="WEB_SERVER_EXTERNAL_URL" Default="" Mode="" Description="Complete external URL (e.g., http://10.10.10.20:47478)" Type="Variable" Display="always" Required="true" Mask="false"/>
 
   <!-- MQTT Configuration -->
   <Config Name="MQTT Enabled" Target="MQTT_ENABLED" Default="false" Mode="" Description="Enable MQTT integration" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
@@ -42,8 +42,8 @@ This guide shows how to deploy Twickenham Events on Unraid with optimal Docker n
   <Config Name="Home Assistant Enabled" Target="HOME_ASSISTANT_ENABLED" Default="false" Mode="" Description="Enable Home Assistant discovery" Type="Variable" Display="always" Required="false" Mask="false">false</Config>
 
   <!-- Volume Mappings -->
-  <Config Name="Config Directory" Target="/app/config" Default="/mnt/user/appdata/twickenham-events/config" Mode="rw" Description="Configuration files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/twickenham-events/config</Config>
-  <Config Name="Data Directory" Target="/app/data" Default="/mnt/user/appdata/twickenham-events/data" Mode="rw" Description="Data storage" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/twickenham-events/data</Config>
+  <Config Name="Config Directory" Target="/app/config" Default="/mnt/user/appdata/twickevents/config" Mode="rw" Description="Configuration files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/twickevents/config</Config>
+  <Config Name="Data Directory" Target="/app/data" Default="/mnt/user/appdata/twickevents/data" Mode="rw" Description="Data storage" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/twickevents/data</Config>
 </Container>
 ```
 
@@ -53,9 +53,9 @@ This guide shows how to deploy Twickenham Events on Unraid with optimal Docker n
 
 1. **Set External URL**: In the template, set `WEB_SERVER_EXTERNAL_URL` to:
    ```
-   http://YOUR_UNRAID_IP:47476
+   http://YOUR_UNRAID_IP:47478
    ```
-   Example: `http://10.10.10.20:47476`
+   Example: `http://10.10.10.20:47478`
 
 2. **Enable Extra Parameters**: The template includes:
    ```
@@ -76,10 +76,10 @@ Once deployed, the container will automatically publish MQTT messages with prope
 {
   "web_server": {
     "status": "running",
-    "url": "http://10.10.10.20:47476",
+    "url": "http://10.10.10.20:47478",
     "endpoints": {
-      "events": "http://10.10.10.20:47476/events",
-      "health": "http://10.10.10.20:47476/health"
+      "events": "http://10.10.10.20:47478/events",
+      "health": "http://10.10.10.20:47478/health"
     }
   }
 }
@@ -90,12 +90,12 @@ Once deployed, the container will automatically publish MQTT messages with prope
 ### If URLs show Docker IP (172.x.x.x)
 
 1. **Verify Extra Parameters**: Ensure `--add-host=host.docker.internal:host-gateway` is set
-2. **Set External URL**: Manually set `WEB_SERVER_EXTERNAL_URL=http://YOUR_UNRAID_IP:47476`
+2. **Set External URL**: Manually set `WEB_SERVER_EXTERNAL_URL=http://YOUR_UNRAID_IP:47478`
 3. **Check Network**: Ensure your Unraid server has a static IP
 
 ### If Container Won't Start
 
-1. **Check Port Conflicts**: Ensure port 47476 is available
+1. **Check Port Conflicts**: Ensure port 47478 is available
 2. **Verify Paths**: Make sure appdata directories exist
 3. **Check MQTT Settings**: Verify MQTT broker connectivity if enabled
 
@@ -105,7 +105,7 @@ For a typical Unraid setup on `10.10.10.20`:
 
 ```bash
 # Environment Variables
-WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47476
+WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478
 MQTT_ENABLED=true
 MQTT_BROKER_URL=10.10.10.20
 MQTT_BROKER_PORT=1883
@@ -115,11 +115,11 @@ HOME_ASSISTANT_ENABLED=true
 --add-host=host.docker.internal:host-gateway
 
 # Port Mapping
-47476:47476
+47478:47478
 
 # Volume Mappings
-/mnt/user/appdata/twickenham-events/config:/app/config
-/mnt/user/appdata/twickenham-events/data:/app/data
+/mnt/user/appdata/twickevents/config:/app/config
+/mnt/user/appdata/twickevents/data:/app/data
 ```
 
 This configuration provides:

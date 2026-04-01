@@ -266,8 +266,8 @@ web_server:
 # Docker Compose example
 version: '3.8'
 services:
-  twickenham-events:
-    image: twickenham-events:latest
+  twickevents:
+    image: twickevents:latest
     ports:
       - "8080:8080"  # Expose to host network
     environment:

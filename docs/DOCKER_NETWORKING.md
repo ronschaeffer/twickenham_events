@@ -51,12 +51,12 @@ Set your complete external URL - this handles both URL generation and host IP de
 ```bash
 # Single configuration that serves both purposes
 docker run -d \
-  -e WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47476 \
-  -p 47476:47476 \
-  twickenham-events
+  -e WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478 \
+  -p 47478:47478 \
+  twickevents
 
 # For Unraid users - add to template's environment variables:
-# WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47476
+# WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478
 ```
 
 **Benefits:**
@@ -73,8 +73,8 @@ Use Docker's built-in DNS name that resolves to the host IP:
 ```bash
 # Works out-of-the-box on Docker Desktop
 docker run -d \
-  -p 47476:47476 \
-  twickenham-events
+  -p 47478:47478 \
+  twickevents
 
 # host.docker.internal automatically resolves to host IP
 ```
@@ -84,8 +84,8 @@ docker run -d \
 # Add host-gateway mapping to enable host.docker.internal
 docker run -d \
   --add-host=host.docker.internal:host-gateway \
-  -p 47476:47476 \
-  twickenham-events
+  -p 47478:47478 \
+  twickevents
 
 # Or using docker-compose:
 # extra_hosts:
@@ -102,10 +102,10 @@ docker run -d \
 ```yaml
 version: '3.8'
 services:
-  twickenham-events:
-    image: twickenham-events
+  twickevents:
+    image: twickevents
     ports:
-      - "47476:47476"
+      - "47478:47478"
     extra_hosts:
       - "host.docker.internal:host-gateway"  # Enable on Linux
 ```
@@ -117,7 +117,7 @@ Use Docker's host networking to share the host's network stack:
 ```bash
 docker run -d \
   --network host \
-  twickenham-events
+  twickevents
 ```
 
 **Note**: With `--network host`, the container shares the host's IP address directly.
@@ -127,10 +127,10 @@ docker run -d \
 ```yaml
 version: '3.8'
 services:
-  twickenham-events:
-    image: twickenham-events
+  twickevents:
+    image: twickevents
     ports:
-      - "47476:47476"
+      - "47478:47478"
     environment:
       - DOCKER_HOST_IP=${HOST_IP}
     # Alternative: Enable host.docker.internal on Linux
@@ -148,7 +148,7 @@ Set the external URL base in your configuration:
 # config.yaml
 web_server:
   host: "0.0.0.0"
-  port: 47476
+  port: 47478
   external_url_base: "http://192.168.1.100"  # Your host's LAN IP
 ```
 
@@ -158,17 +158,17 @@ web_server:
 
 - **Container IP**: `172.17.0.21` (not accessible from host network)
 - **Docker Gateway**: `172.17.0.1` (accessible from container, may work from host)
-- **Generated URL**: `http://172.17.0.1:47476`
+- **Generated URL**: `http://172.17.0.1:47478`
 
 ### Container with DOCKER_HOST_IP
 
 - **Environment**: `DOCKER_HOST_IP=192.168.1.100`
-- **Generated URL**: `http://192.168.1.100:47476` (accessible from Home Assistant)
+- **Generated URL**: `http://192.168.1.100:47478` (accessible from Home Assistant)
 
 ### Container with Host Networking
 
 - **Network Mode**: `--network host`
-- **Generated URL**: `http://192.168.1.100:47476` (uses host's actual IP)
+- **Generated URL**: `http://192.168.1.100:47478` (uses host's actual IP)
 
 ## Home Assistant Integration
 
@@ -185,7 +185,7 @@ For Home Assistant to access the calendar and webhook URLs, they must be reachab
 1. Check if Home Assistant can reach the URL:
    ```bash
    # From Home Assistant host/container
-   curl http://172.17.0.1:47476/status
+   curl http://172.17.0.1:47478/status
    ```
 
 2. If not accessible, set `DOCKER_HOST_IP`:
@@ -205,14 +205,14 @@ Run this command in your container to see what URLs are being generated:
 
 ```python
 from src.twickenham_events.network_utils import build_smart_external_url
-print("Calendar URL:", build_smart_external_url("0.0.0.0", 47476))
+print("Calendar URL:", build_smart_external_url("0.0.0.0", 47478))
 ```
 
 ## Security Considerations
 
 - **Host Networking**: Exposes all container ports to the host
 - **Bridge Networking**: Only exposed ports are accessible
-- **Firewall**: Ensure port 47476 is accessible if needed
+- **Firewall**: Ensure port 47478 is accessible if needed
 
 ## Summary
 

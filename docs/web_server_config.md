@@ -12,7 +12,7 @@ All web server settings are under the `web_server` section in `config.yaml`:
 web_server:
   enabled: "${WEB_SERVER_ENABLED}"     # true/false
   host: "${WEB_SERVER_HOST}"           # 0.0.0.0 or 127.0.0.1
-  port: "${WEB_SERVER_PORT}"           # 8080, 47476, etc.
+  port: "${WEB_SERVER_PORT}"           # 8080, 47478, etc.
 ```
 
 ### Advanced Settings
@@ -42,7 +42,7 @@ Following the project's pattern of using environment variables for sensitive/dep
 # Basic web server control
 export WEB_SERVER_ENABLED="true"
 export WEB_SERVER_HOST="0.0.0.0"      # All interfaces
-export WEB_SERVER_PORT="47476"        # Your preferred port
+export WEB_SERVER_PORT="47478"        # Your preferred port
 
 # Optional: External access URL (Docker/proxy scenarios)
 export WEB_SERVER_EXTERNAL_URL="https://your-domain.com/twickenham-api"
@@ -144,7 +144,7 @@ web_server:
 web_server:
   enabled: true
   host: "0.0.0.0"    # All interfaces
-  port: 47476        # Your chosen port
+  port: 47478        # Your chosen port
   access_log: false  # Reduce log noise
   reload: false      # Stability
   external_url_base: "https://api.yourdomain.com"
@@ -167,7 +167,7 @@ web_server:
 
 1. **Port already in use**
    ```bash
-   lsof -i :47476  # Check what's using the port
+   lsof -i :47478  # Check what's using the port
    ```
 
 2. **Permission denied (privileged ports)**
@@ -191,7 +191,7 @@ web_server:
 
 ```bash
 # Quick health check
-curl http://localhost:47476/health
+curl http://localhost:47478/health
 
 # Full validation
 poetry run python -m src.twickenham_events validate web --check-files

@@ -54,13 +54,13 @@ Located in `src/twickenham_events/web/twickenham_server.py`, this provides:
 ### Standalone Server
 ```bash
 # Basic usage
-python run_web_server.py
+python .dev-scripts/run_web_server.py
 
 # Custom configuration
-python run_web_server.py --config config/config.yaml --port 8080 --debug
+python .dev-scripts/run_web_server.py --config config/config.yaml --port 8080 --debug
 
 # Development mode with auto-reload
-python run_web_server.py --reload --debug
+python .dev-scripts/run_web_server.py --reload --debug
 ```
 
 ### Programmatic Usage
@@ -163,7 +163,7 @@ python test_web_server.py
 
 Start in development mode:
 ```bash
-python run_web_server.py --reload --debug --port 8081
+python .dev-scripts/run_web_server.py --reload --debug --port 8081
 ```
 
 This enables:

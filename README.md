@@ -120,8 +120,12 @@ poetry run twick-events scrape      # Scrape only
 poetry run twick-events mqtt        # Scrape + publish
 poetry run twick-events calendar    # Export ICS/JSON
 poetry run twick-events all         # Scrape + MQTT + calendar
+poetry run twick-events list        # List all upcoming events
+poetry run twick-events next        # Show next upcoming event
 poetry run twick-events status      # Show configuration/status
 poetry run twick-events service     # Long-running loop
+poetry run twick-events validate web    # Validate web server config
+poetry run twick-events validate config # Validate full config
 ```
 
 Command topics (published by Home Assistant buttons):
@@ -151,7 +155,7 @@ The service publishes a single device discovery payload to:
 homeassistant/device/twickenham_events/config
 ```
 
-Entities include: status, last_run, upcoming, next, today, refresh (button), clear_cache (button).
+Entities include: status, last_run, upcoming, next, today, event_count (optional), refresh (button), clear_cache (button), restart (button), cmd_ack, cmd_result, last_ack, last_result (diagnostics).
 
 ## AI Processing
 

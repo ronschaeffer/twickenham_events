@@ -39,11 +39,11 @@ COPY config/config.docker.yaml /app/config/config.yaml
 RUN mkdir -p /app/data /app/output
 
 # Expose web server port
-EXPOSE 47476
+EXPOSE 47478
 
 # Health check: try web server /health endpoint, fall back to process check
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:47476/health')" \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:47478/health')" \
   || python -c "import os, signal; os.kill(1, 0)" || exit 1
 
 # Default: run the long-running service (requires MQTT_ENABLED=true)

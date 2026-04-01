@@ -119,7 +119,7 @@ ai_processor:
 web_server:
   enabled: "${WEB_SERVER_ENABLED}" # Environment variable: true/false
   host: "${WEB_SERVER_HOST}" # Environment variable: 0.0.0.0 (all interfaces) or 127.0.0.1 (localhost only)
-  port: "${WEB_SERVER_PORT}" # Environment variable: 8080 (or any available port like 47476)
+  port: "${WEB_SERVER_PORT}" # Environment variable: 8080 (or any available port like 47478)
   # Optional: Auto-discovery base URL for external access (handles Docker/proxy issues)
   external_url_base: "${WEB_SERVER_EXTERNAL_URL}" # e.g., "https://your-domain.com/twickenham"
   # Access logging and debug settings

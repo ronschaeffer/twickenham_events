@@ -9,8 +9,8 @@ Let the system automatically detect your host IP:
 
 ```bash
 docker run -d \
-  --name twickenham-events \
-  -p 47476:47476 \
+  --name twickevents \
+  -p 47478:47478 \
   ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
@@ -22,17 +22,17 @@ docker run -d \
 #### For Docker Desktop (Windows/Mac):
 ```bash
 docker run -d \
-  --name twickenham-events \
-  -p 47476:47476 \
+  --name twickevents \
+  -p 47478:47478 \
   ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
 #### For Docker on Linux:
 ```bash
 docker run -d \
-  --name twickenham-events \
+  --name twickevents \
   --add-host=host.docker.internal:host-gateway \
-  -p 47476:47476 \
+  -p 47478:47478 \
   ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
@@ -46,9 +46,9 @@ HOST_IP=$(hostname -I | awk '{print $1}')
 
 # Run with explicit host IP
 docker run -d \
-  --name twickenham-events \
+  --name twickevents \
   -e DOCKER_HOST_IP=${HOST_IP} \
-  -p 47476:47476 \
+  -p 47478:47478 \
   ghcr.io/ronschaeffer/twickenham_events:latest
 ```
 
@@ -58,7 +58,7 @@ docker run -d \
 ### Option 4: Host Networking (Simplest)
 ```bash
 docker run -d \
-  --name twickenham-events \
+  --name twickevents \
   --network host \
   ghcr.io/ronschaeffer/twickenham_events:latest
 ```
@@ -72,11 +72,11 @@ docker run -d \
 ```yaml
 version: '3.8'
 services:
-  twickenham-events:
+  twickevents:
     image: ghcr.io/ronschaeffer/twickenham_events:latest
-    container_name: twickenham-events
+    container_name: twickevents
     ports:
-      - "47476:47476"
+      - "47478:47478"
     extra_hosts:
       - "host.docker.internal:host-gateway"  # For Linux
     restart: unless-stopped
@@ -86,11 +86,11 @@ services:
 ```yaml
 version: '3.8'
 services:
-  twickenham-events:
+  twickevents:
     image: ghcr.io/ronschaeffer/twickenham_events:latest
-    container_name: twickenham-events
+    container_name: twickevents
     ports:
-      - "47476:47476"
+      - "47478:47478"
     environment:
       - DOCKER_HOST_IP=${HOST_IP:-192.168.1.100}
     restart: unless-stopped
@@ -100,9 +100,9 @@ services:
 ```yaml
 version: '3.8'
 services:
-  twickenham-events:
+  twickevents:
     image: ghcr.io/ronschaeffer/twickenham_events:latest
-    container_name: twickenham-events
+    container_name: twickevents
     network_mode: host
     restart: unless-stopped
 ```
@@ -113,14 +113,14 @@ After starting the container, test the host IP detection:
 
 ```bash
 # Check what IP was detected
-docker exec twickenham-events python -c "
+docker exec twickevents python -c "
 from src.twickenham_events.network_utils import get_docker_host_ip, build_smart_external_url
 print(f'Detected Host IP: {get_docker_host_ip()}')
-print(f'Generated URL: {build_smart_external_url(\"0.0.0.0\", 47476)}')
+print(f'Generated URL: {build_smart_external_url(\"0.0.0.0\", 47478)}')
 "
 
 # Test if the URL is accessible from your host
-curl http://DETECTED_IP:47476/status
+curl http://DETECTED_IP:47478/status
 ```
 
 ## Home Assistant Integration
@@ -131,11 +131,11 @@ Once deployed, the MQTT status payloads will include URLs like:
 {
   "web_server": {
     "enabled": true,
-    "base_url": "http://10.10.10.20:47476",
+    "base_url": "http://10.10.10.20:47478",
     "urls": {
-      "calendar": "http://10.10.10.20:47476/calendar",
-      "events": "http://10.10.10.20:47476/events",
-      "status": "http://10.10.10.20:47476/status"
+      "calendar": "http://10.10.10.20:47478/calendar",
+      "events": "http://10.10.10.20:47478/events",
+      "status": "http://10.10.10.20:47478/status"
     }
   }
 }
@@ -149,20 +149,20 @@ These URLs will be accessible from Home Assistant for calendar integration and a
 
 1. **Check container detection:**
    ```bash
-   docker logs twickenham-events | grep "Docker host"
+   docker logs twickevents | grep "Docker host"
    ```
 
 2. **Verify host IP is correct:**
    ```bash
    # From Home Assistant host
-   curl http://DETECTED_IP:47476/status
+   curl http://DETECTED_IP:47478/status
    ```
 
 3. **Try explicit configuration:**
    ```bash
    docker run -d \
      -e DOCKER_HOST_IP=YOUR_ACTUAL_HOST_IP \
-     -p 47476:47476 \
+     -p 47478:47478 \
      ghcr.io/ronschaeffer/twickenham_events:latest
    ```
 
@@ -172,17 +172,17 @@ If auto-detection finds a different IP than expected:
 
 1. **Use environment variable for precision:**
    ```bash
-   docker run -d -e DOCKER_HOST_IP=10.10.10.20 -p 47476:47476 twickenham-events
+   docker run -d -e DOCKER_HOST_IP=10.10.10.20 -p 47478:47478 twickevents
    ```
 
 2. **Use host.docker.internal on Linux:**
    ```bash
-   docker run -d --add-host=host.docker.internal:host-gateway -p 47476:47476 twickenham-events
+   docker run -d --add-host=host.docker.internal:host-gateway -p 47478:47478 twickevents
    ```
 
 3. **Check what IPs are reachable:**
    ```bash
-   docker exec twickenham-events python -c "
+   docker exec twickevents python -c "
    from src.twickenham_events.network_utils import _probe_for_host_ip
    print(f'Auto-detected IP: {_probe_for_host_ip()}')
    "

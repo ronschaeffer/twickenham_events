@@ -37,8 +37,8 @@ Based on your latest validation:
 - **Web Server**: ✅ Fully configured and ready
   - `WEB_SERVER_ENABLED=true`
   - `WEB_SERVER_HOST=0.0.0.0`
-  - `WEB_SERVER_PORT=47476`
-  - `WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47476`
+  - `WEB_SERVER_PORT=47478`
+  - `WEB_SERVER_EXTERNAL_URL=http://10.10.10.20:47478`
 
 ### ❌ **Components Needing Configuration**
 

@@ -53,7 +53,7 @@ def get_docker_host_ip() -> str | None:
 
     Note:
         For reliable Docker deployment, set WEB_SERVER_EXTERNAL_URL environment variable
-        to your complete external URL (e.g., http://10.10.10.20:47476).
+        to your complete external URL (e.g., http://10.10.10.20:47478).
     """
     # Method 1: Extract IP from external URL environment variable (most reliable)
     external_url = os.getenv("WEB_SERVER_EXTERNAL_URL")
