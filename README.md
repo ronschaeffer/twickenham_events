@@ -23,7 +23,8 @@ MQTT publishing of Twickenham Stadium events for Home Assistant as well as ICS c
 11. [Development](#development)
 12. [Troubleshooting](#troubleshooting)
 13. [Contributing](#contributing)
-14. [License](#license)
+14. [Home Assistant Cards](#home-assistant-cards)
+15. [License](#license)
 
 ---
 
@@ -226,6 +227,28 @@ MIT License (see `LICENSE`).
 - `systemd/README.md` -- deployment with systemd
 
 ## Home Assistant Cards
+
+Example Lovelace cards are provided in the `ha_card/` directory.
+
+### Markdown Upcoming Events Card
+
+Full event listing grouped by month, showing date, time, emoji, fixture name, and expected crowd size.
+
+<p align="center">
+  <img src="docs/images/ha_card_upcoming_events.png" alt="Upcoming Events markdown card" width="400">
+</p>
+
+YAML: [ha_card/md_twickenham_events_upcoming.yaml](ha_card/md_twickenham_events_upcoming.yaml)
+
+### Mushroom Next Event Card
+
+Compact card showing the next upcoming event with country flags, short fixture name, and date.
+
+<p align="center">
+  <img src="docs/images/ha_card_mushroom_next_event.png" alt="Mushroom next event card" width="350">
+</p>
+
+YAML: [ha_card/mshrm_twickenham_events_short_card.yaml](ha_card/mshrm_twickenham_events_short_card.yaml)
 
 <!-- BEGIN: ha_cards_list (auto-managed) -->
 
