@@ -1611,12 +1611,36 @@ def cmd_service(config: Config, args) -> int:
     # Assign v2-compatible callbacks
     paho_client.on_connect = on_connect
     paho_client.on_message = on_message
-    try:
-        paho_client.connect(config.mqtt_broker, config.mqtt_port, keepalive=60)
+    # Retry MQTT connect with backoff (10 attempts, 10s base, ~120s total cap).
+    # After exhausting attempts, proceed anyway — loop_start()+on_connect handles reconnects.
+    _mqtt_connected = False
+    _mqtt_max_attempts = 10
+    _mqtt_base_delay = 10.0
+    _mqtt_total_wait = 0.0
+    _mqtt_total_cap = 120.0
+    for _attempt in range(1, _mqtt_max_attempts + 1):
+        try:
+            paho_client.connect(config.mqtt_broker, config.mqtt_port, keepalive=60)
+            paho_client.loop_start()
+            _mqtt_connected = True
+            break
+        except Exception as e:
+            _delay = min(_mqtt_base_delay * _attempt, _mqtt_total_cap - _mqtt_total_wait)
+            logging.warning(
+                "cannot connect MQTT (attempt %d/%d): %s — retrying in %.0fs",
+                _attempt, _mqtt_max_attempts, e, _delay,
+            )
+            if _attempt < _mqtt_max_attempts and _mqtt_total_wait < _mqtt_total_cap:
+                time.sleep(_delay)
+                _mqtt_total_wait += _delay
+            else:
+                break
+    if not _mqtt_connected:
+        logging.warning(
+            "proceeding without initial MQTT connection after %d attempts — on_connect will publish discovery on reconnect",
+            _mqtt_max_attempts,
+        )
         paho_client.loop_start()
-    except Exception as e:
-        logging.error("cannot start MQTT command client: %s", e)
-        return 1
 
     run_cycle("startup")
     if args.once:
