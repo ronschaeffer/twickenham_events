@@ -46,8 +46,7 @@ EXPOSE 47478
 
 # Health check: try web server /health endpoint, fall back to process check
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:47478/health')" \
-  || python -c "import os, signal; os.kill(1, 0)" || exit 1
+  CMD python -c "import urllib.request,sys; r=urllib.request.urlopen('http://localhost:47478/health/mqtt',timeout=5); sys.exit(0 if r.status==200 else 1)" || exit 1
 
 # Entrypoint seeds config on first run, then hands off to the command
 ENTRYPOINT ["/app/docker-entrypoint.sh", "twick-events"]

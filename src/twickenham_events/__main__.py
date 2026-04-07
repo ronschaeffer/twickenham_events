@@ -20,6 +20,7 @@ from typing import Any
 
 # Import ha_mqtt_publisher from PyPI package
 try:
+    from ha_mqtt_publisher import HealthTracker
     from ha_mqtt_publisher.publisher import MQTTPublisher as LibMQTTPublisher
 except Exception:
     # Provide a lightweight stub that fails clearly if the dependency isn't available.
@@ -1023,6 +1024,11 @@ def cmd_service(config: Config, args) -> int:
     ai_processor = AIProcessor(config) if config.ai_enabled else None
     mqtt_pub = MQTTClient(config)
 
+    # Shared MQTT health tracker (ha_mqtt_publisher >= 0.4.0). Updated by the
+    # paho on_connect/on_disconnect callbacks below and by run_cycle on every
+    # publish attempt. Exposed via /health/mqtt by the FastAPI web server.
+    health_tracker = HealthTracker(max_publish_age_seconds=max(900, int(interval * 1.5)))
+
     last_run = 0.0
     lock = threading.Lock()
     stop_flag = {"stop": False}
@@ -1063,7 +1069,15 @@ def cmd_service(config: Config, args) -> int:
                 # Update last events count (tracking for no-change detection)
                 last_events_count["count"] = len(flat)  # type: ignore[assignment]
                 no_changes = prev is not None and prev == len(flat)
-                mqtt_pub.publish_events(flat, ai_processor, extra_status=extra_status)
+                try:
+                    mqtt_pub.publish_events(flat, ai_processor, extra_status=extra_status)
+                    health_tracker.state.last_publish_success_at = time.time()
+                    health_tracker.state.publish_success_count += 1
+                except Exception as _pub_err:
+                    health_tracker.state.last_publish_failure_at = time.time()
+                    health_tracker.state.publish_failure_count += 1
+                    health_tracker.state.last_failure_reason = str(_pub_err)[:200]
+                    raise
 
                 # Write output files for web server
                 try:
@@ -1548,6 +1562,8 @@ def cmd_service(config: Config, args) -> int:
             return
         last_connect_code["code"] = reason_code
         if reason_code == 0:
+            health_tracker.state.connected = True
+            health_tracker.state.last_connect_at = time.time()
             logging.info("service connected rc=%s", reason_code)
             base = config.get("app.unique_id_prefix", "twickenham_events")
             client.subscribe(f"{base}/cmd/#")
@@ -1608,8 +1624,14 @@ def cmd_service(config: Config, args) -> int:
         except Exception as e:  # pragma: no cover
             logging.error("command handling failure: %s", e)
 
+    def on_disconnect(client, userdata, *args, **kwargs):
+        health_tracker.state.connected = False
+        health_tracker.state.last_disconnect_at = time.time()
+        logging.warning("service disconnected from MQTT broker")
+
     # Assign v2-compatible callbacks
     paho_client.on_connect = on_connect
+    paho_client.on_disconnect = on_disconnect
     paho_client.on_message = on_message
     # Retry MQTT connect with backoff (10 attempts, 10s base, ~120s total cap).
     # After exhausting attempts, proceed anyway — loop_start()+on_connect handles reconnects.
@@ -1655,6 +1677,10 @@ def cmd_service(config: Config, args) -> int:
             from .web_server import TwickenhamWebServer
 
             web_server = TwickenhamWebServer(config)
+            try:
+                web_server.attach_health_router(health_tracker)
+            except Exception as _e:
+                logging.warning("Failed to attach health router: %s", _e)
             web_thread = threading.Thread(
                 target=web_server.start, daemon=True, name="web-server"
             )

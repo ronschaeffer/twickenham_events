@@ -653,14 +653,14 @@ files = [
 
 [[package]]
 name = "ha-mqtt-publisher"
-version = "0.3.6"
+version = "0.4.0"
 description = "An MQTT publisher package"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "ha_mqtt_publisher-0.3.6-py3-none-any.whl", hash = "sha256:a376a5971c5c718f01dfb9fa8e38f6f7a57091fefc78e65c3b2ee97afd25f799"},
-    {file = "ha_mqtt_publisher-0.3.6.tar.gz", hash = "sha256:a92e334ac1558573a8107434a7159e2912ea408c17dd37a5773a582c3da45b7d"},
+    {file = "ha_mqtt_publisher-0.4.0-py3-none-any.whl", hash = "sha256:4d38371ae221ed9dcc9be82ac88dacf4755749d8f65b9fbe51db40293dd7dfc7"},
+    {file = "ha_mqtt_publisher-0.4.0.tar.gz", hash = "sha256:026055b568e0705ba7abd8de48de8b70d1185c869f9f61b60fdc91b6cc4d22d6"},
 ]
 
 [package.dependencies]
@@ -671,6 +671,7 @@ typing-extensions = ">=4.7.0"
 
 [package.extras]
 dev = ["codespell (>=2.1.0)", "pre-commit (>=4.2.0)", "pytest (>=8.3.4)", "pytest-cov (>=6.2.1)", "pytest-mock (>=3.10.0)", "ruff (>=0.12.7)"]
+fastapi = ["fastapi (>=0.100.0)"]
 
 [[package]]
 name = "httpcore"
@@ -1812,4 +1813,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "1688d1869bd4b1ef9ac90527e841989764f33cacaad8f75e8ea27c0a00baea11"
+content-hash = "5e38c3675d950fb1b74a0ad2ae90ef53adc0daa6681c5833ee49b398cc2cb7f0"

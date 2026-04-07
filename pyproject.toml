@@ -1,6 +1,6 @@
 [project]
 name = "twickenham-events"
-version = "0.3.5"
+version = "0.3.6"
 description = "Fetch and process Twickenham Stadium events"
 authors = [
     { name = "ronschaeffer", email = "ron@ronschaeffer.com" }
@@ -15,7 +15,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "python-dotenv>=1.1.1",
     # Use PyPI release in CI; local dev can override via Poetry if needed
-    "ha-mqtt-publisher>=0.3.5",
+    "ha-mqtt-publisher>=0.4.0",
     "icalendar>=5.0.0",
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.20.0",
@@ -38,7 +38,7 @@ beautifulsoup4 = "^4.12.0"
 paho-mqtt = "^2.1.0"
 pyyaml = "^6.0.1"
 python-dotenv = "^1.1.1"
-ha-mqtt-publisher = "^0.3.5"
+ha-mqtt-publisher = "^0.4.0"
 icalendar = ">=5.0.0"
 fastapi = ">=0.100.0"
 uvicorn = {version = ">=0.20.0", extras = ["standard"]}

@@ -178,6 +178,29 @@ class TwickenhamWebServer:
 
         self.fastapi_server = TwickenhamEventsServer(config, output_dir)
 
+    def attach_health_router(self, tracker) -> None:
+        """Mount the shared MQTT health router from ha_mqtt_publisher.
+
+        Replaces the inherited BaseFileServer /health route with the shared
+        router which exposes:
+            GET /health      -> 200 always (process liveness)
+            GET /health/mqtt -> 200 if tracker.is_healthy else 503
+
+        Must be called before start() so the routes exist when uvicorn begins
+        serving.
+        """
+        from ha_mqtt_publisher import make_fastapi_router
+
+        app = self.fastapi_server.app
+        # Drop any existing /health* routes (BaseFileServer registers /health
+        # at construction time and we want the tracker-aware version instead).
+        app.router.routes = [
+            r for r in app.router.routes
+            if not (hasattr(r, "path") and r.path.startswith("/health"))
+        ]
+        new_routes = list(make_fastapi_router(tracker).routes)
+        app.router.routes[:0] = new_routes
+
     def start(self) -> bool:
         """Start the web server."""
         if not self.config.web_enabled:
