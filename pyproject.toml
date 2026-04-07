@@ -44,7 +44,7 @@ fastapi = ">=0.100.0"
 uvicorn = {version = ">=0.20.0", extras = ["standard"]}
 
 [tool.poetry.group.ai.dependencies]
-google-generativeai = "^0.8.0"
+google-generativeai = "^0.8.6"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
