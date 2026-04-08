@@ -180,6 +180,14 @@ See `docs/AI_PROCESSING.md` for details.
 
 See `docs/DOCKER_DEPLOYMENT_EXAMPLES.md` for Docker run/compose examples and `docs/UNRAID_TEMPLATE_EXAMPLE.md` for Unraid-specific deployment.
 
+### MQTT-aware healthcheck (since v0.3.6)
+
+The container exposes `GET /health/mqtt` on the web server (default port 47478) which returns 200 only when the MQTT publisher is connected to the broker AND has published successfully within a recent window. The Docker `HEALTHCHECK` probes this endpoint, so a real EMQX outage now actually marks the container `unhealthy`.
+
+The staleness window scales with `service_interval_seconds`: `max(900, interval * 1.5)`. So a 4-hour service interval gets a 6-hour grace period (well within a typical scrape cycle), but no cycle ever gets less than 15 minutes — even if you set the interval very low, you still get a meaningful window before the container alarms.
+
+Built on `ha_mqtt_publisher`'s shared [`HealthTracker`](https://github.com/ronschaeffer/ha_mqtt_publisher#health--liveness). The publisher uses raw `paho.mqtt.Client` directly (not the wrapped `MQTTPublisher`) so the tracker is populated manually from `on_connect` / `on_disconnect` callbacks and from `run_cycle` after each successful `publish_events()`.
+
 ## Testing
 
 ```bash
