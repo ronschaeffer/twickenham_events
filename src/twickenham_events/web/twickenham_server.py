@@ -195,7 +195,8 @@ class TwickenhamWebServer:
         # Drop any existing /health* routes (BaseFileServer registers /health
         # at construction time and we want the tracker-aware version instead).
         app.router.routes = [
-            r for r in app.router.routes
+            r
+            for r in app.router.routes
             if not (hasattr(r, "path") and r.path.startswith("/health"))
         ]
         new_routes = list(make_fastapi_router(tracker).routes)

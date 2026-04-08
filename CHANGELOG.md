@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2026-04-08
+
+### Fixed
+- Lint cleanup: ruff format on `src/twickenham_events/__main__.py` and
+  `src/twickenham_events/web/twickenham_server.py`. The 0.3.6 health-tracker
+  commit didn't run `make ci-check` before pushing — same lint slip as the
+  flights v0.5.0 commit.
+
 ## [0.3.6] - 2026-04-07
 
 ### Added

@@ -1027,7 +1027,9 @@ def cmd_service(config: Config, args) -> int:
     # Shared MQTT health tracker (ha_mqtt_publisher >= 0.4.0). Updated by the
     # paho on_connect/on_disconnect callbacks below and by run_cycle on every
     # publish attempt. Exposed via /health/mqtt by the FastAPI web server.
-    health_tracker = HealthTracker(max_publish_age_seconds=max(900, int(interval * 1.5)))
+    health_tracker = HealthTracker(
+        max_publish_age_seconds=max(900, int(interval * 1.5))
+    )
 
     last_run = 0.0
     lock = threading.Lock()
@@ -1070,7 +1072,9 @@ def cmd_service(config: Config, args) -> int:
                 last_events_count["count"] = len(flat)  # type: ignore[assignment]
                 no_changes = prev is not None and prev == len(flat)
                 try:
-                    mqtt_pub.publish_events(flat, ai_processor, extra_status=extra_status)
+                    mqtt_pub.publish_events(
+                        flat, ai_processor, extra_status=extra_status
+                    )
                     health_tracker.state.last_publish_success_at = time.time()
                     health_tracker.state.publish_success_count += 1
                 except Exception as _pub_err:
@@ -1647,10 +1651,15 @@ def cmd_service(config: Config, args) -> int:
             _mqtt_connected = True
             break
         except Exception as e:
-            _delay = min(_mqtt_base_delay * _attempt, _mqtt_total_cap - _mqtt_total_wait)
+            _delay = min(
+                _mqtt_base_delay * _attempt, _mqtt_total_cap - _mqtt_total_wait
+            )
             logging.warning(
                 "cannot connect MQTT (attempt %d/%d): %s — retrying in %.0fs",
-                _attempt, _mqtt_max_attempts, e, _delay,
+                _attempt,
+                _mqtt_max_attempts,
+                e,
+                _delay,
             )
             if _attempt < _mqtt_max_attempts and _mqtt_total_wait < _mqtt_total_cap:
                 time.sleep(_delay)
