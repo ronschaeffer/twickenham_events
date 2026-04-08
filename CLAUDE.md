@@ -53,6 +53,31 @@ unraid/                  Unraid Docker template XML
 ## Docker / Unraid
 
 See `docs/DOCKER_DEPLOYMENT_EXAMPLES.md` and `docs/UNRAID_TEMPLATE_EXAMPLE.md`.
+The Unraid template `my-twickevents.xml` is pinned to `:0.3.7`.
+
+## MQTT-aware healthcheck (since v0.3.6)
+
+`cmd_service` creates a `HealthTracker(max_publish_age_seconds=max(900, interval*1.5))`
+and populates it manually because the long-lived MQTT loop uses raw
+`paho.mqtt.Client` directly (not the wrapped `MQTTPublisher`, which is only
+used per-cycle inside `MQTTClient.publish_events`). The hooks are:
+
+1. The existing `on_connect` callback stamps `tracker.state.connected=True` and
+   `last_connect_at` on rc==0.
+2. A new `on_disconnect` callback flips `connected=False` and stamps
+   `last_disconnect_at`.
+3. `run_cycle` wraps the `mqtt_pub.publish_events()` call in try/except and
+   updates `publish_success_count` / `publish_failure_count` /
+   `last_publish_success_at` / `last_failure_reason` accordingly.
+
+`TwickenhamWebServer.attach_health_router(tracker)` strips the inherited
+`/health*` routes from `BaseFileServer` and splices the shared
+`make_fastapi_router` routes in at the front of the inner FastAPI app.
+
+The Dockerfile HEALTHCHECK probes `/health/mqtt` (200=healthy, 503=stale).
+**Do not remove this** — it's the mechanism that detects real broker outages.
+Do not use `HealthTracker.attach()` here — it would patch the per-cycle
+publisher that gets garbage collected when the `with` block exits.
 
 ## Testing
 
