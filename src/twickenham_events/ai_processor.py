@@ -25,6 +25,20 @@ except Exception:
     )
 
 
+class _AIResp:
+    """Minimal response shim so gateway results work where native .text is read.
+
+    Exposes ``.text``; any other attribute access returns None (e.g. legacy
+    ``.prompt_feedback`` references), matching the subset the callers use.
+    """
+
+    def __init__(self, text: str | None):
+        self.text = text
+
+    def __getattr__(self, _name):  # pragma: no cover - defensive
+        return None
+
+
 class AIProcessor:
     """Handles AI-powered event processing including type detection, icon mapping, and name shortening."""
 
@@ -42,6 +56,34 @@ class AIProcessor:
         # Circuit breaker: on quota/rate limit, skip further shortening until backoff window elapses.
         self._shortener_circuit_open = False
         self._shortener_circuit_open_ts: float | None = None
+
+    # --- local-AI gateway integration (dormant until AI_API_KEY is set) -------------
+    @staticmethod
+    def _gateway_active() -> bool:
+        """True when the local-AI gateway is configured (AI_API_KEY present)."""
+        import os
+
+        return bool(os.environ.get("AI_API_KEY"))
+
+    def _ai_generate(self, native_model, prompt: str, gateway_model_key: str, default_model: str):
+        """Single AI entry point.
+
+        When the gateway is active, route the prompt through ai_router using the
+        configured gateway model/alias; otherwise call the already-built native
+        Gemini model (unchanged behaviour). Returns an object exposing ``.text``.
+        """
+        if self._gateway_active():
+            try:
+                import ai_router
+
+                gw = self.config.get(gateway_model_key, default_model)
+                return _AIResp(ai_router.chat(prompt, model=gw))
+            except Exception as exc:  # fall back to native path on any gateway error
+                logging.warning(
+                    "ai_router gateway call failed (%s); falling back to native model",
+                    exc,
+                )
+        return native_model.generate_content(prompt)
 
     def shortener_circuit_open(self) -> bool:
         """Return True if circuit is open and backoff window hasn't elapsed."""
@@ -205,7 +247,7 @@ class AIProcessor:
         try:
             # Configure the API
             api_key = self.config.get("ai_processor.api_key")
-            if not api_key:
+            if not api_key and not self._gateway_active():
                 event_type, emoji, mdi_icon = self._get_icons_for_type(
                     self._detect_event_type_fallback(event_name)
                 )
@@ -244,7 +286,7 @@ class AIProcessor:
             model = genai.GenerativeModel(model_name)
             time.sleep(2)  # Rate limiting
 
-            response = model.generate_content(combined_prompt)
+            response = self._ai_generate(model, combined_prompt, "ai_processor.shortening.gateway_model", "assist")
 
             if response and response.text:
                 # Parse the response
@@ -527,7 +569,7 @@ Response:"""
         try:
             # Configure the API
             api_key = self.config.get("ai_processor.api_key")
-            if not api_key:
+            if not api_key and not self._gateway_active():
                 results = {}
                 for event_name in event_names:
                     event_type, emoji, mdi_icon = self._get_icons_for_type(
@@ -569,7 +611,7 @@ Response:"""
             model = genai.GenerativeModel(model_name)
             time.sleep(2)  # Rate limiting
 
-            response = model.generate_content(batch_prompt)
+            response = self._ai_generate(model, batch_prompt, "ai_processor.shortening.gateway_model", "assist")
 
             if response and response.text:
                 # Parse the batch response
@@ -836,7 +878,7 @@ Response:"""
             api_key = self.config.get(
                 "ai_processor.api_key"
             )  # Reuse same API key - config handles ${} expansion
-            if not api_key:
+            if not api_key and not self._gateway_active():
                 return self._detect_event_type_fallback(event_name)
 
             assert GENAI_AVAILABLE
@@ -857,7 +899,7 @@ Respond with ONLY the category word (trophy, rugby, concert, or generic), nothin
 
             assert GENAI_AVAILABLE
             model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
+            response = self._ai_generate(model, prompt, "ai_processor.type_detection.gateway_model", "local-gemma")
 
             if response and response.text:
                 detected_type = response.text.strip().lower()
@@ -997,7 +1039,7 @@ Respond with ONLY the category word (trophy, rugby, concert, or generic), nothin
             # Configure the API - config handles ${VARIABLE} expansion
             api_key = self.config.get("ai_processor.api_key")
 
-            if not api_key:
+            if not api_key and not self._gateway_active():
                 error_msg = "AI processor enabled but no API key provided - check ai_processor.api_key in config"
                 logging.error(error_msg)
                 return original_name, True, error_msg
@@ -1079,9 +1121,9 @@ Respond with ONLY the category word (trophy, rugby, concert, or generic), nothin
                         safe_prompt = final_prompt.replace(
                             original_name, safe_event_name
                         )
-                        response = model.generate_content(safe_prompt)
+                        response = self._ai_generate(model, safe_prompt, "ai_processor.shortening.gateway_model", "assist")
                     else:
-                        response = model.generate_content(final_prompt)
+                        response = self._ai_generate(model, final_prompt, "ai_processor.shortening.gateway_model", "assist")
 
                     if response.text:
                         shortened_name = response.text.strip()
