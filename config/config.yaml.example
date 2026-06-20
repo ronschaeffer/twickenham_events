@@ -72,7 +72,13 @@ calendar:
 
 # Event Name Processing (AI-powered)
 ai_processor:
-  api_key: "${GEMINI_API_KEY}" # Environment variable
+  api_key: "${GEMINI_API_KEY}" # Environment variable (native Gemini fallback)
+
+  # First-priority native model. When ANTHROPIC_API_KEY is set, AI calls go to
+  # Claude (the in-use model shared with Stopover/Ticked) before falling back to
+  # native Gemini. The local-AI gateway (AI_API_KEY -> ai_router) still wins over
+  # both. Override the pinned model here if needed.
+  claude_model: "claude-sonnet-4-6"
 
   # Event Type Detection (for icons and categorization)
   type_detection:

@@ -107,3 +107,74 @@ def test_ai_generate_native_when_dormant(monkeypatch):
     out = proc._ai_generate(native, "X", "ai_processor.shortening.gateway_model", "assist")
     native.generate_content.assert_called_once_with("X")
     assert out.text == "native"
+
+
+def test_ai_generate_uses_claude_when_active_and_no_gateway(monkeypatch):
+    """ANTHROPIC_API_KEY set + no gateway -> native Claude is used, not Gemini."""
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
+    proc, cfg = _proc()
+    proc.config = cfg
+
+    from twickenham_events import claude_provider
+
+    seen = {}
+
+    def _fake_claude(prompt, api_key, model=None):
+        seen["prompt"] = prompt
+        seen["model"] = model
+        return "ENG v AUS"
+
+    monkeypatch.setattr(claude_provider, "claude_available", lambda: True)
+    monkeypatch.setattr(claude_provider, "generate_with_claude", _fake_claude)
+
+    native = MagicMock()  # Gemini must NOT be used
+    out = proc._ai_generate(
+        native, "England v Australia", "ai_processor.shortening.gateway_model", "assist"
+    )
+    assert out.text == "ENG v AUS"
+    assert seen["model"] == "claude-sonnet-4-6"  # the in-use model constant
+    native.generate_content.assert_not_called()
+
+
+def test_claude_yields_to_gateway_when_both_set(monkeypatch):
+    """Gateway wins over Claude when both AI_API_KEY and ANTHROPIC_API_KEY set."""
+    monkeypatch.setenv("AI_API_KEY", "sk-x")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
+    proc, cfg = _proc()
+    proc.config = cfg
+
+    import ai_router
+
+    monkeypatch.setattr(ai_router, "chat", lambda p, model=None, **k: "GW")
+    native = MagicMock()
+    out = proc._ai_generate(native, "X", "ai_processor.shortening.gateway_model", "assist")
+    assert out.text == "GW"
+    native.generate_content.assert_not_called()
+
+
+def test_claude_falls_back_to_gemini_on_non_quota_error(monkeypatch):
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
+    proc, cfg = _proc()
+    proc.config = cfg
+
+    from twickenham_events import claude_provider
+
+    def _boom(*a, **k):
+        raise RuntimeError("upstream 500 server error")
+
+    monkeypatch.setattr(claude_provider, "claude_available", lambda: True)
+    monkeypatch.setattr(claude_provider, "generate_with_claude", _boom)
+
+    native = MagicMock()
+    native.generate_content.return_value = _AIResp("gemini result")
+    out = proc._ai_generate(native, "X", "ai_processor.shortening.gateway_model", "assist")
+    native.generate_content.assert_called_once_with("X")
+    assert out.text == "gemini result"
+
+
+def test_claude_inactive_when_no_key(monkeypatch):
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    assert AIProcessor._claude_active() is False

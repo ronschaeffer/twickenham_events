@@ -65,12 +65,25 @@ class AIProcessor:
 
         return bool(os.environ.get("AI_API_KEY"))
 
+    @staticmethod
+    def _claude_active() -> bool:
+        """True when a native Claude path is configured (ANTHROPIC_API_KEY present)."""
+        import os
+
+        return bool(os.environ.get("ANTHROPIC_API_KEY"))
+
     def _ai_generate(self, native_model, prompt: str, gateway_model_key: str, default_model: str):
         """Single AI entry point.
 
-        When the gateway is active, route the prompt through ai_router using the
-        configured gateway model/alias; otherwise call the already-built native
-        Gemini model (unchanged behaviour). Returns an object exposing ``.text``.
+        Priority chain:
+          1. local-AI gateway (ai_router) when AI_API_KEY is set;
+          2. native Claude (the in-use model, claude-sonnet-4-6) when
+             ANTHROPIC_API_KEY is set — first-priority native model, aligned
+             with Stopover/Ticked;
+          3. native Gemini (the already-built model) as the final fallback.
+
+        Returns an object exposing ``.text``. Quota/rate errors from Claude are
+        allowed to propagate so the caller's circuit breaker sees the 429.
         """
         if self._gateway_active():
             try:
@@ -83,6 +96,34 @@ class AIProcessor:
                     "ai_router gateway call failed (%s); falling back to native model",
                     exc,
                 )
+        if self._claude_active():
+            import os
+
+            from twickenham_events import claude_provider
+
+            if claude_provider.claude_available():
+                model_id = self.config.get(
+                    "ai_processor.claude_model", claude_provider.DEFAULT_CLAUDE_MODEL
+                )
+                try:
+                    return _AIResp(
+                        claude_provider.generate_with_claude(
+                            prompt, os.environ["ANTHROPIC_API_KEY"], model_id
+                        )
+                    )
+                except Exception as exc:
+                    error_str = str(exc)
+                    # Let quota/rate limits propagate so the circuit breaker trips;
+                    # other Claude errors fall through to native Gemini.
+                    if (
+                        "429" in error_str
+                        or "quota" in error_str.lower()
+                        or "rate" in error_str.lower()
+                    ):
+                        raise
+                    logging.warning(
+                        "native Claude call failed (%s); falling back to Gemini", exc
+                    )
         return native_model.generate_content(prompt)
 
     def shortener_circuit_open(self) -> bool:
