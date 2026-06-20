@@ -98,6 +98,7 @@ jobs:
       - name: Run tests
         run: |
           if [ -f pyproject.toml ] && grep -q "pytest" pyproject.toml; then
+            git config --global url."https://x-access-token:${{ secrets.AI_ROUTER_PAT }}@github.com/".insteadOf "https://github.com/"
             poetry install --with dev
             poetry run pytest
           else

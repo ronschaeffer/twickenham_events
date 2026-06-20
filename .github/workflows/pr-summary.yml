@@ -33,6 +33,9 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-3.11-${{ hashFiles('**/poetry.lock') }}
 
+      - name: Configure git auth for private ai_router
+        run: git config --global url."https://x-access-token:${{ secrets.AI_ROUTER_PAT }}@github.com/".insteadOf "https://github.com/"
+
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --with dev
@@ -86,6 +89,9 @@ jobs:
           version: latest
           virtualenvs-create: true
           virtualenvs-in-project: true
+      - name: Configure git auth for private ai_router
+        run: git config --global url."https://x-access-token:${{ secrets.AI_ROUTER_PAT }}@github.com/".insteadOf "https://github.com/"
+
       - name: Install dependencies
         run: poetry install --with dev
       - name: Run linting
@@ -107,6 +113,9 @@ jobs:
           version: latest
           virtualenvs-create: true
           virtualenvs-in-project: true
+      - name: Configure git auth for private ai_router
+        run: git config --global url."https://x-access-token:${{ secrets.AI_ROUTER_PAT }}@github.com/".insteadOf "https://github.com/"
+
       - name: Install dependencies
         run: poetry install --with dev
       - name: Run tests

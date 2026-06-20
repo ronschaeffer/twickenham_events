@@ -72,7 +72,9 @@ class AIProcessor:
 
         return bool(os.environ.get("ANTHROPIC_API_KEY"))
 
-    def _ai_generate(self, native_model, prompt: str, gateway_model_key: str, default_model: str):
+    def _ai_generate(
+        self, native_model, prompt: str, gateway_model_key: str, default_model: str
+    ):
         """Single AI entry point.
 
         Priority chain:
@@ -327,7 +329,12 @@ class AIProcessor:
             model = genai.GenerativeModel(model_name)
             time.sleep(2)  # Rate limiting
 
-            response = self._ai_generate(model, combined_prompt, "ai_processor.shortening.gateway_model", "assist")
+            response = self._ai_generate(
+                model,
+                combined_prompt,
+                "ai_processor.shortening.gateway_model",
+                "assist",
+            )
 
             if response and response.text:
                 # Parse the response
@@ -652,7 +659,9 @@ Response:"""
             model = genai.GenerativeModel(model_name)
             time.sleep(2)  # Rate limiting
 
-            response = self._ai_generate(model, batch_prompt, "ai_processor.shortening.gateway_model", "assist")
+            response = self._ai_generate(
+                model, batch_prompt, "ai_processor.shortening.gateway_model", "assist"
+            )
 
             if response and response.text:
                 # Parse the batch response
@@ -940,7 +949,12 @@ Respond with ONLY the category word (trophy, rugby, concert, or generic), nothin
 
             assert GENAI_AVAILABLE
             model = genai.GenerativeModel(model_name)
-            response = self._ai_generate(model, prompt, "ai_processor.type_detection.gateway_model", "local-gemma")
+            response = self._ai_generate(
+                model,
+                prompt,
+                "ai_processor.type_detection.gateway_model",
+                "local-gemma",
+            )
 
             if response and response.text:
                 detected_type = response.text.strip().lower()
@@ -1162,9 +1176,19 @@ Respond with ONLY the category word (trophy, rugby, concert, or generic), nothin
                         safe_prompt = final_prompt.replace(
                             original_name, safe_event_name
                         )
-                        response = self._ai_generate(model, safe_prompt, "ai_processor.shortening.gateway_model", "assist")
+                        response = self._ai_generate(
+                            model,
+                            safe_prompt,
+                            "ai_processor.shortening.gateway_model",
+                            "assist",
+                        )
                     else:
-                        response = self._ai_generate(model, final_prompt, "ai_processor.shortening.gateway_model", "assist")
+                        response = self._ai_generate(
+                            model,
+                            final_prompt,
+                            "ai_processor.shortening.gateway_model",
+                            "assist",
+                        )
 
                     if response.text:
                         shortened_name = response.text.strip()

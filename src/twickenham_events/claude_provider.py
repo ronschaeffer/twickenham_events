@@ -7,8 +7,6 @@ no ANTHROPIC_API_KEY is configured or a call fails. The local-AI gateway
 (ai_router) still takes precedence over both when AI_API_KEY is set.
 """
 
-import logging
-
 # In-use Claude model shared across Ron's apps (Stopover config.py ai_model,
 # Ticked claude.go DefaultModel). Keep these aligned when bumping.
 DEFAULT_CLAUDE_MODEL = "claude-sonnet-4-6"
@@ -24,7 +22,9 @@ def claude_available() -> bool:
         return False
 
 
-def generate_with_claude(prompt: str, api_key: str, model: str | None = None) -> str | None:
+def generate_with_claude(
+    prompt: str, api_key: str, model: str | None = None
+) -> str | None:
     """Run a single text completion through Claude. Returns text or None.
 
     Lightweight text task (name shortening / type classification): low
