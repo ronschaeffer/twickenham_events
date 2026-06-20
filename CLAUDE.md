@@ -16,6 +16,7 @@ Richmond Council website, publishes to MQTT (Home Assistant), and generates ICS 
 
 - `ha-mqtt-publisher` (ronschaeffer/ha_mqtt_publisher)
 - `icalendar` (for ICS calendar generation)
+- `ai-router` (private git dep, **dev group only** — local-AI gateway helper). Lazy import in `ai_processor.py` gated by `AI_API_KEY`; NOT in the runtime/Docker image. See CI note.
 
 ## Toolchain
 
@@ -49,6 +50,10 @@ unraid/                  Unraid Docker template XML
 `docker-publish.yml`: build and push to GHCR on `v*` tag.
 `code-quality.yml`: pre-commit and ruff analysis.
 `version-bump.yml`: automated version bumps.
+
+**Private git dep auth:** `ai-router` is a private repo. Every workflow that runs `poetry install --with dev` (ci, code-quality, local-consistency, pr-summary, version-bump) first configures a git credential from the `AI_ROUTER_PAT` repo secret:
+`git config --global url."https://x-access-token:${{ secrets.AI_ROUTER_PAT }}@github.com/".insteadOf "https://github.com/"`
+The Docker build exports `--with ai --without dev`, so ai-router is excluded from the image. If CI fails at "Install dependencies", check this step + secret. Do NOT revert ai-router to a local path dep — it breaks CI and Docker.
 
 ## Docker / Unraid
 
