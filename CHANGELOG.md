@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2026-11-19
+
+### Fixed
+- Scraper found no events after Richmond Council dropped the
+  "Events at Twickenham Stadium" table caption. Tables are now also matched
+  by their Date/Fixture header row.
+- Multi-day rows such as "Friday 27, Saturday 28 and Sunday 29 November 2026"
+  are split into one event per day, each with its own kick-off times
+  (previously "Could not parse date" and the row was dropped).
+
 ## [0.3.7] - 2026-04-08
 
 ### Fixed

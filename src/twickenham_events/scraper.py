@@ -106,37 +106,99 @@ class EventScraper:
         soup = BeautifulSoup(response.content, "html.parser")
 
         # Richmond.gov.uk specific parsing
-        event_tables = soup.find_all("table", class_="table")
         raw_events = []
 
-        for table in event_tables:
-            # Narrow the type for mypy: only operate on Tag elements
-            if not isinstance(table, Tag):
-                continue
-            caption = table.find("caption")
-            caption_text = getattr(caption, "text", "") if caption is not None else ""
-            if "events at twickenham stadium" not in caption_text.lower():
-                continue
-
-            for row in table.find_all("tr")[1:]:  # Skip header row
+        for table in self._find_event_tables(soup):
+            for row in table.find_all("tr"):
                 if not isinstance(row, Tag):
                     continue
                 cols = row.find_all("td")
                 if len(cols) >= 3:
-                    date_text = getattr(cols[0], "text", "")
-                    title_text = getattr(cols[1], "text", "")
-                    time_text = getattr(cols[2], "text", "")
-                    crowd_text = getattr(cols[3], "text", "") if len(cols) > 3 else None
-                    raw_events.append(
-                        {
-                            "date": date_text.strip(),
-                            "title": title_text.strip(),
-                            "time": time_text.strip(),
-                            "crowd": crowd_text.strip() if crowd_text else None,
-                        }
+                    date_text = cols[0].get_text(" ", strip=True)
+                    title_text = cols[1].get_text(" ", strip=True)
+                    time_text = cols[2].get_text("\n", strip=True)
+                    crowd_text = (
+                        cols[3].get_text(" ", strip=True) if len(cols) > 3 else None
+                    )
+                    raw_events.extend(
+                        self.expand_multi_day_event(
+                            {
+                                "date": date_text.replace("\xa0", " ").strip(),
+                                "title": title_text.strip(),
+                                "time": time_text.replace("\xa0", " ").strip(),
+                                "crowd": crowd_text.strip() if crowd_text else None,
+                            }
+                        )
                     )
 
         return raw_events
+
+    @staticmethod
+    def _find_event_tables(soup) -> list:
+        """Find the events table(s).
+
+        Prefers tables captioned 'Events at Twickenham Stadium'; falls back to
+        any table whose header row has 'Date' and 'Fixture' columns (the council
+        dropped the caption in Nov 2026).
+        """
+        tables = [t for t in soup.find_all("table") if isinstance(t, Tag)]
+        captioned = []
+        headed = []
+        for table in tables:
+            caption = table.find("caption")
+            caption_text = caption.get_text(" ", strip=True) if caption else ""
+            if "events at twickenham stadium" in caption_text.lower():
+                captioned.append(table)
+                continue
+            headers = {
+                th.get_text(" ", strip=True).lower() for th in table.find_all("th")
+            }
+            if "date" in headers and "fixture" in headers:
+                headed.append(table)
+        return captioned or headed
+
+    _DAY_NAMES = r"(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*"
+
+    def expand_multi_day_event(self, event: dict[str, Any]) -> list[dict[str, Any]]:
+        """Split rows like 'Friday 27, Saturday 28 and Sunday 29 November 2026'
+        into one event per day, picking each day's kick-offs from lines like
+        'Friday 27: 4.40pm and 8.10pm' when present."""
+        date_str = event.get("date") or ""
+        m = re.match(r"^(.*?)\b([A-Za-z]{3,}\s+\d{4})\s*$", date_str.strip())
+        if not m:
+            return [event]
+        days_part, month_year = m.group(1), m.group(2)
+        # Only lists joined by commas / 'and' / '&' (ranges like 16/17 or 26-27
+        # keep the existing first-day behaviour).
+        if not re.search(r",|\band\b|&", days_part):
+            return [event]
+        days = re.findall(r"\b(\d{1,2})(?:st|nd|rd|th)?\b", days_part)
+        if len(days) < 2:
+            return [event]
+
+        time_text = event.get("time") or ""
+        per_day: dict[str, str] = {}
+        for line in re.split(
+            r"\n|(?=\b" + self._DAY_NAMES + r"\s+\d{1,2}\s*:)", time_text, flags=re.I
+        ):
+            lm = re.match(
+                r"^\s*(?:"
+                + self._DAY_NAMES
+                + r"\s+)?(\d{1,2})(?:st|nd|rd|th)?\s*:\s*(.+)$",
+                line.strip(),
+                flags=re.I,
+            )
+            if lm:
+                per_day[str(int(lm.group(1)))] = lm.group(2).strip()
+
+        expanded = []
+        for d in days:
+            day_event = dict(event)
+            day_event["date"] = f"{int(d)} {month_year}"
+            if per_day:
+                day_event["time"] = per_day.get(str(int(d)), "")
+            expanded.append(day_event)
+        return expanded
 
     def normalize_time(self, time_str: str | None) -> list[str] | None:
         """Normalize time format, returning a list of sorted times - full legacy implementation."""
