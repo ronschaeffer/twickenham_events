@@ -1,6 +1,6 @@
 [project]
 name = "twickenham-events"
-version = "0.3.8"
+version = "0.3.9"
 description = "Fetch and process Twickenham Stadium events"
 authors = [
     { name = "ronschaeffer", email = "ron@ronschaeffer.com" }

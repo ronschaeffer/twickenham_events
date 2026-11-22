@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.9] - 2026-11-22
+
+### Fixed
+- MQTT discovery templates no longer read missing JSON keys. "Last Run" used
+  `default(value_json.last_updated)`, which made Home Assistant log a template
+  warning on every status message; the fallback templates now use
+  `value_json.get(key, fallback)` with the same results.
+
 ## [0.3.8] - 2026-11-19
 
 ### Fixed
